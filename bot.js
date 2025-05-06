@@ -5,6 +5,9 @@ require('dotenv').config();
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
+// Cache user match queue
+const userMatchQueue = {};
+
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const telegramId = msg.from.id;
@@ -25,16 +28,11 @@ bot.onText(/\/profile/, async (msg) => {
   const chatId = msg.chat.id;
   const telegramId = msg.from.id;
 
-  bot.sendMessage(chatId, 'Please send your age, gender, bio, and interests (comma-separated) in the format:
-
-25
-Male
-Loves movies and books
-music,travel,reading');
+  bot.sendMessage(chatId, 'Send your age, gender, bio, and interests (comma-separated) on 4 lines:\n\n25\nMale\nLove movies\ntravel,books');
 
   bot.once('message', async (response) => {
     const lines = response.text.split('\n');
-    if (lines.length < 4) return bot.sendMessage(chatId, 'Invalid format. Please use 4 lines.');
+    if (lines.length < 4) return bot.sendMessage(chatId, 'Invalid format. Use 4 lines.');
 
     const [age, gender, bio, interests] = lines;
     try {
@@ -61,43 +59,54 @@ bot.onText(/\/match/, async (msg) => {
     const res = await axios.get(`${API_BASE}/discover/${telegramId}`);
     const profiles = res.data;
 
-    if (profiles.length === 0) return bot.sendMessage(chatId, 'No new users found. Try again later.');
+    if (profiles.length === 0) return bot.sendMessage(chatId, 'No new users found.');
 
-    profiles.forEach((user) => {
-      bot.sendMessage(chatId,
-        `@${user.username || 'unknown'}
-Age: ${user.age}
-Gender: ${user.gender}
-Bio: ${user.bio}
-Interests: ${user.interests?.join(', ') || 'None'}
-
-Use /like ${user.telegramId} to like`
-      );
-    });
+    userMatchQueue[telegramId] = profiles;
+    sendNextProfile(chatId, telegramId);
   } catch (err) {
-
-    git init
-git add .
-git commit -m "Initial bot upload"
-git branch -M main
-git remote add origin https://github.com/kissubot-telegram-bot/kissubot-telegram-bot.git
-git push -u origin main
-
-    bot.sendMessage(chatId, 'Error getting matches.');
+    bot.sendMessage(chatId, 'Error finding matches.');
   }
 });
 
-bot.onText(/\/like (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const fromId = msg.from.id;
-  const toId = match[1];
-
-  try {
-    const res = await axios.post(`${API_BASE}/like`, { fromId, toId });
-    bot.sendMessage(chatId, res.data.message || 'Liked!');
-  } catch (err) {
-    bot.sendMessage(chatId, 'Error liking user.');
+function sendNextProfile(chatId, telegramId) {
+  const queue = userMatchQueue[telegramId];
+  if (!queue || queue.length === 0) {
+    return bot.sendMessage(chatId, 'No more profiles right now.');
   }
+
+  const user = queue.shift();
+  const text = `@${user.username || 'unknown'}\nAge: ${user.age}\nGender: ${user.gender}\nBio: ${user.bio}\nInterests: ${user.interests?.join(', ') || 'None'}`;
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '❤️ Like', callback_data: `like_${user.telegramId}` },
+        { text: '❌ Pass', callback_data: `pass` }
+      ]]
+    }
+  };
+
+  bot.sendMessage(chatId, text, opts);
+}
+
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const telegramId = query.from.id;
+  const data = query.data;
+
+  if (data.startsWith('like_')) {
+    const toId = data.split('_')[1];
+    try {
+      const res = await axios.post(`${API_BASE}/like`, {
+        fromId: telegramId,
+        toId
+      });
+      bot.sendMessage(chatId, res.data.message || 'Liked!');
+    } catch (err) {
+      bot.sendMessage(chatId, 'Error liking user.');
+    }
+  }
+
+  sendNextProfile(chatId, telegramId);
 });
 
 bot.onText(/\/matches/, async (msg) => {
