@@ -126,3 +126,8 @@ bot.onText(/\/matches/, async (msg) => {
     bot.sendMessage(chatId, 'Error retrieving matches.');
   }
 });
+
+git add bot.js
+git commit -m "Add inline like/pass to /match"
+git push origin main
+
