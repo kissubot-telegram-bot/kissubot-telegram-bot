@@ -2,6 +2,23 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
 
+const axios = require('axios');
+const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
+
+async function notifyMatch(userA, userB) {
+  const message = `You matched with @${userB.username || 'someone'}! Tap to chat: https://t.me/${userB.username}`;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  try {
+    await axios.post(url, {
+      chat_id: userA.telegramId,
+      text: message
+    });
+  } catch (err) {
+    console.error('Failed to notify:', err.message);
+  }
+}
+
+
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
@@ -92,6 +109,22 @@ bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const telegramId = query.from.id;
   const data = query.data;
+
+  if (toUser.likedUsers.includes(fromId)) {
+  fromUser.matches.push(toId);
+  toUser.matches.push(fromId);
+  await toUser.save();
+}
+
+  if (toUser.likedUsers.includes(fromId)) {
+  fromUser.matches.push(toId);
+  toUser.matches.push(fromId);
+  await toUser.save();
+  await notifyMatch(fromUser, toUser);
+  await notifyMatch(toUser, fromUser);
+}
+
+
 
   if (data.startsWith('like_')) {
     const toId = data.split('_')[1];
