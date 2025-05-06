@@ -131,3 +131,7 @@ git add bot.js
 git commit -m "Add inline like/pass to /match"
 git push origin main
 
+const uploadPhoto = require('./routes/uploadPhoto');
+app.use('/api', uploadPhoto);
+
+
