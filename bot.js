@@ -1,10 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
+const axios = require('axios');
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
 const = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
-const = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // Function to send match notification
 const notifyMatch = async (userA, userB) => {
