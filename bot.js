@@ -1,39 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
-require('dotenv').config();const axios = require('axios');
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-  const telegramId = query.from.id;
-  const data = query.data;
-
-  if (data.startsWith('like_')) {
-    const toId = data.split('_')[1];
-    try {
-      const res = await axios.post(`${API_BASE}/like`, {
-        fromId: telegramId,
-        toId
-      });
-
-      // notify match if applicable
-      if (res.data.matched) {
-        await notifyMatch({ telegramId }, { username: res.data.username }); // replace with real user objects if needed
-      }
-
-      bot.sendMessage(chatId, res.data.message || 'Liked!');
-    } catch (err) {
-      bot.sendMessage(chatId, 'Error liking user.');
-    }
-  }
-
-  sendNextProfile(chatId, telegramId);
-});
-
-git add bot.js
-git commit -m "Add inline like/pass to /match"
-git push origin main
-
-const uploadPhoto = require('./routes/uploadPhoto');
-app.use('/api', uploadPhoto);
-
+require('dotenv').config();
+const axios = require('axios');
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
 const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
@@ -43,7 +10,6 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 // Function to send match notification
 const notifyMatch = async (userA, userB) => {
   const message = `You matched with @${userB.username || 'someone'}! Tap to chat: https://t.me/${userB.username || ''}`;
-
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
   try {
@@ -56,10 +22,6 @@ const notifyMatch = async (userA, userB) => {
   }
 };
 
-// You can now use `await notifyMatch(userA, userB);` in any async context
-
-
-// Cache user match queue
 const userMatchQueue = {};
 
 bot.onText(/\/start/, async (msg) => {
@@ -128,8 +90,6 @@ function sendNextProfile(chatId, telegramId) {
     return bot.sendMessage(chatId, 'No more profiles right now.');
   }
 
-  
-
   const user = queue.shift();
   const text = `@${user.username || 'unknown'}\nAge: ${user.age}\nGender: ${user.gender}\nBio: ${user.bio}\nInterests: ${user.interests?.join(', ') || 'None'}`;
   const opts = {
@@ -149,15 +109,6 @@ bot.on('callback_query', async (query) => {
   const telegramId = query.from.id;
   const data = query.data;
 
-
-
-  fromUser.matches.push(toId);
-  toUser.matches.push(fromId);
-  await toUser.save();
-}
-
-
-
   if (data.startsWith('like_')) {
     const toId = data.split('_')[1];
     try {
@@ -165,6 +116,11 @@ bot.on('callback_query', async (query) => {
         fromId: telegramId,
         toId
       });
+
+      if (res.data.matched) {
+        await notifyMatch({ telegramId }, { username: res.data.username });
+      }
+
       bot.sendMessage(chatId, res.data.message || 'Liked!');
     } catch (err) {
       bot.sendMessage(chatId, 'Error liking user.');
@@ -191,16 +147,11 @@ bot.onText(/\/matches/, async (msg) => {
     bot.sendMessage(chatId, 'Error retrieving matches.');
   }
 });
-
 git add bot.js
-git commit -m "Add inline like/pass to /match"
+git commit -m "Fix axios declaration and like handler"
 git push origin main
 
-const uploadPhoto = require('./routes/uploadPhoto');
-app.use('/api', uploadPhoto);
 
-git commit -m "Add profile photo upload via Cloudinary"
-git push origin main
 
 
 
