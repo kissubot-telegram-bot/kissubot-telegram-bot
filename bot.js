@@ -134,4 +134,11 @@ git push origin main
 const uploadPhoto = require('./routes/uploadPhoto');
 app.use('/api', uploadPhoto);
 
+git add bot-photo.js
+git commit -m "Add profile photo upload via Cloudinary"
+git push origin main
+node bot-photo.js
+
+
+
 
