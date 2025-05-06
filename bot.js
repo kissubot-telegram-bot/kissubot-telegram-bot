@@ -1,8 +1,42 @@
 const TelegramBot = require('node-telegram-bot-api');
-require('dotenv').config();
+require('dotenv').config();const axios = require('axios');
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const telegramId = query.from.id;
+  const data = query.data;
+
+  if (data.startsWith('like_')) {
+    const toId = data.split('_')[1];
+    try {
+      const res = await axios.post(`${API_BASE}/like`, {
+        fromId: telegramId,
+        toId
+      });
+
+      // notify match if applicable
+      if (res.data.matched) {
+        await notifyMatch({ telegramId }, { username: res.data.username }); // replace with real user objects if needed
+      }
+
+      bot.sendMessage(chatId, res.data.message || 'Liked!');
+    } catch (err) {
+      bot.sendMessage(chatId, 'Error liking user.');
+    }
+  }
+
+  sendNextProfile(chatId, telegramId);
+});
+
+git add bot.js
+git commit -m "Add inline like/pass to /match"
+git push origin main
+
+const uploadPhoto = require('./routes/uploadPhoto');
+app.use('/api', uploadPhoto);
+
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
-const = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
+const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
@@ -165,10 +199,8 @@ git push origin main
 const uploadPhoto = require('./routes/uploadPhoto');
 app.use('/api', uploadPhoto);
 
-git add bot-photo.js
 git commit -m "Add profile photo upload via Cloudinary"
 git push origin main
-node bot-photo.js
 
 
 
