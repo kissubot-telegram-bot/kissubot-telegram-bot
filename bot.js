@@ -1,6 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
-const axios = require('axios');
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
 const = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
