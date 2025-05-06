@@ -75,6 +75,14 @@ Use /like ${user.telegramId} to like`
       );
     });
   } catch (err) {
+
+    git init
+git add .
+git commit -m "Initial bot upload"
+git branch -M main
+git remote add origin https://github.com/kissubot-telegram-bot/kissubot-telegram-bot.git
+git push -u origin main
+
     bot.sendMessage(chatId, 'Error getting matches.');
   }
 });
