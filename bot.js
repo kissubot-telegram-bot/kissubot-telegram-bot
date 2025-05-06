@@ -3,19 +3,28 @@ const axios = require('axios');
 require('dotenv').config();
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
+const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-  const message = `You matched with @${userB.username || 'someone'}! Tap to chat: https://t.me/${userB.username}`;
+// Function to send match notification
+const notifyMatch = async (userA, userB) => {
+  const message = `You matched with @${userB.username || 'someone'}! Tap to chat: https://t.me/${userB.username || ''}`;
+
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
   try {
     await axios.post(url, {
       chat_id: userA.telegramId,
-      text: message
+      text: message,
     });
   } catch (err) {
     console.error('Failed to notify:', err.message);
   }
-}
+};
+
+// You can now use `await notifyMatch(userA, userB);` in any async context
+
 
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
