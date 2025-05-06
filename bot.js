@@ -3,9 +3,9 @@ const axios = require('axios');
 require('dotenv').config();
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
+const = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // Function to send match notification
 const notifyMatch = async (userA, userB) => {
@@ -25,10 +25,6 @@ const notifyMatch = async (userA, userB) => {
 
 // You can now use `await notifyMatch(userA, userB);` in any async context
 
-
-
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
 
 // Cache user match queue
 const userMatchQueue = {};
