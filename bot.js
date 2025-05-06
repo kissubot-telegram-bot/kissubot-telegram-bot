@@ -148,7 +148,7 @@ bot.onText(/\/matches/, async (msg) => {
   }
 });
 git add bot.js
-git commit -m "Fix axios declaration and like handler"
+git commit -m "Fix duplicate axios declaration"
 git push origin main
 
 
