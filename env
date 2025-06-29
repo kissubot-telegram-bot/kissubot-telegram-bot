@@ -1,1 +1,1 @@
-MONGODB_URL=mongodb+srv://kissubot1:Scopion335126@@kissubot1.pugeijt.mongodb.net/
+MONGO_URI=mongodb+srv://kissubot1:Scopion335126@kissubot1.pugeijt.mongodb.net/kissubot1?retryWrites=true&w=majority
