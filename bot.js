@@ -39,6 +39,31 @@ bot.onText(/\/start/, async (msg) => {
     bot.sendMessage(chatId, 'Error during registration.');
   }
 });
+const axios = require('axios'); // add this at the top if it's not already there
+
+bot.onText(/\/browse/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const res = await axios.get(https://kissubot-backend-1fe9.onrender.com/api/user/browse/${chatId});
+    const users = res.data;
+
+    if (!users.length) {
+      return bot.sendMessage(chatId, "😕 No profiles available to browse right now.");
+    }
+
+    for (let user of users) {
+      const info = 
+👤 Username: ${user.username}
+📝 Bio: ${user.bio || 'No bio'}
+❤️ Gender: ${user.gender}
+🌍 Location: ${user.location?.lat || ''}, ${user.location?.lon || ''}
+;
+      await bot.sendMessage(chatId, info);
+    }
+  } catch (err) {
+    bot.sendMessage(chatId, "❌ Failed to fetch profiles.");
+  }
+});
 
 bot.onText(/\/profile/, async (msg) => {
   const chatId = msg.chat.id;
