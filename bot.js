@@ -1,113 +1,28 @@
-const TelegramBot = require('node-telegram-bot-api');
+// bot.js
 require('dotenv').config();
+const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+const express = require('express');
+const bodyParser = require('body-parser');
 
-const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE || 'https://kisu1bot-backend-repo.onrender.com/api/user';
+const app = express();
+app.use(bodyParser.json());
 
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const API_BASE = process.env.API_BASE;
+const bot = new TelegramBot(BOT_TOKEN);
 
-// Function to send match notification
-const notifyMatch = async (userA, userB) => {
-  const message = `You matched with @${userB.username || 'someone'}! Tap to chat: https://t.me/${userB.username || ''}`;
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
-  try {
-    await axios.post(url, {
-      chat_id: userA.telegramId,
-      text: message,
-    });
-  } catch (err) {
-    console.error('Failed to notify:', err.message);
-  }
-};
-
-const userMatchQueue = {};
-
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-  const username = msg.from.username;
-
-  try {
-    await axios.post(`${API_BASE}/register`, {
-      telegramId,
-      username,
-    });
-    bot.sendMessage(chatId, `Welcome to Kisu1Bot, @${username}! Use /profile to set up your profile.`);
-  } catch (err) {
-    bot.sendMessage(chatId, 'Error during registration.');
-  }
-});
-const axios = require('axios'); // add this at the top if it's not already there
-
-bot.onText(/\/browse/, async (msg) => {
-  const chatId = msg.chat.id;
-  try {
-    const res = await axios.get(https://kisu1bot-backend-1fe9.onrender.com/api/user/browse/${chatId});
-    const users = res.data;
-
-    if (!users.length) {
-      return bot.sendMessage(chatId, "😕 No profiles available to browse right now.");
-    }
-
-    for (let user of users) {
-      const info = 
-👤 Username: ${user.username}
-📝 Bio: ${user.bio || 'No bio'}
-❤️ Gender: ${user.gender}
-🌍 Location: ${user.location?.lat || ''}, ${user.location?.lon || ''}
-;
-      await bot.sendMessage(chatId, info);
-    }
-  } catch (err) {
-    bot.sendMessage(chatId, "❌ Failed to fetch profiles.");
-  }
+// Webhook setup
+const PORT = process.env.PORT || 3000;
+app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-bot.onText(/\/profile/, async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+// Start webhook
+bot.setWebHook(`${process.env.RENDER_EXTERNAL_URL}/bot${BOT_TOKEN}`);
 
-  bot.sendMessage(chatId, 'Send your age, gender, bio, and interests (comma-separated) on 4 lines:\n\n25\nMale\nLove movies\ntravel,books');
-
-  bot.once('message', async (response) => {
-    const lines = response.text.split('\n');
-    if (lines.length < 4) return bot.sendMessage(chatId, 'Invalid format. Use 4 lines.');
-
-    const [age, gender, bio, interests] = lines;
-    try {
-      await axios.post(`${API_BASE}/register`, {
-        telegramId,
-        username: msg.from.username,
-        age: parseInt(age),
-        gender,
-        bio,
-        interests: interests.split(',').map(i => i.trim())
-      });
-      bot.sendMessage(chatId, 'Profile saved!');
-    } catch (err) {
-      bot.sendMessage(chatId, 'Error saving profile.');
-    }
-  });
-});
-
-bot.onText(/\/match/, async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-
-  try {
-    const res = await axios.get(`${API_BASE}/discover/${telegramId}`);
-    const profiles = res.data;
-
-    if (profiles.length === 0) return bot.sendMessage(chatId, 'No new users found.');
-
-    userMatchQueue[telegramId] = profiles;
-    sendNextProfile(chatId, telegramId);
-  } catch (err) {
-    bot.sendMessage(chatId, 'Error finding matches.');
-  }
-});
+const userMatchQueue = {}; // Temporary in-memory queue
 
 function sendNextProfile(chatId, telegramId) {
   const queue = userMatchQueue[telegramId];
@@ -129,6 +44,39 @@ function sendNextProfile(chatId, telegramId) {
   bot.sendMessage(chatId, text, opts);
 }
 
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, 'Welcome to Kisu1bot! Use /register to get started.');
+});
+
+bot.onText(/\/register/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const res = await axios.post(`${API_BASE}/register`, {
+      telegramId,
+      username: msg.from.username || '',
+    });
+    bot.sendMessage(chatId, res.data.message || 'Registered successfully!');
+  } catch (err) {
+    bot.sendMessage(chatId, 'Registration failed.');
+  }
+});
+
+bot.onText(/\/browse/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const res = await axios.get(`${API_BASE}/browse/${telegramId}`);
+    userMatchQueue[telegramId] = res.data;
+    sendNextProfile(chatId, telegramId);
+  } catch (err) {
+    bot.sendMessage(chatId, 'Failed to load profiles.');
+  }
+});
+
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const telegramId = query.from.id;
@@ -139,16 +87,16 @@ bot.on('callback_query', async (query) => {
     try {
       const res = await axios.post(`${API_BASE}/like`, {
         fromId: telegramId,
-        toId
+        toId,
       });
 
       if (res.data.matched) {
-        await notifyMatch({ telegramId }, { username: res.data.username });
+        bot.sendMessage(chatId, `You matched with @${res.data.username || 'someone'}!`);
+      } else {
+        bot.sendMessage(chatId, res.data.message || 'Liked!');
       }
-
-      bot.sendMessage(chatId, res.data.message || 'Liked!');
     } catch (err) {
-      bot.sendMessage(chatId, 'Error liking user.');
+      bot.sendMessage(chatId, 'Error while liking.');
     }
   }
 
@@ -166,15 +114,17 @@ bot.onText(/\/matches/, async (msg) => {
     if (!matches.length) return bot.sendMessage(chatId, 'No matches yet.');
 
     matches.forEach(user => {
-      bot.sendMessage(chatId, `Matched with @${user.username || 'unknown'} - Age: ${user.age}, Bio: ${user.bio}`);
+      const matchMsg = `Matched with @${user.username || 'unknown'} - Age: ${user.age}, Bio: ${user.bio}`;
+      bot.sendMessage(chatId, matchMsg);
     });
   } catch (err) {
-    bot.sendMessage(chatId, 'Error retrieving matches.');
+    bot.sendMessage(chatId, 'Failed to retrieve matches.');
   }
 });
-git add bot.js
-git commit -m "Fix duplicate axios declaration"
-git push origin main
+
+app.listen(PORT, () => {
+  console.log(`Bot server running on port ${PORT}`);
+});
 
 
 
