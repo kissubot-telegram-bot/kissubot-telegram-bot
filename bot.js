@@ -3,7 +3,7 @@ require('dotenv').config();
 const axios = require('axios');
 
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
+const API_BASE = process.env.API_BASE || 'https://kisu1bot-backend-repo.onrender.com/api/user';
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
@@ -34,7 +34,7 @@ bot.onText(/\/start/, async (msg) => {
       telegramId,
       username,
     });
-    bot.sendMessage(chatId, `Welcome to KissuBot, @${username}! Use /profile to set up your profile.`);
+    bot.sendMessage(chatId, `Welcome to Kisu1Bot, @${username}! Use /profile to set up your profile.`);
   } catch (err) {
     bot.sendMessage(chatId, 'Error during registration.');
   }
@@ -44,7 +44,7 @@ const axios = require('axios'); // add this at the top if it's not already there
 bot.onText(/\/browse/, async (msg) => {
   const chatId = msg.chat.id;
   try {
-    const res = await axios.get(https://kissubot-backend-1fe9.onrender.com/api/user/browse/${chatId});
+    const res = await axios.get(https://kisu1bot-backend-1fe9.onrender.com/api/user/browse/${chatId});
     const users = res.data;
 
     if (!users.length) {
