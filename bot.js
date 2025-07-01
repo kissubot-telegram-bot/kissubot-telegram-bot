@@ -125,6 +125,7 @@ bot.onText(/\/matches/, async (msg) => {
 app.listen(PORT, () => {
   console.log(`Bot server running on port ${PORT}`);
 });
+require('./bot');
 
 
 
