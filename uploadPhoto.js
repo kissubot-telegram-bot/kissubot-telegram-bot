@@ -9,7 +9,7 @@ const router = express.Router();
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'kissubot_profiles',
+    folder: 'kisu1bot_profiles',
     allowed_formats: ['jpg', 'png'],
   },
 });
