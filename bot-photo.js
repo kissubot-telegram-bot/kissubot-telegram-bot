@@ -5,8 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-const API_BASE = process.env.API_BASE || 'https://kissubot-backend-repo.onrender.com/api/user';
-const UPLOAD_URL = 'https://kissubot-backend-repo.onrender.com/api/upload-photo';
+const API_BASE = process.env.API_BASE || 'https://kisu1bot-backend-repo.onrender.com/api/user';
+const UPLOAD_URL = 'https://kisu1bot-backend-repo.onrender.com/api/upload-photo';
 
 const userMatchQueue = {};
 const awaitingPhoto = {};
