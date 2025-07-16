@@ -80,6 +80,30 @@ bot.onText(/\/matches/, async (msg) => {
 Keep browsing and liking profiles!`);
 });
 
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const telegramId = query.from.id;
+  const data = query.data;
+
+  if (data.startsWith('like_')) {
+    const toId = data.split('_')[1];
+    try {
+      const res = await axios.post(${API_BASE}/like, {
+        fromId: telegramId,
+        toId,
+      });
+
+      if (res.data.matched) {
+        bot.sendMessage(chatId, You matched with @${res.data.username || 'someone'}!);
+      } else {
+        bot.sendMessage(chatId, res.data.message || 'Liked!');
+      }
+    } catch (err) {
+      bot.sendMessage(chatId, 'Error while liking.');
+    }
+  }
+
+  sendNextProfile(chatId, telegramId);
 // LIKESYOU (VIP Only)
 bot.onText(/\/likesyou/, (msg) => {
   const chatId = msg.chat.id;
