@@ -49,83 +49,157 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, 'Welcome to Kisu1bot! Use /register to get started.');
 });
 
-bot.onText(/\/register/, async (msg) => {
+// START
+bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  bot.sendMessage(chatId, `👋 Welcome to KissuBot!
 
-  try {
-    const res = await axios.post(`${API_BASE}/register`, {
-      telegramId,
-      username: msg.from.username || '',
-    });
-    bot.sendMessage(chatId, res.data.message || 'Registered successfully!');
-  } catch (err) {
-    bot.sendMessage(chatId, 'Registration failed.');
-  }
+Meet new people, find love, or just have fun 💘
+Use /profile to set up your profile and start browsing!`);
 });
 
-bot.onText(/\/browse/, async (msg) => {
+// PROFILE
+bot.onText(/\/profile/, async (msg) => {
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  // Placeholder: you can fetch real user data from DB later
+  bot.sendMessage(chatId, `🧍 Your Profile:
 
-  try {
-    const res = await axios.get(`${API_BASE}/browse/${telegramId}`);
-    userMatchQueue[telegramId] = res.data;
-    sendNextProfile(chatId, telegramId);
-  } catch (err) {
-    bot.sendMessage(chatId, 'Failed to load profiles.');
-  }
+• Name: (not set)
+• Age: (not set)
+• Gender: (not set)
+• Bio: (not set)
+
+Update coming soon!`);
 });
 
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-  const telegramId = query.from.id;
-  const data = query.data;
-
-  if (data.startsWith('like_')) {
-    const toId = data.split('_')[1];
-    try {
-      const res = await axios.post(`${API_BASE}/like`, {
-        fromId: telegramId,
-        toId,
-      });
-
-      if (res.data.matched) {
-        bot.sendMessage(chatId, `You matched with @${res.data.username || 'someone'}!`);
-      } else {
-        bot.sendMessage(chatId, res.data.message || 'Liked!');
-      }
-    } catch (err) {
-      bot.sendMessage(chatId, 'Error while liking.');
-    }
-  }
-
-  sendNextProfile(chatId, telegramId);
-});
-
+// MATCHES
 bot.onText(/\/matches/, async (msg) => {
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-
-  try {
-    const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
-    const matches = res.data;
-
-    if (!matches.length) return bot.sendMessage(chatId, 'No matches yet.');
-
-    matches.forEach(user => {
-      const matchMsg = `Matched with @${user.username || 'unknown'} - Age: ${user.age}, Bio: ${user.bio}`;
-      bot.sendMessage(chatId, matchMsg);
-    });
-  } catch (err) {
-    bot.sendMessage(chatId, 'Failed to retrieve matches.');
-  }
+  // Placeholder for matched users
+  bot.sendMessage(chatId, `💞 You have no matches yet.
+Keep browsing and liking profiles!`);
 });
 
-app.listen(PORT, () => {
-  console.log(`Bot server running on port ${PORT}`);
+// LIKESYOU (VIP Only)
+bot.onText(/\/likesyou/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🔐 This feature is for VIP users only!
+
+Upgrade to VIP to see who already liked your profile 💖`);
 });
-require('./bot');
+
+// STORIES
+bot.onText(/\/stories/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `📸 Stories feature coming soon!
+
+You'll be able to watch anonymous photo stories and reply.`);
+});
+
+// GIFTS
+bot.onText(/\/gifts/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🎁 Send virtual gifts to impress someone special!
+
+Feature in development... stay tuned!`);
+});
+
+// COINS
+bot.onText(/\/coins/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `💰 You currently have 0 KissuCoins.
+
+Earn more by staying active or upgrade to VIP for bonuses.`);
+});
+
+// VIP
+bot.onText(/\/vip/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🌟 VIP Features:
+
+• See who liked you
+• Appear first in searches
+• Unlimited likes
+• Access to hidden profiles
+• Reply to stories
+
+Upgrade coming soon! 💎`);
+});
+
+// PRIORITY
+bot.onText(/\/priority/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🚀 Boost your profile visibility!
+
+Stay on top of everyone's search results.
+
+Priority Boosts launching soon.`);
+});
+
+// SEARCH SETTINGS
+bot.onText(/\/search_settings/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🔍 Match Filters:
+
+Currently showing all users.
+
+Soon you'll be able to filter by:
+• Age range
+• Gender
+• Location
+• Interests`);
+});
+
+// SETTINGS
+bot.onText(/\/settings/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `⚙️ Settings Menu:
+
+Coming soon — you'll be able to:
+• Change language
+• Adjust notifications
+• Privacy settings`);
+});
+
+// HELP
+bot.onText(/\/help/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🆘 Help Menu:
+
+Use the following commands:
+• /start – Begin your journey
+• /profile – Edit your profile
+• /matches – View your matches
+• /likesyou – VIP feature
+• /vip – Learn about VIP
+• /delete_profile – Remove your account
+• /contact_support – Get help`);
+});
+
+// REPORT
+bot.onText(/\/report/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🚨 To report a user, send us their @username and issue.
+
+Our team will take immediate action if needed.`);
+});
+
+// DELETE PROFILE
+bot.onText(/\/delete_profile/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `⚠️ Are you sure you want to delete your profile?
+
+Send /confirm_delete to proceed (this action is irreversible).`);
+});
+
+// CONTACT SUPPORT
+bot.onText(/\/contact_support/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `💬 You can reach us at @KissuSupport
+
+We’ll reply within 24 hours.`);
+});
+
 
 
 
