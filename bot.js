@@ -88,6 +88,7 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, 'Welcome to Kisu1bot! Use /register to get started.');
 });
 
+<<<<<<< HEAD
 // Help command
 bot.onText(/\/help/, (msg) => {
   const chatId = msg.chat.id;
@@ -302,9 +303,14 @@ bot.onText(/\/settings/, (msg) => {
 });
 
 bot.onText(/\/register/, async (msg) => {
+=======
+// START
+bot.onText(/\/start/, (msg) => {
+>>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  bot.sendMessage(chatId, `👋 Welcome to KissuBot!
 
+<<<<<<< HEAD
   try {
     // Check if user is already registered
     try {
@@ -354,19 +360,32 @@ bot.onText(/\/register/, async (msg) => {
       'If the problem persists, contact support.'
     );
   }
+=======
+Meet new people, find love, or just have fun 💘
+Use /profile to set up your profile and start browsing!`);
+>>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
 });
 
-bot.onText(/\/browse/, async (msg) => {
+// PROFILE
+bot.onText(/\/profile/, async (msg) => {
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  // Placeholder: you can fetch real user data from DB later
+  bot.sendMessage(chatId, `🧍 Your Profile:
 
-  try {
-    const res = await axios.get(`${API_BASE}/browse/${telegramId}`);
-    userMatchQueue[telegramId] = res.data;
-    sendNextProfile(chatId, telegramId);
-  } catch (err) {
-    bot.sendMessage(chatId, 'Failed to load profiles.');
-  }
+• Name: (not set)
+• Age: (not set)
+• Gender: (not set)
+• Bio: (not set)
+
+Update coming soon!`);
+});
+
+// MATCHES
+bot.onText(/\/matches/, async (msg) => {
+  const chatId = msg.chat.id;
+  // Placeholder for matched users
+  bot.sendMessage(chatId, `💞 You have no matches yet.
+Keep browsing and liking profiles!`);
 });
 
 bot.on('callback_query', async (query) => {
@@ -377,13 +396,13 @@ bot.on('callback_query', async (query) => {
   if (data.startsWith('like_')) {
     const toId = data.split('_')[1];
     try {
-      const res = await axios.post(`${API_BASE}/like`, {
+      const res = await axios.post(${API_BASE}/like, {
         fromId: telegramId,
         toId,
       });
 
       if (res.data.matched) {
-        bot.sendMessage(chatId, `You matched with @${res.data.username || 'someone'}!`);
+        bot.sendMessage(chatId, You matched with @${res.data.username || 'someone'}!);
       } else {
         bot.sendMessage(chatId, res.data.message || 'Liked!');
       }
@@ -411,6 +430,7 @@ bot.on('callback_query', async (query) => {
             );
           }
 
+<<<<<<< HEAD
           // Show stories viewer
           const viewMsg = `👀 **VIEWING STORIES** 👀\n\n` +
             `📱 Found **${stories.length}** new stories\n\n` +
@@ -1762,9 +1782,15 @@ bot.on('callback_query', async (query) => {
 });
 
 bot.onText(/\/matches/, async (msg) => {
+=======
+  sendNextProfile(chatId, telegramId);
+// LIKESYOU (VIP Only)
+bot.onText(/\/likesyou/, (msg) => {
+>>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
   const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  bot.sendMessage(chatId, `🔐 This feature is for VIP users only!
 
+<<<<<<< HEAD
   try {
     const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
     const matches = res.data;
@@ -2381,3 +2407,126 @@ bot.on('video', async (msg) => {
 app.listen(PORT, () => {
   console.log(`Bot server running on port ${PORT}`);
 });
+=======
+Upgrade to VIP to see who already liked your profile 💖`);
+});
+
+// STORIES
+bot.onText(/\/stories/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `📸 Stories feature coming soon!
+
+You'll be able to watch anonymous photo stories and reply.`);
+});
+
+// GIFTS
+bot.onText(/\/gifts/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🎁 Send virtual gifts to impress someone special!
+
+Feature in development... stay tuned!`);
+});
+
+// COINS
+bot.onText(/\/coins/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `💰 You currently have 0 KissuCoins.
+
+Earn more by staying active or upgrade to VIP for bonuses.`);
+});
+
+// VIP
+bot.onText(/\/vip/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🌟 VIP Features:
+
+• See who liked you
+• Appear first in searches
+• Unlimited likes
+• Access to hidden profiles
+• Reply to stories
+
+Upgrade coming soon! 💎`);
+});
+
+// PRIORITY
+bot.onText(/\/priority/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🚀 Boost your profile visibility!
+
+Stay on top of everyone's search results.
+
+Priority Boosts launching soon.`);
+});
+
+// SEARCH SETTINGS
+bot.onText(/\/search_settings/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🔍 Match Filters:
+
+Currently showing all users.
+
+Soon you'll be able to filter by:
+• Age range
+• Gender
+• Location
+• Interests`);
+});
+
+// SETTINGS
+bot.onText(/\/settings/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `⚙️ Settings Menu:
+
+Coming soon — you'll be able to:
+• Change language
+• Adjust notifications
+• Privacy settings`);
+});
+
+// HELP
+bot.onText(/\/help/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🆘 Help Menu:
+
+Use the following commands:
+• /start – Begin your journey
+• /profile – Edit your profile
+• /matches – View your matches
+• /likesyou – VIP feature
+• /vip – Learn about VIP
+• /delete_profile – Remove your account
+• /contact_support – Get help`);
+});
+
+// REPORT
+bot.onText(/\/report/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `🚨 To report a user, send us their @username and issue.
+
+Our team will take immediate action if needed.`);
+});
+
+// DELETE PROFILE
+bot.onText(/\/delete_profile/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `⚠️ Are you sure you want to delete your profile?
+
+Send /confirm_delete to proceed (this action is irreversible).`);
+});
+
+// CONTACT SUPPORT
+bot.onText(/\/contact_support/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `💬 You can reach us at @KissuSupport
+
+We’ll reply within 24 hours.`);
+});
+
+
+
+
+
+
+
+>>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
