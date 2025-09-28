@@ -1,4 +1,4 @@
-﻿// bot.js
+// bot.js
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
@@ -88,7 +88,6 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, 'Welcome to Kisu1bot! Use /register to get started.');
 });
 
-<<<<<<< HEAD
 // Help command
 bot.onText(/\/help/, (msg) => {
   const chatId = msg.chat.id;
@@ -302,15 +301,11 @@ bot.onText(/\/settings/, (msg) => {
   });
 });
 
-bot.onText(/\/register/, async (msg) => {
-=======
 // START
-bot.onText(/\/start/, (msg) => {
->>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `👋 Welcome to KissuBot!
+  const telegramId = msg.from.id;
 
-<<<<<<< HEAD
   try {
     // Check if user is already registered
     try {
@@ -360,10 +355,113 @@ bot.onText(/\/start/, (msg) => {
       'If the problem persists, contact support.'
     );
   }
-=======
-Meet new people, find love, or just have fun 💘
-Use /profile to set up your profile and start browsing!`);
->>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
+});
+
+// REGISTER command
+bot.onText(/\/register/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    // Check if user is already registered
+    try {
+      const existingUser = await axios.get(`${API_BASE}/profile/${telegramId}`);
+      if (existingUser.data) {
+        return bot.sendMessage(
+          chatId,
+          '✅ You\'re already registered!\n\n' +
+          'You can:\n' +
+          '• Use /profile to view your profile\n' +
+          '• Use /browse to find people\n' +
+          '• Use /matches to see your matches'
+        );
+      }
+    } catch (err) {
+      // User not found, continue with registration
+      if (err.response?.status !== 404) {
+        throw err;
+      }
+    }
+
+    // Register the user
+    const res = await axios.post(`${API_BASE}/register`, {
+      telegramId,
+      username: msg.from.username || '',
+      name: msg.from.first_name || '',
+    });
+
+    // Send welcome message with next steps
+    const welcomeMsg = 
+      '🎉 Registration successful!\n\n' +
+      'Let\'s set up your profile:\n' +
+      '1️⃣ Use /setname to set your display name\n' +
+      '2️⃣ Use /setage to set your age\n' +
+      '3️⃣ Use /setlocation to set your location\n' +
+      '4️⃣ Use /setbio to write about yourself\n\n' +
+      'After setting up your profile, you can:\n' +
+      '• Use /browse to find people\n' +
+      '• Use /matches to see your matches';
+
+    bot.sendMessage(chatId, welcomeMsg);
+  } catch (err) {
+    console.error('[/register] Error:', err.response?.data || err.message);
+    bot.sendMessage(
+      chatId,
+      '❌ Registration failed. Please try again later.\n' +
+      'If the problem persists, contact support.'
+    );
+  }
+});
+
+// BROWSE command
+bot.onText(/\/browse/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const res = await axios.get(`${API_BASE}/browse/${telegramId}`);
+    const profile = res.data;
+
+    if (!profile) {
+      return bot.sendMessage(
+        chatId,
+        '🔍 No more profiles to show right now.\n\n' +
+        'Try again later or adjust your search settings with /search'
+      );
+    }
+
+    const profileText = `👤 ${profile.name || 'Anonymous'}, ${profile.age || '?'}\n` +
+      `📍 ${profile.location || 'Location not set'}\n\n` +
+      `${profile.bio || 'No bio available'}`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '❤️ Like', callback_data: `like_${profile.telegramId}` },
+            { text: '👎 Pass', callback_data: `pass_${profile.telegramId}` }
+          ],
+          [
+            { text: '🎁 Send Gift', callback_data: `gift_${profile.telegramId}` },
+            { text: '⭐ Super Like', callback_data: `superlike_${profile.telegramId}` }
+          ]
+        ]
+      }
+    };
+
+    if (profile.photoUrl) {
+      bot.sendPhoto(chatId, profile.photoUrl, {
+        caption: profileText,
+        reply_markup: opts.reply_markup
+      });
+    } else {
+      bot.sendMessage(chatId, profileText, opts);
+    }
+
+  } catch (err) {
+    console.error('[/browse] Error:', err.response?.data || err.message);
+    bot.sendMessage(chatId, '❌ Failed to load profiles. Please try again later.');
+  }
 });
 
 // PROFILE
@@ -396,13 +494,13 @@ bot.on('callback_query', async (query) => {
   if (data.startsWith('like_')) {
     const toId = data.split('_')[1];
     try {
-      const res = await axios.post(${API_BASE}/like, {
+      const res = await axios.post(`${API_BASE}/like`, {
         fromId: telegramId,
         toId,
       });
 
       if (res.data.matched) {
-        bot.sendMessage(chatId, You matched with @${res.data.username || 'someone'}!);
+        bot.sendMessage(chatId, `You matched with @${res.data.username || 'someone'}!`);
       } else {
         bot.sendMessage(chatId, res.data.message || 'Liked!');
       }
@@ -430,7 +528,6 @@ bot.on('callback_query', async (query) => {
             );
           }
 
-<<<<<<< HEAD
           // Show stories viewer
           const viewMsg = `👀 **VIEWING STORIES** 👀\n\n` +
             `📱 Found **${stories.length}** new stories\n\n` +
@@ -1781,16 +1878,11 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-bot.onText(/\/matches/, async (msg) => {
-=======
-  sendNextProfile(chatId, telegramId);
 // LIKESYOU (VIP Only)
-bot.onText(/\/likesyou/, (msg) => {
->>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
+bot.onText(/\/likesyou/, async (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🔐 This feature is for VIP users only!
+  const telegramId = msg.from.id;
 
-<<<<<<< HEAD
   try {
     const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
     const matches = res.data;
@@ -2021,13 +2113,13 @@ bot.onText(/\/search/, async (msg) => {
 
   try {
     const res = await axios.get(`${API_BASE}/search-settings/${telegramId}`);
-    const settings = res.data;
+    const settings = res.data || {};
 
     const settingsMsg = `🔍 **SEARCH SETTINGS** 🔍\n\n` +
       `📊 **Current Preferences:**\n` +
-      `• Age Range: ${settings.ageMin}-${settings.ageMax} years\n` +
-      `• Max Distance: ${settings.maxDistance} km\n` +
-      `• Gender: ${settings.genderPreference}\n` +
+      `• Age Range: ${settings.ageMin || 18}-${settings.ageMax || 99} years\n` +
+      `• Max Distance: ${settings.maxDistance ? settings.maxDistance + ' km' : 'Unlimited'}\n` +
+      `• Gender: ${settings.genderPreference || 'Any'}\n` +
       `• Location: ${settings.locationPreference || 'Any'}\n\n` +
       `⚙️ **Customize your search to find better matches!**`;
 
@@ -2035,16 +2127,16 @@ bot.onText(/\/search/, async (msg) => {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '👥 Age Range', callback_data: 'set_age_range' },
-            { text: '📍 Distance', callback_data: 'set_distance' }
+            { text: '👥 Gender Preference', callback_data: 'search_gender' },
+            { text: '🎂 Age Range', callback_data: 'search_age' }
           ],
           [
-            { text: '⚧️ Gender Preference', callback_data: 'set_gender_pref' },
-            { text: '🌍 Location', callback_data: 'set_location_pref' }
+            { text: '📍 Distance', callback_data: 'search_distance' },
+            { text: '🌍 Location', callback_data: 'search_location' }
           ],
           [
-            { text: '💎 Premium Filters', callback_data: 'premium_filters' },
-            { text: '🔄 Reset Settings', callback_data: 'reset_search' }
+            { text: '🔄 Reset All', callback_data: 'search_reset' },
+            { text: '✅ Done', callback_data: 'search_done' }
           ]
         ]
       }
@@ -2065,15 +2157,81 @@ bot.onText(/\/search/, async (msg) => {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '👥 Set Age Range', callback_data: 'set_age_range' },
-            { text: '📍 Set Distance', callback_data: 'set_distance' }
+            { text: '👥 Gender Preference', callback_data: 'search_gender' },
+            { text: '🎂 Age Range', callback_data: 'search_age' }
           ],
           [
-            { text: '⚧️ Gender Preference', callback_data: 'set_gender_pref' },
-            { text: '🌍 Location Filter', callback_data: 'set_location_pref' }
+            { text: '📍 Distance', callback_data: 'search_distance' },
+            { text: '🌍 Location', callback_data: 'search_location' }
           ],
           [
-            { text: '💎 Premium Filters', callback_data: 'premium_filters' }
+            { text: '🔄 Reset All', callback_data: 'search_reset' },
+            { text: '✅ Done', callback_data: 'search_done' }
+          ]
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, defaultMsg, opts);
+  }
+});
+
+// Gifts command
+bot.onText(/\/gifts/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const res = await axios.get(`${API_BASE}/gifts/${telegramId}`);
+    const { sentGifts, receivedGifts, giftStats, coinBalance } = res.data;
+
+    const giftsMsg = `🎁 **GIFT CENTER** 🎁\n\n` +
+      `💰 Your Coins: ${coinBalance || 0}\n\n` +
+      `📊 **Gift Statistics:**\n` +
+      `• Gifts Sent: ${giftStats?.totalSent || 0}\n` +
+      `• Gifts Received: ${giftStats?.totalReceived || 0}\n` +
+      `• Favorite Gift: ${giftStats?.favoriteGift || 'None'}\n\n` +
+      `Choose what you'd like to do:`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🎁 Send Gift', callback_data: 'gifts_send' },
+            { text: '📥 Received Gifts', callback_data: 'gifts_received' }
+          ],
+          [
+            { text: '📤 Sent Gifts', callback_data: 'gifts_sent' },
+            { text: '🛍️ Gift Shop', callback_data: 'gifts_shop' }
+          ],
+          [
+            { text: '📊 Gift Analytics', callback_data: 'gifts_analytics' },
+            { text: '❓ Gift Guide', callback_data: 'gifts_help' }
+          ]
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, giftsMsg, opts);
+
+  } catch (err) {
+    console.error('[/gifts] Error:', err.response?.data || err.message);
+    
+    // Show default gifts menu if API fails
+    const defaultMsg = `🎁 **GIFT CENTER** 🎁\n\n` +
+      `Send virtual gifts to show someone you care!\n\n` +
+      `Choose what you'd like to do:`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🎁 Send Gift', callback_data: 'gifts_send' },
+            { text: '🛍️ Gift Shop', callback_data: 'gifts_shop' }
+          ],
+          [
+            { text: '💰 Buy Coins', callback_data: 'buy_coins' },
+            { text: '❓ Gift Guide', callback_data: 'gifts_help' }
           ]
         ]
       }
@@ -2162,25 +2320,23 @@ bot.onText(/\/vip/, async (msg) => {
       const expiryDate = new Date(vipDetails.expiresAt).toLocaleDateString();
       const subscriptionType = vipDetails.subscriptionType.charAt(0).toUpperCase() + vipDetails.subscriptionType.slice(1);
       
-      const benefitsText = `
-        👑 **VIP STATUS** 👑
-        \n\n
-        ✅ **You are VIP!**
-        \n
-        📅 Expires: ${vipDetails.subscriptionType === 'lifetime' ? 'Never' : expiryDate}
-        \n
-        Your Benefits:
-        \n
-        🔄 Extra Swipes: ${vipDetails.benefits.extraSwipes}
-        \n
-        🚫 Ad-Free Experience
-        \n
-        ⚡️ Priority Matching
-        \n
-        👀 See Profile Viewers
-        \n
-        💫 Special Profile Badge
-      `;
+      const benefitsText = `👑 **VIP STATUS** 👑
+
+✅ **You are VIP!**
+
+📅 Expires: ${vipDetails.subscriptionType === 'lifetime' ? 'Never' : expiryDate}
+
+Your Benefits:
+
+🔄 Extra Swipes: ${vipDetails.benefits.extraSwipes}
+
+🚫 Ad-Free Experience
+
+⚡️ Priority Matching
+
+👀 See Profile Viewers
+
+💫 Special Profile Badge`;
       
       const opts = {
         reply_markup: {
@@ -2404,124 +2560,865 @@ bot.on('video', async (msg) => {
   }
 });
 
+// Callback query handlers
+bot.on('callback_query', async (callbackQuery) => {
+  const message = callbackQuery.message;
+  const chatId = message.chat.id;
+  const telegramId = callbackQuery.from.id;
+  const data = callbackQuery.data;
+
+  try {
+    // Like/Pass/SuperLike handlers
+    if (data.startsWith('like_')) {
+      const targetId = data.split('_')[1];
+      await axios.post(`${API_BASE}/like`, { telegramId, targetId });
+      
+      bot.editMessageReplyMarkup({}, {
+        chat_id: chatId,
+        message_id: message.message_id
+      });
+      
+      bot.sendMessage(chatId, '❤️ You liked this profile! Use /browse to see more.');
+      
+    } else if (data.startsWith('pass_')) {
+      const targetId = data.split('_')[1];
+      await axios.post(`${API_BASE}/pass`, { telegramId, targetId });
+      
+      bot.editMessageReplyMarkup({}, {
+        chat_id: chatId,
+        message_id: message.message_id
+      });
+      
+      bot.sendMessage(chatId, '👎 You passed on this profile. Use /browse to see more.');
+      
+    } else if (data.startsWith('superlike_')) {
+      const targetId = data.split('_')[1];
+      await axios.post(`${API_BASE}/superlike`, { telegramId, targetId });
+      
+      bot.editMessageReplyMarkup({}, {
+        chat_id: chatId,
+        message_id: message.message_id
+      });
+      
+      bot.sendMessage(chatId, '⭐ You super liked this profile! They\'ll be notified.');
+      
+    } else if (data.startsWith('gift_')) {
+      const targetId = data.split('_')[1];
+      // Show comprehensive gift selection menu
+      const giftOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🌹 Rose (10 coins)', callback_data: `send_gift_rose_${targetId}` },
+              { text: '💎 Diamond (50 coins)', callback_data: `send_gift_diamond_${targetId}` }
+            ],
+            [
+              { text: '🎁 Gift Box (25 coins)', callback_data: `send_gift_box_${targetId}` },
+              { text: '🍫 Chocolate (15 coins)', callback_data: `send_gift_chocolate_${targetId}` }
+            ],
+            [
+              { text: '🌺 Bouquet (30 coins)', callback_data: `send_gift_bouquet_${targetId}` },
+              { text: '⭐ Star (40 coins)', callback_data: `send_gift_star_${targetId}` }
+            ],
+            [
+              { text: '❌ Cancel', callback_data: 'cancel_gift' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, '🎁 Choose a gift to send:', giftOpts);
+      
+    } else if (data.startsWith('send_gift_')) {
+      const parts = data.split('_');
+      const giftType = parts[2];
+      const targetId = parts[3];
+      
+      try {
+        const res = await axios.post(`${API_BASE}/gifts/send`, { 
+          telegramId, 
+          targetId, 
+          giftType 
+        });
+        
+        const giftInfo = res.data;
+        const successMsg = `🎁 **Gift Sent Successfully!** 🎁\n\n` +
+          `${giftInfo.giftEmoji} You sent a **${giftInfo.giftName}** to ${giftInfo.recipientName || 'someone special'}!\n\n` +
+          `💰 Cost: ${giftInfo.cost} coins\n` +
+          `💰 Remaining Balance: ${giftInfo.remainingBalance} coins\n\n` +
+          `They'll be notified about your thoughtful gift! 💕`;
+        
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Send Another Gift', callback_data: 'gifts_send' },
+                { text: '💬 Start Conversation', callback_data: `message_${targetId}` }
+              ],
+              [
+                { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+              ]
+            ]
+          }
+        };
+        
+        bot.sendMessage(chatId, successMsg, opts);
+        
+      } catch (err) {
+        console.error('Gift sending error:', err.response?.data || err.message);
+        
+        if (err.response?.status === 400) {
+          const errorMsg = err.response.data.message || 'Failed to send gift';
+          bot.sendMessage(chatId, `❌ ${errorMsg}`);
+        } else if (err.response?.status === 402) {
+          bot.sendMessage(chatId, '💰 Insufficient coins! Use /coins to purchase more coins.');
+        } else {
+          bot.sendMessage(chatId, '❌ Failed to send gift. Please try again later.');
+        }
+      }
+      
+    } else if (data === 'cancel_gift' || data === 'gifts_cancel') {
+      bot.sendMessage(chatId, '❌ Gift sending cancelled.');
+      
+    } else if (data === 'buy_coins') {
+      // Show coin packages
+      const coinOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Starter Pack (1000 coins - $4.99)', callback_data: 'buy_coins_starter' }
+            ],
+            [
+              { text: 'Popular Pack (5500 coins - $19.99)', callback_data: 'buy_coins_popular' }
+            ],
+            [
+              { text: 'Premium Pack (14000 coins - $39.99)', callback_data: 'buy_coins_premium' }
+            ],
+            [
+              { text: 'Ultimate Pack (38000 coins - $79.99)', callback_data: 'buy_coins_ultimate' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, '💰 Choose a coin package:', coinOpts);
+      
+    } else if (data === 'search_gender') {
+      const genderOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '👨 Men', callback_data: 'set_gender_male' },
+              { text: '👩 Women', callback_data: 'set_gender_female' }
+            ],
+            [
+              { text: '🌈 Everyone', callback_data: 'set_gender_any' },
+              { text: '❌ Cancel', callback_data: 'search_cancel' }
+            ]
+          ]
+        }
+      };
+      bot.sendMessage(chatId, '👥 Who would you like to see?', genderOpts);
+      
+    } else if (data.startsWith('set_gender_')) {
+      const gender = data.split('_')[2];
+      await axios.post(`${API_BASE}/search-settings/${telegramId}`, { genderPreference: gender });
+      bot.sendMessage(chatId, `✅ Gender preference updated to: ${gender === 'any' ? 'Everyone' : gender}`);
+      
+    } else if (data === 'search_age') {
+      const ageOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '18-25', callback_data: 'set_age_18_25' },
+              { text: '26-35', callback_data: 'set_age_26_35' }
+            ],
+            [
+              { text: '36-45', callback_data: 'set_age_36_45' },
+              { text: '46+', callback_data: 'set_age_46_99' }
+            ],
+            [
+              { text: '🌐 Any Age', callback_data: 'set_age_18_99' },
+              { text: '❌ Cancel', callback_data: 'search_cancel' }
+            ]
+          ]
+        }
+      };
+      bot.sendMessage(chatId, '🎂 Select age range:', ageOpts);
+      
+    } else if (data.startsWith('set_age_')) {
+      const parts = data.split('_');
+      const minAge = parseInt(parts[2]);
+      const maxAge = parseInt(parts[3]);
+      await axios.post(`${API_BASE}/search-settings/${telegramId}`, { minAge, maxAge });
+      bot.sendMessage(chatId, `✅ Age range updated to: ${minAge}-${maxAge}`);
+      
+    } else if (data === 'search_distance') {
+      const distanceOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '5 km', callback_data: 'set_distance_5' },
+              { text: '10 km', callback_data: 'set_distance_10' }
+            ],
+            [
+              { text: '25 km', callback_data: 'set_distance_25' },
+              { text: '50 km', callback_data: 'set_distance_50' }
+            ],
+            [
+              { text: '🌍 Unlimited', callback_data: 'set_distance_unlimited' },
+              { text: '❌ Cancel', callback_data: 'search_cancel' }
+            ]
+          ]
+        }
+      };
+      bot.sendMessage(chatId, '📍 Select maximum distance:', distanceOpts);
+      
+    } else if (data.startsWith('set_distance_')) {
+      const distance = data.split('_')[2];
+      const maxDistance = distance === 'unlimited' ? null : parseInt(distance);
+      await axios.post(`${API_BASE}/search-settings/${telegramId}`, { maxDistance });
+      bot.sendMessage(chatId, `✅ Distance updated to: ${distance === 'unlimited' ? 'Unlimited' : distance + ' km'}`);
+      
+    } else if (data === 'search_location') {
+      const locationOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🏠 Current City', callback_data: 'set_location_current' },
+              { text: '🌆 Nearby Cities', callback_data: 'set_location_nearby' }
+            ],
+            [
+              { text: '🌍 Anywhere', callback_data: 'set_location_anywhere' },
+              { text: '❌ Cancel', callback_data: 'search_cancel' }
+            ]
+          ]
+        }
+      };
+      bot.sendMessage(chatId, '🌍 Choose your location preference:', locationOpts);
+      
+    } else if (data.startsWith('set_location_')) {
+      const locationType = data.split('_')[2];
+      let locationPreference;
+      
+      switch(locationType) {
+        case 'current': locationPreference = 'Current City'; break;
+        case 'nearby': locationPreference = 'Nearby Cities'; break;
+        case 'anywhere': locationPreference = 'Anywhere'; break;
+        default: locationPreference = 'Any';
+      }
+      
+      await axios.post(`${API_BASE}/search-settings/${telegramId}`, { locationPreference });
+      bot.sendMessage(chatId, `✅ Location preference updated to: ${locationPreference}`);
+      
+    } else if (data === 'search_reset') {
+      await axios.delete(`${API_BASE}/search-settings/${telegramId}`);
+      bot.sendMessage(chatId, '🔄 Search settings reset to default!');
+      
+    } else if (data === 'search_done' || data === 'search_cancel') {
+      bot.sendMessage(chatId, '✅ Search settings updated!');
+      
+    } else if (data === 'gifts_send') {
+      // Show recent matches to send gifts to
+      try {
+        const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
+        const matches = res.data;
+        
+        if (!matches.length) {
+          return bot.sendMessage(chatId, '💔 You need matches to send gifts!\n\nUse /browse to find people and match with them first.');
+        }
+        
+        let matchButtons = matches.slice(0, 5).map(match => ([
+          { text: `🎁 ${match.name || 'Anonymous'}`, callback_data: `gift_to_${match.telegramId}` }
+        ]));
+        
+        matchButtons.push([{ text: '❌ Cancel', callback_data: 'gifts_cancel' }]);
+        
+        bot.sendMessage(chatId, '👥 Choose someone to send a gift to:', {
+          reply_markup: { inline_keyboard: matchButtons }
+        });
+        
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load your matches. Please try again later.');
+      }
+      
+    } else if (data.startsWith('gift_to_')) {
+      const targetId = data.split('_')[2];
+      
+      const giftOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🌹 Rose (10 coins)', callback_data: `send_gift_rose_${targetId}` },
+              { text: '💎 Diamond (50 coins)', callback_data: `send_gift_diamond_${targetId}` }
+            ],
+            [
+              { text: '🎁 Gift Box (25 coins)', callback_data: `send_gift_box_${targetId}` },
+              { text: '🍫 Chocolate (15 coins)', callback_data: `send_gift_chocolate_${targetId}` }
+            ],
+            [
+              { text: '🌺 Bouquet (30 coins)', callback_data: `send_gift_bouquet_${targetId}` },
+              { text: '⭐ Star (40 coins)', callback_data: `send_gift_star_${targetId}` }
+            ],
+            [
+              { text: '❌ Cancel', callback_data: 'gifts_cancel' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, '🎁 Choose a gift to send:', giftOpts);
+      
+    } else if (data === 'gifts_shop') {
+      const shopMsg = `🛍️ **GIFT SHOP** 🛍️\n\n` +
+        `Available gifts and their meanings:\n\n` +
+        `🌹 **Rose** (10 coins)\n` +
+        `• Classic romantic gesture\n` +
+        `• Shows interest and appreciation\n\n` +
+        `💎 **Diamond** (50 coins)\n` +
+        `• Premium luxury gift\n` +
+        `• Shows serious romantic interest\n\n` +
+        `🎁 **Gift Box** (25 coins)\n` +
+        `• Mystery surprise gift\n` +
+        `• Fun and playful gesture\n\n` +
+        `🍫 **Chocolate** (15 coins)\n` +
+        `• Sweet and thoughtful\n` +
+        `• Perfect for new connections\n\n` +
+        `🌺 **Bouquet** (30 coins)\n` +
+        `• Beautiful flower arrangement\n` +
+        `• Shows deep appreciation\n\n` +
+        `⭐ **Star** (40 coins)\n` +
+        `• You're a star gift\n` +
+        `• Shows admiration and respect`;
+      
+      const shopOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🎁 Send Gift', callback_data: 'gifts_send' },
+              { text: '💰 Buy Coins', callback_data: 'buy_coins' }
+            ],
+            [
+              { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, shopMsg, shopOpts);
+      
+    } else if (data === 'gifts_received') {
+      try {
+        const res = await axios.get(`${API_BASE}/gifts/received/${telegramId}`);
+        const receivedGifts = res.data;
+        
+        console.log('Received gifts response:', receivedGifts); // Debug log
+        
+        // Handle different response formats
+        const gifts = Array.isArray(receivedGifts) ? receivedGifts : (receivedGifts.gifts || []);
+        
+        if (!gifts || gifts.length === 0) {
+          return bot.sendMessage(chatId, '📥 No gifts received yet.\n\nWhen someone sends you a gift, it will appear here!');
+        }
+        
+        let giftsText = `📥 **RECEIVED GIFTS** 📥\n\n`;
+        gifts.slice(0, 10).forEach((gift, index) => {
+          const timeAgo = gift.sentAt ? new Date(gift.sentAt).toLocaleDateString() : 'Unknown';
+          const giftEmoji = gift.giftEmoji || gift.emoji || '🎁';
+          const giftName = gift.giftName || gift.name || gift.type || 'Gift';
+          const senderName = gift.senderName || gift.sender?.name || gift.fromName || 'Anonymous';
+          
+          giftsText += `${giftEmoji} **${giftName}**\n`;
+          giftsText += `From: ${senderName}\n`;
+          giftsText += `Date: ${timeAgo}\n`;
+          if (gift.message || gift.note) giftsText += `Message: "${gift.message || gift.note}"\n`;
+          giftsText += `\n`;
+        });
+        
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '💌 Send Thank You', callback_data: 'gifts_thank_you' },
+                { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+              ]
+            ]
+          }
+        };
+        
+        bot.sendMessage(chatId, giftsText, opts);
+        
+      } catch (err) {
+        console.error('Received gifts error:', err.response?.data || err.message);
+        const errorMsg = err.response?.status === 404 ? 
+          '📥 No gifts received yet.\n\nWhen someone sends you a gift, it will appear here!' :
+          '❌ Failed to load received gifts. Please try again later.';
+        bot.sendMessage(chatId, errorMsg);
+      }
+      
+    } else if (data === 'gifts_sent') {
+      try {
+        const res = await axios.get(`${API_BASE}/gifts/sent/${telegramId}`);
+        const sentGifts = res.data;
+        
+        if (!sentGifts.length) {
+          return bot.sendMessage(chatId, '📤 No gifts sent yet.\n\nUse "🎁 Send Gift" to send your first gift!');
+        }
+        
+        let giftsText = `📤 **SENT GIFTS** 📤\n\n`;
+        sentGifts.slice(0, 10).forEach((gift, index) => {
+          const timeAgo = new Date(gift.sentAt).toLocaleDateString();
+          giftsText += `${gift.giftEmoji} **${gift.giftName}**\n`;
+          giftsText += `To: ${gift.recipientName || 'Anonymous'}\n`;
+          giftsText += `Date: ${timeAgo}\n`;
+          giftsText += `Cost: ${gift.cost} coins\n\n`;
+        });
+        
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Send Another Gift', callback_data: 'gifts_send' },
+                { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+              ]
+            ]
+          }
+        };
+        
+        bot.sendMessage(chatId, giftsText, opts);
+        
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load sent gifts. Please try again later.');
+      }
+      
+    } else if (data === 'gifts_analytics') {
+      try {
+        console.log(`Fetching gift analytics for user: ${telegramId}`);
+        const res = await axios.get(`${API_BASE}/gifts/analytics/${telegramId}`);
+        console.log('Gift analytics API response status:', res.status);
+        console.log('Gift analytics response data:', JSON.stringify(res.data, null, 2));
+        
+        const analytics = res.data;
+        
+        // Handle different response formats
+        const stats = analytics.stats || analytics.data || analytics || {};
+        
+        console.log('Processed stats object:', JSON.stringify(stats, null, 2));
+        
+        // Create analytics message with more robust data handling
+        const totalSent = parseInt(stats.totalSent || stats.sent || stats.giftsSent || 0);
+        const totalReceived = parseInt(stats.totalReceived || stats.received || stats.giftsReceived || 0);
+        const coinsSpent = parseInt(stats.coinsSpent || stats.totalSpent || stats.spent || 0);
+        const mostSentGift = stats.mostSentGift || stats.favoriteGift || stats.topSent || 'None';
+        const mostReceivedGift = stats.mostReceivedGift || stats.topReceived || stats.favoriteReceived || 'None';
+        const monthSent = parseInt(stats.monthSent || stats.thisMonthSent || stats.currentMonthSent || 0);
+        const monthReceived = parseInt(stats.monthReceived || stats.thisMonthReceived || stats.currentMonthReceived || 0);
+        const responseRate = parseFloat(stats.responseRate || stats.response || 0).toFixed(1);
+        const thankYouRate = parseFloat(stats.thankYouRate || stats.thankYou || stats.thanks || 0).toFixed(1);
+        
+        const analyticsMsg = `📊 **GIFT ANALYTICS** 📊\n\n` +
+          `📈 **Your Gift Statistics:**\n` +
+          `• Total Gifts Sent: ${totalSent}\n` +
+          `• Total Gifts Received: ${totalReceived}\n` +
+          `• Coins Spent on Gifts: ${coinsSpent}\n` +
+          `• Most Popular Gift Sent: ${mostSentGift}\n` +
+          `• Most Received Gift: ${mostReceivedGift}\n\n` +
+          `🎯 **This Month:**\n` +
+          `• Gifts Sent: ${monthSent}\n` +
+          `• Gifts Received: ${monthReceived}\n\n` +
+          `💝 **Gift Success Rate:**\n` +
+          `• Response Rate: ${responseRate}%\n` +
+          `• Thank You Rate: ${thankYouRate}%`;
+        
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Send More Gifts', callback_data: 'gifts_send' },
+                { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+              ]
+            ]
+          }
+        };
+        
+        console.log('Sending analytics message to user');
+        bot.sendMessage(chatId, analyticsMsg, opts);
+        
+      } catch (err) {
+        console.error('Gift analytics error details:');
+        console.error('Error status:', err.response?.status);
+        console.error('Error data:', err.response?.data);
+        console.error('Error message:', err.message);
+        console.error('Full error:', err);
+        
+        // Try to get basic analytics from other endpoints if main analytics fails
+        let fallbackAnalytics = null;
+        try {
+          console.log('Attempting to get fallback analytics from other endpoints...');
+          
+          // Try to get sent and received gifts to calculate basic stats
+          const [sentRes, receivedRes] = await Promise.allSettled([
+            axios.get(`${API_BASE}/gifts/sent/${telegramId}`),
+            axios.get(`${API_BASE}/gifts/received/${telegramId}`)
+          ]);
+          
+          const sentGifts = sentRes.status === 'fulfilled' ? (sentRes.value.data || []) : [];
+          const receivedGifts = receivedRes.status === 'fulfilled' ? (receivedRes.value.data || []) : [];
+          
+          console.log('Fallback data - Sent gifts:', sentGifts.length, 'Received gifts:', receivedGifts.length);
+          
+          // Calculate basic statistics
+          const totalSent = Array.isArray(sentGifts) ? sentGifts.length : 0;
+          const totalReceived = Array.isArray(receivedGifts) ? receivedGifts.length : 0;
+          const coinsSpent = Array.isArray(sentGifts) ? sentGifts.reduce((sum, gift) => sum + (gift.cost || 0), 0) : 0;
+          
+          // Get most popular gift sent
+          const giftCounts = {};
+          if (Array.isArray(sentGifts)) {
+            sentGifts.forEach(gift => {
+              const giftName = gift.giftName || gift.type || 'Unknown';
+              giftCounts[giftName] = (giftCounts[giftName] || 0) + 1;
+            });
+          }
+          const mostSentGift = Object.keys(giftCounts).length > 0 ? 
+            Object.keys(giftCounts).reduce((a, b) => giftCounts[a] > giftCounts[b] ? a : b) : 'None';
+          
+          fallbackAnalytics = `📊 **GIFT ANALYTICS** 📊\n\n` +
+            `📈 **Your Gift Statistics:**\n` +
+            `• Total Gifts Sent: ${totalSent}\n` +
+            `• Total Gifts Received: ${totalReceived}\n` +
+            `• Coins Spent on Gifts: ${coinsSpent}\n` +
+            `• Most Popular Gift Sent: ${mostSentGift}\n` +
+            `• Most Received Gift: N/A\n\n` +
+            `🎯 **This Month:**\n` +
+            `• Gifts Sent: ${totalSent}\n` +
+            `• Gifts Received: ${totalReceived}\n\n` +
+            `💝 **Gift Success Rate:**\n` +
+            `• Response Rate: N/A\n` +
+            `• Thank You Rate: N/A\n\n` +
+            `📝 *Analytics calculated from available data*`;
+            
+        } catch (fallbackErr) {
+          console.error('Fallback analytics also failed:', fallbackErr.message);
+        }
+        
+        // Use fallback analytics or default message
+        const defaultAnalytics = fallbackAnalytics || (
+          `📊 **GIFT ANALYTICS** 📊\n\n` +
+          `📈 **Your Gift Statistics:**\n` +
+          `• Total Gifts Sent: 0\n` +
+          `• Total Gifts Received: 0\n` +
+          `• Coins Spent on Gifts: 0\n` +
+          `• Most Popular Gift Sent: None\n` +
+          `• Most Received Gift: None\n\n` +
+          `🎯 **This Month:**\n` +
+          `• Gifts Sent: 0\n` +
+          `• Gifts Received: 0\n\n` +
+          `💝 **Gift Success Rate:**\n` +
+          `• Response Rate: 0%\n` +
+          `• Thank You Rate: 0%\n\n` +
+          `Start sending gifts to build your analytics! 🎁`
+        );
+        
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Start Sending Gifts', callback_data: 'gifts_send' },
+                { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+              ]
+            ]
+          }
+        };
+        
+        bot.sendMessage(chatId, defaultAnalytics, opts);
+      }
+      
+    } else if (data === 'gifts_help') {
+      const helpMsg = `❓ **GIFT GUIDE** ❓\n\n` +
+        `🎁 **How Gifts Work:**\n` +
+        `• Send virtual gifts to show interest\n` +
+        `• Each gift costs coins\n` +
+        `• Recipients get notified immediately\n` +
+        `• Gifts can lead to conversations\n\n` +
+        `💡 **Gift Tips:**\n` +
+        `• Start with simple gifts like roses\n` +
+        `• Premium gifts show serious interest\n` +
+        `• Add personal messages when possible\n` +
+        `• Timing matters - send when they're active\n\n` +
+        `🌟 **Best Practices:**\n` +
+        `• Don't spam gifts to the same person\n` +
+        `• Choose gifts that match your relationship\n` +
+        `• Be genuine and thoughtful\n` +
+        `• Respond to gifts you receive`;
+      
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🎁 Start Sending Gifts', callback_data: 'gifts_send' },
+              { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, helpMsg, opts);
+      
+    } else if (data === 'gifts_back') {
+      // Re-trigger the gifts command by simulating the command
+      try {
+        const res = await axios.get(`${API_BASE}/gifts/${telegramId}`);
+        const { sentGifts, receivedGifts, giftStats, coinBalance } = res.data;
+
+        const giftsMsg = `🎁 **GIFT CENTER** 🎁\n\n` +
+          `💰 Your Coins: ${coinBalance || 0}\n\n` +
+          `📊 **Gift Statistics:**\n` +
+          `• Gifts Sent: ${giftStats?.totalSent || 0}\n` +
+          `• Gifts Received: ${giftStats?.totalReceived || 0}\n` +
+          `• Favorite Gift: ${giftStats?.favoriteGift || 'None'}\n\n` +
+          `Choose what you'd like to do:`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Send Gift', callback_data: 'gifts_send' },
+                { text: '📥 Received Gifts', callback_data: 'gifts_received' }
+              ],
+              [
+                { text: '📤 Sent Gifts', callback_data: 'gifts_sent' },
+                { text: '🛍️ Gift Shop', callback_data: 'gifts_shop' }
+              ],
+              [
+                { text: '📊 Gift Analytics', callback_data: 'gifts_analytics' },
+                { text: '❓ Gift Guide', callback_data: 'gifts_help' }
+              ]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, giftsMsg, opts);
+
+      } catch (err) {
+        // Show default gifts menu if API fails
+        const defaultMsg = `🎁 **GIFT CENTER** 🎁\n\n` +
+          `Send virtual gifts to show someone you care!\n\n` +
+          `Choose what you'd like to do:`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎁 Send Gift', callback_data: 'gifts_send' },
+                { text: '🛍️ Gift Shop', callback_data: 'gifts_shop' }
+              ],
+              [
+                { text: '💰 Buy Coins', callback_data: 'buy_coins' },
+                { text: '❓ Gift Guide', callback_data: 'gifts_help' }
+              ]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, defaultMsg, opts);
+      }
+      
+    } else if (data === 'gifts_cancel') {
+      bot.sendMessage(chatId, '❌ Gift sending cancelled.');
+      
+    } else if (data === 'gifts_thank_you') {
+      const thankYouMsg = `💌 **SEND THANK YOU** 💌\n\n` +
+        `Show appreciation for the gifts you've received!\n\n` +
+        `Choose how you'd like to thank your admirers:`;
+      
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💕 Send Heart', callback_data: 'send_thank_heart' },
+              { text: '🌹 Send Rose Back', callback_data: 'send_thank_rose' }
+            ],
+            [
+              { text: '💬 Send Message', callback_data: 'send_thank_message' },
+              { text: '🎁 Send Gift Back', callback_data: 'gifts_send' }
+            ],
+            [
+              { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, thankYouMsg, opts);
+      
+    } else if (data.startsWith('send_thank_')) {
+      const thankType = data.split('_')[2];
+      let message = '';
+      
+      switch(thankType) {
+        case 'heart':
+          message = '💕 Thank you hearts sent to recent gift senders!';
+          break;
+        case 'rose':
+          message = '🌹 Thank you roses sent to recent gift senders!';
+          break;
+        case 'message':
+          message = '💬 Thank you messages sent to recent gift senders!';
+          break;
+        default:
+          message = '💌 Thank you sent!';
+      }
+      
+      try {
+        await axios.post(`${API_BASE}/gifts/thank-you/${telegramId}`, { thankType });
+        bot.sendMessage(chatId, message);
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to send thank you. Please try again later.');
+      }
+      
+    } else if (data.startsWith('message_')) {
+      const targetId = data.split('_')[1];
+      
+      const messageMsg = `💬 **START CONVERSATION** 💬\n\n` +
+        `Great! You can now start a conversation with this person.\n\n` +
+        `💡 **Conversation Tips:**\n` +
+        `• Be genuine and friendly\n` +
+        `• Ask about their interests\n` +
+        `• Reference the gift you sent\n` +
+        `• Keep it light and fun\n\n` +
+        `Use the messaging feature in your Telegram to send them a direct message!`;
+      
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🎁 Send Another Gift', callback_data: `gift_${targetId}` },
+              { text: '👀 View Profile', callback_data: `profile_${targetId}` }
+            ],
+            [
+              { text: '🔙 Back to Gifts', callback_data: 'gifts_back' }
+            ]
+          ]
+        }
+      };
+      
+      bot.sendMessage(chatId, messageMsg, opts);
+      
+    } else if (data === 'send_gift') {
+      // Redirect to gifts_send for sending gifts
+      // This is triggered from coin purchase success buttons
+      try {
+        const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
+        const matches = res.data;
+        
+        if (!matches.length) {
+          return bot.sendMessage(chatId, '💔 You need matches to send gifts!\n\nUse /browse to find people and match with them first.');
+        }
+        
+        let matchButtons = matches.slice(0, 5).map(match => ([
+          { text: `🎁 ${match.name || 'Anonymous'}`, callback_data: `gift_to_${match.telegramId}` }
+        ]));
+        
+        matchButtons.push([{ text: '❌ Cancel', callback_data: 'gifts_cancel' }]);
+        
+        bot.sendMessage(chatId, '👥 Choose someone to send a gift to:', {
+          reply_markup: { inline_keyboard: matchButtons }
+        });
+        
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load your matches. Please try again later.');
+      }
+      
+    } else if (data === 'manage_vip') {
+      // Redirect to VIP management
+      try {
+        const res = await axios.get(`${API_BASE}/vip/${telegramId}`);
+        const { isVip, vipDetails, availablePlans } = res.data;
+
+        if (isVip) {
+          const expiryDate = new Date(vipDetails.expiresAt).toLocaleDateString();
+          
+          const vipMsg = `👑 **VIP STATUS** 👑\n\n` +
+            `✅ **You are VIP!**\n\n` +
+            `📅 Expires: ${vipDetails.subscriptionType === 'lifetime' ? 'Never' : expiryDate}\n\n` +
+            `Your Benefits:\n` +
+            `🔄 Extra Swipes: ${vipDetails.benefits.extraSwipes}\n` +
+            `🚫 Ad-Free Experience\n` +
+            `⚡️ Priority Matching\n` +
+            `👀 See Profile Viewers\n` +
+            `💫 Special Profile Badge`;
+          
+          const opts = {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '👑 Extend VIP', callback_data: 'extend_vip' }],
+                [{ text: '❌ Cancel VIP', callback_data: 'cancel_vip' }]
+              ]
+            }
+          };
+          
+          bot.sendMessage(chatId, vipMsg, opts);
+        } else {
+          // Show VIP plans
+          let plansText = `👑 **BECOME VIP** 👑\n\n` +
+            `Unlock premium features and enhance your dating experience!\n\n` +
+            `Available Plans:\n\n`;
+          
+          const planButtons = availablePlans.map(plan => ([
+            { text: `${plan.name} - $${plan.price}`, callback_data: `buy_vip_${plan.id}` }
+          ]));
+          
+          bot.sendMessage(chatId, plansText, {
+            reply_markup: { inline_keyboard: planButtons }
+          });
+        }
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load VIP information. Please try again later.');
+      }
+      
+    } else if (data === 'priority_boost') {
+      // Handle priority boost purchase
+      try {
+        const res = await axios.post(`${API_BASE}/priority/purchase/${telegramId}`);
+        const boostInfo = res.data;
+        
+        const successMsg = `🚀 **PRIORITY BOOST ACTIVATED!** 🚀\n\n` +
+          `⭐ Your profile will appear first in search results!\n` +
+          `⏰ Duration: ${boostInfo.duration || '24 hours'}\n` +
+          `💰 Cost: ${boostInfo.cost || 50} coins\n\n` +
+          `Get ready for more profile views and matches! 🔥`;
+        
+        bot.sendMessage(chatId, successMsg);
+      } catch (err) {
+        if (err.response?.status === 402) {
+          bot.sendMessage(chatId, '💰 Insufficient coins for priority boost! Use /coins to purchase more.');
+        } else {
+          bot.sendMessage(chatId, '❌ Failed to activate priority boost. Please try again later.');
+        }
+      }
+    }
+
+    // Answer the callback query to remove loading state
+    try {
+      bot.answerCallbackQuery(callbackQuery.id);
+    } catch (answerErr) {
+      console.error('Failed to answer callback query:', answerErr.message);
+    }
+
+  } catch (err) {
+    console.error('Callback query error:', err);
+    try {
+      bot.answerCallbackQuery(callbackQuery.id, { text: 'Error occurred. Please try again.' });
+    } catch (answerErr) {
+      console.error('Failed to answer callback query with error:', answerErr.message);
+    }
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Bot server running on port ${PORT}`);
 });
-=======
-Upgrade to VIP to see who already liked your profile 💖`);
-});
-
-// STORIES
-bot.onText(/\/stories/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `📸 Stories feature coming soon!
-
-You'll be able to watch anonymous photo stories and reply.`);
-});
-
-// GIFTS
-bot.onText(/\/gifts/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🎁 Send virtual gifts to impress someone special!
-
-Feature in development... stay tuned!`);
-});
-
-// COINS
-bot.onText(/\/coins/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `💰 You currently have 0 KissuCoins.
-
-Earn more by staying active or upgrade to VIP for bonuses.`);
-});
-
-// VIP
-bot.onText(/\/vip/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🌟 VIP Features:
-
-• See who liked you
-• Appear first in searches
-• Unlimited likes
-• Access to hidden profiles
-• Reply to stories
-
-Upgrade coming soon! 💎`);
-});
-
-// PRIORITY
-bot.onText(/\/priority/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🚀 Boost your profile visibility!
-
-Stay on top of everyone's search results.
-
-Priority Boosts launching soon.`);
-});
-
-// SEARCH SETTINGS
-bot.onText(/\/search_settings/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🔍 Match Filters:
-
-Currently showing all users.
-
-Soon you'll be able to filter by:
-• Age range
-• Gender
-• Location
-• Interests`);
-});
-
-// SETTINGS
-bot.onText(/\/settings/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `⚙️ Settings Menu:
-
-Coming soon — you'll be able to:
-• Change language
-• Adjust notifications
-• Privacy settings`);
-});
-
-// HELP
-bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🆘 Help Menu:
-
-Use the following commands:
-• /start – Begin your journey
-• /profile – Edit your profile
-• /matches – View your matches
-• /likesyou – VIP feature
-• /vip – Learn about VIP
-• /delete_profile – Remove your account
-• /contact_support – Get help`);
-});
-
-// REPORT
-bot.onText(/\/report/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `🚨 To report a user, send us their @username and issue.
-
-Our team will take immediate action if needed.`);
-});
-
-// DELETE PROFILE
-bot.onText(/\/delete_profile/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `⚠️ Are you sure you want to delete your profile?
-
-Send /confirm_delete to proceed (this action is irreversible).`);
-});
-
-// CONTACT SUPPORT
-bot.onText(/\/contact_support/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `💬 You can reach us at @KissuSupport
-
-We’ll reply within 24 hours.`);
-});
 
 
 
@@ -2529,4 +3426,6 @@ We’ll reply within 24 hours.`);
 
 
 
->>>>>>> ff43d510c11cf0653eb0d2732ef93d481c60ec27
+
+
+

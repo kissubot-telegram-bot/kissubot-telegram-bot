@@ -11,5 +11,5 @@ $content = $content.Replace('âŒ', '❌')
 [IO.File]::WriteAllText($path, $content, [Text.Encoding]::UTF8)
 
 Write-Host "Fixed back button and error message emojis in bot.js"
-Write-Host "✅ ðŸ"™ → 🔙 (Back button)"
+Write-Host "✅ 🔙→ 🔙 (Back button)"
 Write-Host "✅ âŒ → ❌ (Error messages)"
