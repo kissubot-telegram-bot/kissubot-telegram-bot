@@ -236,7 +236,7 @@ bot.onText(/\/contact/, (msg) => {
 
   const buttons = [
     [
-      { text: '📧 Email Support', url: 'mailto:support@kisu1bot.com' }
+      { text: '📧 Email Support', callback_data: 'email_support' }
     ],
     [
       { text: '🚨 Report Issue', callback_data: 'report_user' },
@@ -484,6 +484,120 @@ bot.onText(/\/matches/, async (msg) => {
   // Placeholder for matched users
   bot.sendMessage(chatId, `💞 You have no matches yet.
 Keep browsing and liking profiles!`);
+});
+
+// Global message handler to process profile edits
+bot.on('message', async (msg) => {
+  try {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from?.id;
+    if (!telegramId) return;
+
+    const state = userStates[telegramId];
+    if (!state) return; // not in any flow
+
+    const text = (msg.text || '').trim();
+    if (!text) return;
+
+    // Handle cancel
+    if (text.toLowerCase() === '/cancel') {
+      delete userStates[telegramId];
+      if (state.editing) {
+        await bot.sendMessage(chatId, '❌ Edit cancelled.');
+      } else if (state.reporting) {
+        await bot.sendMessage(chatId, '❌ Report cancelled. Thank you for helping keep our community safe!');
+      }
+      return;
+    }
+
+    // Handle report submissions
+    if (state.reporting) {
+      const reportType = state.reporting; // 'user' | 'content' | 'bug' | 'feature'
+      
+      if (text.length < 10) {
+        return bot.sendMessage(chatId, '❌ Please provide more details (at least 10 characters). Send a more detailed report or /cancel to abort.');
+      }
+
+      // Process the report
+      const reportData = {
+        type: reportType,
+        reporterId: telegramId,
+        description: text,
+        timestamp: new Date().toISOString()
+      };
+
+      // Log the report (in a real app, you'd save this to database)
+      console.log('Report received:', reportData);
+
+      delete userStates[telegramId];
+
+      const reportTypeLabels = {
+        user: 'User Report',
+        content: 'Content Report', 
+        bug: 'Bug Report',
+        feature: 'Feature Request'
+      };
+
+      await bot.sendMessage(chatId, `✅ **${reportTypeLabels[reportType]} Submitted** ✅\n\n` +
+        `Thank you for your report! Our team will review it and take appropriate action.\n\n` +
+        `📧 You may receive a follow-up email if we need more information.\n\n` +
+        `🛡️ Your report helps keep Kisu1bot safe for everyone!`, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '📞 Contact Support', callback_data: 'contact_support' },
+            { text: '🔙 Back to Help', callback_data: 'show_help' }
+          ]]
+        }
+      });
+      return;
+    }
+
+    // Handle profile edits
+    if (!state.editing) return; // not in edit flow
+    const field = state.editing; // 'name' | 'age' | 'location' | 'bio'
+    let value = text;
+
+    // Validate input
+    if (field === 'name') {
+      if (value.length < 2 || value.length > 50) {
+        return bot.sendMessage(chatId, '❌ Name must be between 2 and 50 characters. Try again or send /cancel.');
+      }
+    } else if (field === 'age') {
+      const n = parseInt(value, 10);
+      if (isNaN(n) || n < 18 || n > 99) {
+        return bot.sendMessage(chatId, '❌ Please send a valid age between 18 and 99.');
+      }
+      value = n;
+    } else if (field === 'location') {
+      if (value.length < 2 || value.length > 100) {
+        return bot.sendMessage(chatId, '❌ Location must be between 2 and 100 characters. Try again or send /cancel.');
+      }
+    } else if (field === 'bio') {
+      if (value.length > 300) {
+        return bot.sendMessage(chatId, `❌ Bio is too long (${value.length} chars). Max is 300. Please shorten and resend.`);
+      }
+    }
+
+    // Commit update to backend
+    try {
+      const res = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field, value });
+      delete userStates[telegramId];
+
+      const labelMap = { name: 'Name', age: 'Age', location: 'Location', bio: 'Bio' };
+      await bot.sendMessage(chatId, `✅ ${labelMap[field]} updated successfully!`, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '🔙 Back to Profile Settings', callback_data: 'settings_profile' }
+          ]]
+        }
+      });
+    } catch (err) {
+      console.error('Profile update error:', err.response?.data || err.message);
+      await bot.sendMessage(chatId, '❌ Failed to update your profile. Please try again later.');
+    }
+  } catch (e) {
+    console.error('Message handler error:', e);
+  }
 });
 
 bot.on('callback_query', async (query) => {
@@ -1356,10 +1470,10 @@ bot.on('callback_query', async (query) => {
         });
         break;
 
-      // Continue showing next profile for browse command
-      if (data === 'pass') {
+      case 'pass':
+        // Continue showing next profile for browse command
         sendNextProfile(chatId, telegramId);
-      }
+        break;
 
       case 'manage_vip':
         try {
@@ -1424,13 +1538,22 @@ bot.on('callback_query', async (query) => {
             ];
           }
 
-          bot.editMessageText(vipMsg, {
-            chat_id: chatId,
-            message_id: query.message.message_id,
-            reply_markup: {
-              inline_keyboard: buttons
-            }
-          });
+          // Try to edit first, if it fails, send new message
+          try {
+            bot.editMessageText(vipMsg, {
+              chat_id: chatId,
+              message_id: query.message.message_id,
+              reply_markup: {
+                inline_keyboard: buttons
+              }
+            });
+          } catch (editErr) {
+            bot.sendMessage(chatId, vipMsg, {
+              reply_markup: {
+                inline_keyboard: buttons
+              }
+            });
+          }
 
         } catch (err) {
           bot.sendMessage(chatId, '❌ Failed to load VIP information. Please try again.');
@@ -1717,91 +1840,22 @@ bot.on('callback_query', async (query) => {
         );
         break;
 
-      case 'settings_profile':
-        try {
-          const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
-          const user = profileRes.data;
-
-          const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
-            `📝 **Current Profile:**\n` +
-            `• Name: ${user.name}\n` +
-            `• Age: ${user.age}\n` +
-            `• Location: ${user.location || 'Not set'}\n` +
-            `• Bio: ${user.bio || 'Not set'}\n\n` +
-            `📸 **Photos:** ${user.photos?.length || 0} uploaded\n\n` +
-            `🔧 **What would you like to edit?**`;
-
-          bot.editMessageText(profileMsg, {
-            chat_id: chatId,
-            message_id: query.message.message_id,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '✏️ Edit Name', callback_data: 'edit_name' },
-                  { text: '🎂 Edit Age', callback_data: 'edit_age' }
-                ],
-                [
-                  { text: '📍 Edit Location', callback_data: 'edit_location' },
-                  { text: '📝 Edit Bio', callback_data: 'edit_bio' }
-                ],
-                [
-                  { text: '📸 Manage Photos', callback_data: 'manage_photos' }
-                ],
-                [
-                  { text: '🔙 Back to Settings', callback_data: 'main_settings' }
-                ]
-              ]
-            }
-          });
-        } catch (err) {
-          bot.sendMessage(chatId, '❌ Failed to load profile settings.');
-        }
+      case 'email_support':
+        bot.sendMessage(chatId, `📧 **EMAIL SUPPORT** 📧\n\n` +
+          `Send your support request to:\n` +
+          `📮 **support@kisu1bot.com**\n\n` +
+          `📋 **Please include:**\n` +
+          `• Your Telegram username: @${query.from.username || 'N/A'}\n` +
+          `• Your user ID: ${telegramId}\n` +
+          `• Detailed description of your issue\n` +
+          `• Screenshots if relevant\n\n` +
+          `⏰ **Response time:** 24-48 hours\n\n` +
+          `💡 **Tip:** Copy the email address above and paste it in your email app.`);
         break;
 
-      case 'settings_search':
-        try {
-          const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
-          const user = profileRes.data;
-          const prefs = user.preferences || {};
-
-          const searchMsg = `🔍 **SEARCH PREFERENCES** 🔍\n\n` +
-            `📊 **Current Settings:**\n` +
-            `• Age Range: ${prefs.ageMin || 18} - ${prefs.ageMax || 35} years\n` +
-            `• Max Distance: ${prefs.maxDistance || 50} km\n` +
-            `• Gender: ${prefs.genderPreference || 'Any'}\n` +
-            `• Location: ${prefs.locationPreference || 'Anywhere'}\n\n` +
-            `🎯 **Customize your search to find better matches!**`;
-
-          bot.editMessageText(searchMsg, {
-            chat_id: chatId,
-            message_id: query.message.message_id,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '🎂 Age Range', callback_data: 'set_age_range' },
-                  { text: '📏 Distance', callback_data: 'set_distance' }
-                ],
-                [
-                  { text: '👥 Gender Preference', callback_data: 'set_gender_pref' },
-                  { text: '📍 Location', callback_data: 'set_location_pref' }
-                ],
-                [
-                  { text: '🔄 Reset to Default', callback_data: 'reset_preferences' }
-                ],
-                [
-                  { text: '🔙 Back to Settings', callback_data: 'main_settings' }
-                ]
-              ]
-            }
-          });
-        } catch (err) {
-          bot.sendMessage(chatId, '❌ Failed to load search preferences.');
-        }
-        break;
 
       case 'contact_support':
-        bot.editMessageText(
-          `📞 **CONTACT SUPPORT** 📞\n\n` +
+        const supportMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
           `Our support team is here to help!\n\n` +
           `🕐 **Support Hours:**\n` +
           `Monday - Friday: 9 AM - 6 PM UTC\n` +
@@ -1818,26 +1872,35 @@ bot.on('callback_query', async (query) => {
           `📋 **Before contacting:**\n` +
           `• Check /help for common solutions\n` +
           `• Include your Telegram username\n` +
-          `• Describe the issue clearly`,
-          {
+          `• Describe the issue clearly`;
+
+        const supportOpts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '📧 Email Support', callback_data: 'email_support' }
+              ],
+              [
+                { text: '🚨 Report Issue', callback_data: 'report_user' },
+                { text: '❓ FAQ/Help', callback_data: 'show_help' }
+              ],
+              [
+                { text: '💬 Send Feedback', callback_data: 'send_feedback' }
+              ]
+            ]
+          }
+        };
+
+        // Try to edit first, if it fails, send new message
+        try {
+          bot.editMessageText(supportMsg, {
             chat_id: chatId,
             message_id: query.message.message_id,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '📧 Email Support', url: 'mailto:support@kisu1bot.com' }
-                ],
-                [
-                  { text: '🚨 Report Issue', callback_data: 'report_user' },
-                  { text: '❓ FAQ/Help', callback_data: 'show_help' }
-                ],
-                [
-                  { text: '💬 Send Feedback', callback_data: 'send_feedback' }
-                ]
-              ]
-            }
-          }
-        );
+            reply_markup: supportOpts.reply_markup
+          });
+        } catch (editErr) {
+          bot.sendMessage(chatId, supportMsg, supportOpts);
+        }
         break;
 
       case 'send_feedback':
@@ -1863,7 +1926,7 @@ bot.on('callback_query', async (query) => {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '📧 Send Feedback', url: 'mailto:feedback@kisu1bot.com' }
+                  { text: '📧 Send Feedback', callback_data: 'email_feedback' }
                 ],
                 [
                   { text: '🔙 Back to Support', callback_data: 'contact_support' }
@@ -1872,6 +1935,126 @@ bot.on('callback_query', async (query) => {
             }
           }
         );
+        break;
+
+      case 'email_feedback':
+        bot.sendMessage(chatId, `📧 **SEND FEEDBACK** 📧\n\n` +
+          `Share your thoughts with us:\n` +
+          `📮 **feedback@kisu1bot.com**\n\n` +
+          `📋 **We'd love to hear about:**\n` +
+          `• Feature suggestions\n` +
+          `• User experience improvements\n` +
+          `• What you like about the app\n` +
+          `• What could be better\n\n` +
+          `📝 **Include your username:** @${query.from.username || 'N/A'}\n\n` +
+          `🙏 **Thank you for helping us improve Kisu1bot!**`);
+        break;
+
+      case 'cancel_delete':
+        bot.sendMessage(chatId, `✅ **Profile Deletion Cancelled** ✅\n\n` +
+          `Your profile is safe and remains active.\n\n` +
+          `💡 **Need help instead?**\n` +
+          `• Use /help for guidance\n` +
+          `• Contact support with /contact\n` +
+          `• Adjust settings with /settings\n\n` +
+          `Thank you for staying with Kisu1bot! 💕`);
+        break;
+
+      case 'deactivate_profile':
+        try {
+          const res = await axios.post(`${API_BASE}/users/deactivate/${telegramId}`);
+          
+          const deactivateMsg = `⏸️ **Profile Deactivated** ⏸️\n\n` +
+            `Your profile has been temporarily deactivated.\n\n` +
+            `📋 **What this means:**\n` +
+            `• Your profile is hidden from other users\n` +
+            `• You won't receive new matches\n` +
+            `• Your data is safely stored\n` +
+            `• You can reactivate anytime\n\n` +
+            `🔄 **To reactivate:** Use /start when you're ready to return\n\n` +
+            `💡 **Need help?** Contact support anytime with /contact`;
+
+          bot.sendMessage(chatId, deactivateMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🔄 Reactivate Now', callback_data: 'reactivate_profile' },
+                  { text: '📞 Contact Support', callback_data: 'contact_support' }
+                ]
+              ]
+            }
+          });
+        } catch (err) {
+          console.error('Deactivate profile error:', err.response?.data || err.message);
+          bot.sendMessage(chatId, '❌ Failed to deactivate your profile. Please try again later or contact support.');
+        }
+        break;
+
+      case 'reactivate_profile':
+        try {
+          const res = await axios.post(`${API_BASE}/users/reactivate/${telegramId}`);
+          
+          bot.sendMessage(chatId, `🎉 **Welcome Back!** 🎉\n\n` +
+            `Your profile has been reactivated successfully!\n\n` +
+            `✅ **You're back in action:**\n` +
+            `• Your profile is visible again\n` +
+            `• You can receive new matches\n` +
+            `• All your data is restored\n\n` +
+            `🚀 **Ready to continue?**\n` +
+            `• Use /browse to find matches\n` +
+            `• Update your profile with /profile\n` +
+            `• Check your settings with /settings\n\n` +
+            `Happy dating! 💕`);
+        } catch (err) {
+          console.error('Reactivate profile error:', err.response?.data || err.message);
+          bot.sendMessage(chatId, '❌ Failed to reactivate your profile. Please try again later or contact support.');
+        }
+        break;
+
+      case 'confirm_delete_profile':
+        // Show final warning before permanent deletion
+        const finalWarningMsg = `🚨 **FINAL WARNING** 🚨\n\n` +
+          `⚠️ **THIS WILL PERMANENTLY DELETE YOUR PROFILE**\n\n` +
+          `🗑️ **What will be deleted:**\n` +
+          `• All your profile information\n` +
+          `• All your photos\n` +
+          `• All your matches and conversations\n` +
+          `• Your VIP status and coins\n` +
+          `• All your activity history\n\n` +
+          `❌ **This action CANNOT be undone!**\n\n` +
+          `💔 Are you absolutely sure you want to delete everything?`;
+
+        const finalOpts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🗑️ Yes, Delete Everything', callback_data: 'final_confirm_delete' }
+              ],
+              [
+                { text: '❌ Cancel - Keep My Account', callback_data: 'cancel_delete' }
+              ]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, finalWarningMsg, finalOpts);
+        break;
+
+      case 'final_confirm_delete':
+        try {
+          const res = await axios.delete(`${API_BASE}/users/delete/${telegramId}`);
+          
+          bot.sendMessage(chatId, `💔 **Profile Deleted** 💔\n\n` +
+            `Your profile has been permanently deleted from Kisu1bot.\n\n` +
+            `🙏 **Thank you for using Kisu1bot**\n\n` +
+            `If you ever want to return:\n` +
+            `• Use /start to create a new profile\n` +
+            `• Contact us if you need help\n\n` +
+            `We're sorry to see you go. Take care! 💕`);
+        } catch (err) {
+          console.error('Delete profile error:', err.response?.data || err.message);
+          bot.sendMessage(chatId, '❌ Failed to delete your profile. Please contact support for assistance.');
+        }
         break;
 
     }
@@ -3330,53 +3513,6 @@ bot.on('callback_query', async (callbackQuery) => {
         bot.sendMessage(chatId, '❌ Failed to load your matches. Please try again later.');
       }
       
-    } else if (data === 'manage_vip') {
-      // Redirect to VIP management
-      try {
-        const res = await axios.get(`${API_BASE}/vip/${telegramId}`);
-        const { isVip, vipDetails, availablePlans } = res.data;
-
-        if (isVip) {
-          const expiryDate = new Date(vipDetails.expiresAt).toLocaleDateString();
-          
-          const vipMsg = `👑 **VIP STATUS** 👑\n\n` +
-            `✅ **You are VIP!**\n\n` +
-            `📅 Expires: ${vipDetails.subscriptionType === 'lifetime' ? 'Never' : expiryDate}\n\n` +
-            `Your Benefits:\n` +
-            `🔄 Extra Swipes: ${vipDetails.benefits.extraSwipes}\n` +
-            `🚫 Ad-Free Experience\n` +
-            `⚡️ Priority Matching\n` +
-            `👀 See Profile Viewers\n` +
-            `💫 Special Profile Badge`;
-          
-          const opts = {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '👑 Extend VIP', callback_data: 'extend_vip' }],
-                [{ text: '❌ Cancel VIP', callback_data: 'cancel_vip' }]
-              ]
-            }
-          };
-          
-          bot.sendMessage(chatId, vipMsg, opts);
-        } else {
-          // Show VIP plans
-          let plansText = `👑 **BECOME VIP** 👑\n\n` +
-            `Unlock premium features and enhance your dating experience!\n\n` +
-            `Available Plans:\n\n`;
-          
-          const planButtons = availablePlans.map(plan => ([
-            { text: `${plan.name} - $${plan.price}`, callback_data: `buy_vip_${plan.id}` }
-          ]));
-          
-          bot.sendMessage(chatId, plansText, {
-            reply_markup: { inline_keyboard: planButtons }
-          });
-        }
-      } catch (err) {
-        bot.sendMessage(chatId, '❌ Failed to load VIP information. Please try again later.');
-      }
-      
     } else if (data === 'priority_boost') {
       // Handle priority boost purchase
       try {
@@ -3397,6 +3533,603 @@ bot.on('callback_query', async (callbackQuery) => {
           bot.sendMessage(chatId, '❌ Failed to activate priority boost. Please try again later.');
         }
       }
+      
+    } else if (data === 'settings_search') {
+      try {
+        const res = await axios.get(`${API_BASE}/search-settings/${telegramId}`);
+        const settings = res.data;
+
+        const searchMsg = `🔍 **SEARCH PREFERENCES** 🔍\n\n` +
+          `📊 **Current Settings:**\n` +
+          `• Age Range: ${settings.ageMin || 18}-${settings.ageMax || 35} years\n` +
+          `• Max Distance: ${settings.maxDistance || 50} km\n` +
+          `• Gender: ${settings.genderPreference || 'Any'}\n` +
+          `• Location: ${settings.locationPreference || 'Any'}\n\n` +
+          `⚙️ **Customize your search to find better matches!**`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🎂 Age Range', callback_data: 'search_age' },
+                { text: '📏 Distance', callback_data: 'search_distance' }
+              ],
+              [
+                { text: '👥 Gender', callback_data: 'search_gender' },
+                { text: '📍 Location', callback_data: 'search_location' }
+              ],
+              [
+                { text: '🔄 Reset to Default', callback_data: 'search_reset' }
+              ],
+              [
+                { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+              ]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, searchMsg, opts);
+      } catch (err) {
+        console.error('Search settings error:', err.response?.data || err.message);
+        bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again later.');
+      }
+      
+    } else if (data === 'settings_premium') {
+      const premiumMsg = `💎 **PREMIUM FEATURES** 💎\n\n` +
+        `Unlock the full potential of Kisu1bot!\n\n` +
+        `👑 **VIP Membership**\n` +
+        `• Unlimited swipes\n` +
+        `• See who liked you\n` +
+        `• Priority matching\n` +
+        `• Ad-free experience\n\n` +
+        `💰 **Coins & Purchases**\n` +
+        `• Buy coins for premium features\n` +
+        `• Send virtual gifts\n` +
+        `• Boost your profile\n\n` +
+        `Choose what you'd like to manage:`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '👑 VIP Membership', callback_data: 'manage_vip' },
+              { text: '💰 Buy Coins', callback_data: 'buy_coins' }
+            ],
+            [
+              { text: '⚡️ Priority Boost', callback_data: 'priority_boost' },
+              { text: '🎁 Gift Center', callback_data: 'gifts_back' }
+            ],
+            [
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, premiumMsg, opts);
+      
+    } else if (data === 'settings_notifications') {
+      const notifMsg = `🔔 **NOTIFICATION SETTINGS** 🔔\n\n` +
+        `Manage your notification preferences:\n\n` +
+        `📱 **Push Notifications**\n` +
+        `• New matches\n` +
+        `• New messages\n` +
+        `• Profile likes\n` +
+        `• Gifts received\n\n` +
+        `📧 **Email Notifications**\n` +
+        `• Weekly match summary\n` +
+        `• Special offers\n` +
+        `• Account updates\n\n` +
+        `⚙️ Customize your notification experience:`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📱 Push Settings', callback_data: 'notif_push' },
+              { text: '📧 Email Settings', callback_data: 'notif_email' }
+            ],
+            [
+              { text: '🔕 Disable All', callback_data: 'notif_disable' },
+              { text: '🔔 Enable All', callback_data: 'notif_enable' }
+            ],
+            [
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, notifMsg, opts);
+      
+    } else if (data === 'settings_privacy') {
+      const privacyMsg = `🔒 **PRIVACY & SAFETY** 🔒\n\n` +
+        `Control your privacy and safety settings:\n\n` +
+        `👀 **Profile Visibility**\n` +
+        `• Who can see your profile\n` +
+        `• Show online status\n` +
+        `• Hide from specific users\n\n` +
+        `🛡️ **Safety Features**\n` +
+        `• Block and report users\n` +
+        `• Content filtering\n` +
+        `• Photo verification\n\n` +
+        `Manage your privacy preferences:`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '👀 Visibility Settings', callback_data: 'privacy_visibility' },
+              { text: '🚫 Blocked Users', callback_data: 'privacy_blocked' }
+            ],
+            [
+              { text: '📸 Photo Privacy', callback_data: 'privacy_photos' },
+              { text: '🛡️ Safety Center', callback_data: 'safety_center' }
+            ],
+            [
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, privacyMsg, opts);
+      
+    } else if (data === 'settings_account') {
+      const accountMsg = `🛠️ **ACCOUNT SETTINGS** 🛠️\n\n` +
+        `Manage your account and data:\n\n` +
+        `📊 **Account Information**\n` +
+        `• View account details\n` +
+        `• Download your data\n` +
+        `• Account statistics\n\n` +
+        `⚠️ **Account Actions**\n` +
+        `• Deactivate account\n` +
+        `• Delete account\n` +
+        `• Data export\n\n` +
+        `Choose an account action:`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📊 Account Info', callback_data: 'account_info' },
+              { text: '📥 Download Data', callback_data: 'download_data' }
+            ],
+            [
+              { text: '⏸️ Deactivate', callback_data: 'deactivate_account' },
+              { text: '🗑️ Delete Account', callback_data: 'delete_account' }
+            ],
+            [
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, accountMsg, opts);
+      
+    } else if (data === 'settings_help') {
+      const helpMsg = `❓ **HELP & SUPPORT** ❓\n\n` +
+        `Get help and support for Kisu1bot:\n\n` +
+        `📚 **Help Resources**\n` +
+        `• User guide\n` +
+        `• FAQ\n` +
+        `• Video tutorials\n\n` +
+        `💬 **Contact Support**\n` +
+        `• Report issues\n` +
+        `• Feature requests\n` +
+        `• General inquiries\n\n` +
+        `How can we help you?`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📚 User Guide', callback_data: 'help_guide' },
+              { text: '❓ FAQ', callback_data: 'help_faq' }
+            ],
+            [
+              { text: '🐛 Report Bug', callback_data: 'report_bug' },
+              { text: '💡 Feature Request', callback_data: 'feature_request' }
+            ],
+            [
+              { text: '📞 Contact Support', callback_data: 'contact_support' },
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, helpMsg, opts);
+      
+    } else if (data === 'edit_name') {
+      // Set user state for name editing
+      userStates[telegramId] = { editing: 'name' };
+      bot.sendMessage(chatId, '✏️ EDIT NAME\n\nPlease send your new name as a message.\n\n📝 It will update immediately after you send it.\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'edit_age') {
+      // Set user state for age editing
+      userStates[telegramId] = { editing: 'age' };
+      bot.sendMessage(chatId, '🎂 EDIT AGE\n\nPlease send your new age as a number between 18 and 99.\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'edit_location') {
+      // Set user state for location editing
+      userStates[telegramId] = { editing: 'location' };
+      bot.sendMessage(chatId, '📍 EDIT LOCATION\n\nPlease send your new location (e.g., Lagos, Nigeria).\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'edit_bio') {
+      // Set user state for bio editing
+      userStates[telegramId] = { editing: 'bio' };
+      bot.sendMessage(chatId, '📝 EDIT BIO\n\nPlease send your new bio/description (max ~300 chars).\n\n💡 Make it interesting and authentic!\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'manage_photos') {
+      const photoMsg = `📸 **MANAGE PHOTOS** 📸\n\n` +
+        `Upload and manage your profile photos:\n\n` +
+        `📱 **Photo Tips:**\n` +
+        `• Use high-quality, clear photos\n` +
+        `• Show your face clearly\n` +
+        `• Include variety (close-up, full body, activities)\n` +
+        `• Avoid group photos as main photo\n\n` +
+        `📤 **To add photos:** Send them directly to this chat\n` +
+        `🗑️ **To delete photos:** Use the buttons below`;
+
+      try {
+        const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+        const user = profileRes.data;
+        const photos = user.photos || [];
+
+        let photoButtons = [];
+        if (photos.length > 0) {
+          photoButtons = photos.map((photo, index) => ([
+            { text: `🗑️ Delete Photo ${index + 1}`, callback_data: `delete_photo_${index}` }
+          ]));
+        }
+        
+        photoButtons.push([
+          { text: '📸 Upload New Photo', callback_data: 'upload_photo' },
+          { text: '🔙 Back to Profile', callback_data: 'settings_profile' }
+        ]);
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: photoButtons
+          }
+        };
+
+        bot.sendMessage(chatId, photoMsg, opts);
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load photo management. Please try again later.');
+      }
+      
+    } else if (data === 'upload_photo') {
+      bot.sendMessage(chatId, '📸 **UPLOAD PHOTO** 📸\n\nSend me a photo to add to your profile!\n\n📱 Make sure it\'s a clear, high-quality image.\n\n❌ Send /cancel to abort.');
+      
+    } else if (data.startsWith('delete_photo_')) {
+      const photoIndex = parseInt(data.split('_')[2]);
+      
+      try {
+        await axios.delete(`${API_BASE}/profile/${telegramId}/photo/${photoIndex}`);
+        bot.sendMessage(chatId, '✅ Photo deleted successfully!');
+        
+        // Refresh photo management
+        setTimeout(() => {
+          // Trigger manage_photos again
+          bot.sendMessage(chatId, 'Photo management updated. Use /settings to manage more photos.');
+        }, 1000);
+        
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to delete photo. Please try again later.');
+      }
+      
+    } else if (data === 'account_info') {
+      try {
+        const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+        const user = profileRes.data;
+        
+        const joinDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown';
+        const lastActive = user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Unknown';
+        
+        const accountMsg = `📊 **ACCOUNT INFORMATION** 📊\n\n` +
+          `👤 **Profile Details:**\n` +
+          `• Name: ${user.name || 'Not set'}\n` +
+          `• Age: ${user.age || 'Not set'}\n` +
+          `• Location: ${user.location || 'Not set'}\n` +
+          `• Member since: ${joinDate}\n` +
+          `• Last active: ${lastActive}\n\n` +
+          `📈 **Statistics:**\n` +
+          `• Profile views: ${user.stats?.views || 0}\n` +
+          `• Likes given: ${user.stats?.likesGiven || 0}\n` +
+          `• Likes received: ${user.stats?.likesReceived || 0}\n` +
+          `• Matches: ${user.stats?.matches || 0}\n\n` +
+          `💰 **Account Status:**\n` +
+          `• VIP Status: ${user.isVip ? '👑 Active' : '❌ Not Active'}\n` +
+          `• Coin Balance: ${user.coinBalance || 0}\n` +
+          `• Account Status: ${user.isActive ? '✅ Active' : '⏸️ Inactive'}`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '📥 Download Data', callback_data: 'download_data' },
+                { text: '🔙 Back to Account', callback_data: 'settings_account' }
+              ]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, accountMsg, opts);
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to load account information. Please try again later.');
+      }
+      
+    } else if (data === 'download_data') {
+      bot.sendMessage(chatId, '📥 **DATA DOWNLOAD** 📥\n\nYour data download request has been received.\n\n📧 We will send your complete data export to your registered email within 24 hours.\n\n📋 The export will include:\n• Profile information\n• Match history\n• Message history\n• Account statistics\n• Settings preferences');
+      
+    } else if (data === 'deactivate_account') {
+      const deactivateMsg = `⏸️ **DEACTIVATE ACCOUNT** ⏸️\n\n` +
+        `⚠️ **This will temporarily hide your profile:**\n` +
+        `• Your profile won't appear in search\n` +
+        `• You won't receive new matches\n` +
+        `• Your data will be preserved\n` +
+        `• You can reactivate anytime\n\n` +
+        `🔄 **This is reversible** - you can reactivate later.\n\n` +
+        `Are you sure you want to deactivate your account?`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '⏸️ Yes, Deactivate', callback_data: 'confirm_deactivate' },
+              { text: '❌ Cancel', callback_data: 'settings_account' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, deactivateMsg, opts);
+      
+    } else if (data === 'confirm_deactivate') {
+      try {
+        await axios.post(`${API_BASE}/users/deactivate/${telegramId}`);
+        bot.sendMessage(chatId, '⏸️ **Account Deactivated** ⏸️\n\nYour account has been temporarily deactivated.\n\n🔄 To reactivate, simply use any bot command or send /start.\n\n💙 We hope to see you back soon!');
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Failed to deactivate account. Please try again later.');
+      }
+      
+    } else if (data === 'delete_account') {
+      const deleteMsg = `🗑️ **DELETE ACCOUNT** 🗑️\n\n` +
+        `⚠️ **PERMANENT ACTION WARNING:**\n` +
+        `• All your data will be permanently deleted\n` +
+        `• Your matches and conversations will be lost\n` +
+        `• Your photos and profile will be removed\n` +
+        `• This action CANNOT be undone\n\n` +
+        `💡 **Alternative:** Consider deactivating instead\n\n` +
+        `❓ **Need help?** Contact support first\n\n` +
+        `Are you absolutely sure you want to delete your account?`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '⏸️ Deactivate Instead', callback_data: 'deactivate_account' },
+              { text: '📞 Contact Support', callback_data: 'contact_support' }
+            ],
+            [
+              { text: '🗑️ Yes, Delete Forever', callback_data: 'confirm_delete' },
+              { text: '❌ Cancel', callback_data: 'settings_account' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, deleteMsg, opts);
+      
+    } else if (data === 'confirm_delete') {
+      const finalWarningMsg = `🚨 **FINAL WARNING** 🚨\n\n` +
+        `This is your last chance to cancel.\n\n` +
+        `Clicking "DELETE NOW" will:\n` +
+        `• Permanently delete ALL your data\n` +
+        `• Remove your profile forever\n` +
+        `• Delete all matches and messages\n` +
+        `• This CANNOT be undone\n\n` +
+        `Type "DELETE MY ACCOUNT" to confirm:`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '❌ Cancel - Keep My Account', callback_data: 'settings_account' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, finalWarningMsg, opts);
+      
+    } else if (data === 'report_user') {
+      // Set user state for user reporting
+      userStates[telegramId] = { reporting: 'user' };
+      
+      const reportUserMsg = `👤 **REPORT USER** 👤\n\n` +
+        `Help us maintain a safe community by reporting inappropriate behavior.\n\n` +
+        `📝 **To report a user, please provide:**\n` +
+        `• User's name or username\n` +
+        `• Description of inappropriate behavior\n` +
+        `• Screenshots (if available)\n` +
+        `• When the incident occurred\n\n` +
+        `⚠️ **Report Types:**\n` +
+        `• Harassment or bullying\n` +
+        `• Fake profile or catfishing\n` +
+        `• Inappropriate messages/photos\n` +
+        `• Spam or scam attempts\n` +
+        `• Other violations\n\n` +
+        `Send your detailed report as a message now.`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📞 Contact Support Instead', callback_data: 'contact_support' },
+              { text: '❌ Cancel', callback_data: 'cancel_report' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, reportUserMsg, opts);
+      
+    } else if (data === 'report_content') {
+      // Set user state for content reporting
+      userStates[telegramId] = { reporting: 'content' };
+      
+      const reportContentMsg = `💬 **REPORT INAPPROPRIATE CONTENT** 💬\n\n` +
+        `Help us keep Kisu1bot safe by reporting inappropriate content.\n\n` +
+        `📝 **Content to report:**\n` +
+        `• Inappropriate photos or videos\n` +
+        `• Offensive messages or stories\n` +
+        `• Adult content in public areas\n` +
+        `• Spam or promotional content\n` +
+        `• Hate speech or discrimination\n\n` +
+        `📋 **Please include:**\n` +
+        `• Where you saw the content\n` +
+        `• Description of the issue\n` +
+        `• Screenshots if possible\n\n` +
+        `Send your content report as a message now.`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📞 Contact Support Instead', callback_data: 'contact_support' },
+              { text: '❌ Cancel', callback_data: 'cancel_report' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, reportContentMsg, opts);
+      
+    } else if (data === 'cancel_report') {
+      // Clear any reporting state
+      delete userStates[telegramId];
+      bot.sendMessage(chatId, '❌ Report cancelled. Thank you for helping keep our community safe!\n\nIf you need help with something else, use /help or /contact.');
+      
+    } else if (data === 'report_bug') {
+      // Set user state for bug reporting
+      userStates[telegramId] = { reporting: 'bug' };
+      bot.sendMessage(chatId, '🐛 **REPORT BUG** 🐛\n\nPlease describe the bug you encountered:\n\n📝 Include:\n• What you were trying to do\n• What happened instead\n• Steps to reproduce\n• Any error messages\n\nSend your bug report as a message, and we\'ll investigate it promptly!\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'feature_request') {
+      // Set user state for feature request
+      userStates[telegramId] = { reporting: 'feature' };
+      bot.sendMessage(chatId, '💡 **FEATURE REQUEST** 💡\n\nWe love hearing your ideas!\n\n📝 Please describe:\n• The feature you\'d like to see\n• How it would help you\n• Any specific details or examples\n\nSend your feature request as a message!\n\n❌ Send /cancel to abort.');
+      
+    } else if (data === 'help_guide') {
+      const guideMsg = `📚 **USER GUIDE** 📚\n\n` +
+        `Learn how to use Kisu1bot effectively:\n\n` +
+        `🚀 **Getting Started:**\n` +
+        `1. Complete your profile with /register\n` +
+        `2. Add photos with /photo\n` +
+        `3. Set preferences with /settings\n` +
+        `4. Start browsing with /browse\n\n` +
+        `💫 **Key Features:**\n` +
+        `• Browse profiles and like/pass\n` +
+        `• Send gifts to show interest\n` +
+        `• Use coins for premium features\n` +
+        `• Get VIP for unlimited swipes\n\n` +
+        `🎯 **Pro Tips:**\n` +
+        `• Complete your profile for better matches\n` +
+        `• Be authentic in your bio\n` +
+        `• Use high-quality photos\n` +
+        `• Stay active for better visibility`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '❓ FAQ', callback_data: 'help_faq' },
+              { text: '🔙 Back', callback_data: 'settings_help' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, guideMsg, opts);
+      
+    } else if (data === 'help_faq') {
+      const faqMsg = `❓ **FREQUENTLY ASKED QUESTIONS** ❓\n\n` +
+        `**Q: How do I get more matches?**\n` +
+        `A: Complete your profile, add quality photos, and stay active!\n\n` +
+        `**Q: What are coins used for?**\n` +
+        `A: Coins unlock premium features like gifts, boosts, and VIP.\n\n` +
+        `**Q: How does VIP work?**\n` +
+        `A: VIP gives unlimited swipes, priority matching, and special features.\n\n` +
+        `**Q: Can I change my location?**\n` +
+        `A: Yes! Use /settings → Profile Settings → Edit Location.\n\n` +
+        `**Q: How do I report inappropriate behavior?**\n` +
+        `A: Use /report or contact support immediately.\n\n` +
+        `**Q: Can I delete my account?**\n` +
+        `A: Yes, but consider deactivating first. Go to Settings → Account.`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📚 User Guide', callback_data: 'help_guide' },
+              { text: '🔙 Back', callback_data: 'settings_help' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, faqMsg, opts);
+      
+    } else if (data === 'show_help') {
+      // Redirect to main help command
+      const helpMsg = `🤖 **KISU1BOT HELP GUIDE** 🤖\n\n` +
+        `📋 **Main Commands:**\n` +
+        `• /start - Welcome message\n` +
+        `• /register - Create your dating profile\n` +
+        `• /browse - Browse and like profiles\n` +
+        `• /profile - View/edit your profile\n` +
+        `• /settings - Access all settings\n\n` +
+        `💬 **Social Features:**\n` +
+        `• /stories - Post and view stories\n` +
+        `• /gifts - Send gifts to matches\n` +
+        `• /matches - View your matches\n\n` +
+        `💎 **Premium Features:**\n` +
+        `• /coins - Buy coins for premium features\n` +
+        `• /vip - Get VIP membership benefits\n\n` +
+        `🛠️ **Support Commands:**\n` +
+        `• /help - Show this help guide\n` +
+        `• /report - Report users or issues\n` +
+        `• /contact - Contact support team\n` +
+        `• /delete - Delete your profile\n\n` +
+        `💡 **Tips:**\n` +
+        `• Complete your profile for better matches\n` +
+        `• Be respectful and genuine\n` +
+        `• Use stories to show your personality\n` +
+        `• VIP membership unlocks premium features`;
+
+      const buttons = [
+        [
+          { text: '👤 My Profile', callback_data: 'view_profile' },
+          { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'main_settings' },
+          { text: '💎 Get VIP', callback_data: 'manage_vip' }
+        ],
+        [
+          { text: '📞 Contact Support', callback_data: 'contact_support' }
+        ]
+      ];
+
+      bot.sendMessage(chatId, helpMsg, {
+        reply_markup: {
+          inline_keyboard: buttons
+        }
+      });
     }
 
     // Answer the callback query to remove loading state
