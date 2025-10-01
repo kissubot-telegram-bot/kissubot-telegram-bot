@@ -1,7 +1,17 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 app.use(bodyParser.json());
@@ -60,6 +70,17 @@ mongoose.connection.on('disconnected', () => {
 // Initial connection
 connectWithRetry();
 
+// Configure multer for Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'kisu1bot_profiles',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+  },
+});
+
+const upload = multer({ storage: storage });
+
 // User Schema
 const userSchema = new mongoose.Schema({
   // Basic Info
@@ -69,6 +90,7 @@ const userSchema = new mongoose.Schema({
   age: Number,
   location: String,
   bio: String,
+  profilePhoto: String, // Add profile photo field
   
   // Currency
   coins: { type: Number, default: 0 },
@@ -1372,6 +1394,41 @@ app.delete('/users/delete/:telegramId', async (req, res) => {
   } catch (err) {
     console.error('Deletion error:', err);
     res.status(500).json({ error: 'Failed to delete profile' });
+  }
+});
+
+// Upload profile photo endpoint
+app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const imageUrl = req.file.path;
+    const telegramId = req.params.telegramId;
+
+    const user = await User.findOneAndUpdate(
+      { telegramId },
+      { profilePhoto: imageUrl },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ 
+      message: 'Photo uploaded successfully', 
+      imageUrl, 
+      user: {
+        telegramId: user.telegramId,
+        name: user.name,
+        profilePhoto: user.profilePhoto
+      }
+    });
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
   }
 });
 
