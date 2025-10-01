@@ -57,6 +57,9 @@ console.log('Bot initialized and starting...');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
 
+// Detect production environment
+const isProduction = process.env.NODE_ENV === 'production' || (process.env.PORT && process.env.PORT !== '3001');
+
 // Webhook setup for production deployment
 const PORT = process.env.PORT || 3001;
 
@@ -4177,7 +4180,6 @@ bot.on('callback_query', async (callbackQuery) => {
 });
 
 // In production (detect by Render's PORT or explicit NODE_ENV), start the API server and use webhook mode
-const isProduction = process.env.NODE_ENV === 'production' || (process.env.PORT && process.env.PORT !== '3001');
 if (isProduction) {
   console.log('Production mode: Starting API server and using webhook...');
   const { spawn } = require('child_process');
