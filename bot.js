@@ -76,7 +76,7 @@ app.get('/', (req, res) => {
 });
 
 // Set webhook URL for production
-if (process.env.NODE_ENV === 'production' || process.env.PORT) {
+if (isProduction) {
   const webhookUrl = `https://kissubot-telegram-bot.onrender.com/bot${BOT_TOKEN}`;
   bot.setWebHook(webhookUrl)
     .then(() => {
@@ -4176,8 +4176,9 @@ bot.on('callback_query', async (callbackQuery) => {
   }
 });
 
-// In production (or if PORT is set by Render), start the API server and use webhook mode
-if (process.env.NODE_ENV === 'production' || process.env.PORT) {
+// In production (detect by Render's PORT or explicit NODE_ENV), start the API server and use webhook mode
+const isProduction = process.env.NODE_ENV === 'production' || (process.env.PORT && process.env.PORT !== '3001');
+if (isProduction) {
   console.log('Production mode: Starting API server and using webhook...');
   const { spawn } = require('child_process');
   
