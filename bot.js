@@ -16,9 +16,7 @@ const API_BASE = process.env.NODE_ENV === 'production'
 // Bot configuration
 // Use webhook for production (Render), polling for local development
 const bot = new TelegramBot(BOT_TOKEN, {
-  webHook: process.env.NODE_ENV === 'production' ? {
-    port: process.env.PORT || 3001
-  } : false,
+  webHook: false, // We'll handle webhook manually via Express
   polling: process.env.NODE_ENV !== 'production' ? {
     interval: 300, // Poll interval in milliseconds
     autoStart: true, // Start polling automatically
@@ -56,6 +54,8 @@ bot.on('webhook_error', (error) => {
 });
 
 console.log('Bot initialized and starting...');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
 
 // Webhook setup for production deployment
 const PORT = process.env.PORT || 3001;
@@ -76,7 +76,7 @@ app.get('/', (req, res) => {
 });
 
 // Set webhook URL for production
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' || process.env.PORT) {
   const webhookUrl = `https://kissubot-telegram-bot.onrender.com/bot${BOT_TOKEN}`;
   bot.setWebHook(webhookUrl)
     .then(() => {
@@ -4176,20 +4176,21 @@ bot.on('callback_query', async (callbackQuery) => {
   }
 });
 
-// Start the Express server for webhook handling
-app.listen(PORT, () => {
-  console.log(`Bot server running on port ${PORT}`);
-});
-
-// In production, also start the API server
-if (process.env.NODE_ENV === 'production') {
-  console.log('Starting API server in production mode...');
+// In production (or if PORT is set by Render), start the API server and use webhook mode
+if (process.env.NODE_ENV === 'production' || process.env.PORT) {
+  console.log('Production mode: Starting API server and using webhook...');
   const { spawn } = require('child_process');
   
+  // Start the API server on port 3000
   const server = spawn('node', ['server.js'], {
     stdio: 'inherit',
     cwd: __dirname,
     env: { ...process.env, PORT: '3000' }
+  });
+
+  // Start Express server for webhook on Render's port
+  app.listen(PORT, () => {
+    console.log(`Webhook server running on port ${PORT}`);
   });
 
   server.on('close', (code) => {
@@ -4201,6 +4202,11 @@ if (process.env.NODE_ENV === 'production') {
     console.log('Received SIGTERM, shutting down gracefully...');
     server.kill();
     process.exit();
+  });
+} else {
+  // Development mode: start Express server for local testing
+  app.listen(PORT, () => {
+    console.log(`Bot server running on port ${PORT} (development mode)`);
   });
 }
 
