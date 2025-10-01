@@ -11,14 +11,18 @@ app.use(bodyParser.json());
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const API_BASE = process.env.API_BASE;
 // Bot configuration
+// Use webhook for production (Render), polling for local development
 const bot = new TelegramBot(BOT_TOKEN, {
-  polling: {
+  webHook: process.env.NODE_ENV === 'production' ? {
+    port: process.env.PORT || 3001
+  } : false,
+  polling: process.env.NODE_ENV !== 'production' ? {
     interval: 300, // Poll interval in milliseconds
     autoStart: true, // Start polling automatically
     params: {
       timeout: 10 // Long polling timeout in seconds
     }
-  }
+  } : false
 });
 
 // Error handling for polling errors
@@ -50,15 +54,35 @@ bot.on('webhook_error', (error) => {
 
 console.log('Bot initialized and starting...');
 
-// Webhook setup (commented out for local development)
+// Webhook setup for production deployment
 const PORT = process.env.PORT || 3001;
-// app.post(`/bot${BOT_TOKEN}`, (req, res) => {
-//   bot.processUpdate(req.body);
-//   res.sendStatus(200);
-// });
 
-// Start webhook (commented out for local development)
-// bot.setWebHook(`${process.env.RENDER_EXTERNAL_URL}/bot${BOT_TOKEN}`);
+// Webhook endpoint for Telegram
+app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Kisu1bot is running!', 
+    timestamp: new Date().toISOString(),
+    mode: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Set webhook URL for production
+if (process.env.NODE_ENV === 'production') {
+  const webhookUrl = `https://kissubot-telegram-bot.onrender.com/bot${BOT_TOKEN}`;
+  bot.setWebHook(webhookUrl)
+    .then(() => {
+      console.log('Webhook set successfully:', webhookUrl);
+    })
+    .catch((error) => {
+      console.error('Failed to set webhook:', error);
+    });
+}
 
 const userMatchQueue = {}; // Temporary in-memory queue
 const userStates = {}; // Temporary user states for multi-step actions
