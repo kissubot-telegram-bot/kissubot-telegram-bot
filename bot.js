@@ -1,4 +1,4 @@
-﻿// bot.js
+// bot.js
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
@@ -555,6 +555,8 @@ bot.on('message', async (msg) => {
         await bot.sendMessage(chatId, '❌ Edit cancelled.');
       } else if (state.reporting) {
         await bot.sendMessage(chatId, '❌ Report cancelled. Thank you for helping keep our community safe!');
+      } else if (state.uploadingPhoto) {
+        await bot.sendMessage(chatId, '❌ Photo upload cancelled.');
       }
       return;
     }
@@ -2724,66 +2726,13 @@ bot.onText(/\/priority/, async (msg) => {
   }
 });
 
-// Handle photo uploads for stories
-bot.on('photo', async (msg) => {
+// Photo upload command
+bot.onText(/\/photo/, async (msg) => {
   const chatId = msg.chat.id;
   const telegramId = msg.from.id;
   
-  // Check if user is in story posting mode
-  if (userStates[telegramId] && userStates[telegramId].awaitingStory) {
-    try {
-      // Get the highest resolution photo
-      const photo = msg.photo[msg.photo.length - 1];
-      const fileId = photo.file_id;
-      
-      // Get file info from Telegram
-      const file = await bot.getFile(fileId);
-      const photoUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-      
-      // Get caption if provided
-      const caption = msg.caption || '';
-      
-      // Post story to backend
-      const response = await axios.post(`${API_BASE}/stories/post/${telegramId}`, {
-        mediaUrl: photoUrl,
-        mediaType: 'photo',
-        caption: caption,
-        duration: 5 // 5 seconds for photos
-      });
-      
-      // Clear user state
-      delete userStates[telegramId];
-      
-      // Send success message
-      const successMsg = `📸 **STORY POSTED!** 📸\n\n` +
-        `✨ Your story is now live for 24 hours!\n\n` +
-        `📊 **What's next?**\n` +
-        `• Share more stories to boost visibility\n` +
-        `• Check your story views and analytics\n` +
-        `• View stories from other users\n` +
-        `• Use /stories to manage your stories!`;
-      
-      await bot.sendMessage(chatId, successMsg, {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📱 View My Stories', callback_data: 'my_stories' },
-              { text: '👀 View Others', callback_data: 'view_stories' }
-            ],
-            [
-              { text: '📊 Story Analytics', callback_data: 'story_stats' }
-            ]
-          ]
-        },
-        parse_mode: 'Markdown'
-      });
-      
-    } catch (err) {
-      console.error('Error posting story:', err);
-      delete userStates[telegramId];
-      bot.sendMessage(chatId, '❌ Failed to post your story. Please try again later.');
-    }
-  }
+  userStates[telegramId] = { uploadingPhoto: true };
+  bot.sendMessage(chatId, '📸 **UPLOAD PHOTO** 📸\n\nSend me a photo to add to your profile!\n\n📱 Make sure it\'s a clear, high-quality image.\n\n❌ Send /cancel to abort.');
 });
 
 // Handle video uploads for stories
@@ -2845,6 +2794,110 @@ bot.on('video', async (msg) => {
       console.error('Error posting video story:', err);
       delete userStates[telegramId];
       bot.sendMessage(chatId, '❌ Failed to post your video story. Please try again later.');
+    }
+  }
+});
+
+// Photo upload handler
+bot.on('photo', async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  // Check if user is in photo upload mode
+  if (userStates[telegramId] && userStates[telegramId].uploadingPhoto) {
+    try {
+      // Get the highest resolution photo
+      const photo = msg.photo[msg.photo.length - 1];
+      const fileId = photo.file_id;
+      const filePath = await bot.getFileLink(fileId);
+      
+      // Upload photo to backend
+      const response = await axios.post(`${API_BASE}/profile/${telegramId}/photo`, {
+        photoUrl: filePath
+      });
+      
+      // Clear user state
+      delete userStates[telegramId];
+      
+      // Send success message
+      const successMsg = `📸 **PHOTO UPLOADED!** 📸\n\n` +
+        `✅ Your photo has been added to your profile!\n\n` +
+        `📱 **Next Steps:**\n` +
+        `• Use /settings to manage more photos\n` +
+        `• Use /browse to start meeting people\n` +
+        `• Check /matches to see your connections`;
+
+      const successOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📸 Manage Photos', callback_data: 'manage_photos' },
+              { text: '👀 Browse Profiles', callback_data: 'browse_profiles' }
+            ],
+            [
+              { text: '⚙️ Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, successMsg, successOpts);
+      
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      delete userStates[telegramId];
+      bot.sendMessage(chatId, '❌ Failed to upload your photo. Please try again later.\n\nMake sure the image is clear and not too large.');
+    }
+  }
+  
+  // Check if user is in story posting mode (existing functionality)
+  else if (userStates[telegramId] && userStates[telegramId].awaitingStory) {
+    try {
+      // Get the highest resolution photo
+      const photo = msg.photo[msg.photo.length - 1];
+      const fileId = photo.file_id;
+      const filePath = await bot.getFileLink(fileId);
+      
+      // Post story to backend
+      const response = await axios.post(`${API_BASE}/stories/post/${telegramId}`, {
+        mediaUrl: filePath,
+        type: 'photo',
+        caption: msg.caption || '',
+        duration: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+      });
+      
+      // Clear user state
+      delete userStates[telegramId];
+      
+      // Send success message
+      const successMsg = `📸 **STORY POSTED!** 📸\n\n` +
+        `✅ Your story is now live for 24 hours!\n\n` +
+        `📊 **Track Performance:**\n` +
+        `• Use /stories to view analytics\n` +
+        `• See who viewed your story\n` +
+        `• Post more stories to stay active\n\n` +
+        `💡 **Pro Tip:** Regular stories get more profile visits!`;
+
+      const storyOpts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📊 View Analytics', callback_data: 'story_analytics' },
+              { text: '📸 Post Another', callback_data: 'post_story' }
+            ],
+            [
+              { text: '👀 View Stories', callback_data: 'view_stories' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, successMsg, storyOpts);
+      
+    } catch (err) {
+      console.error('Error posting story:', err);
+      delete userStates[telegramId];
+      bot.sendMessage(chatId, '❌ Failed to post your story. Please try again later.');
     }
   }
 });
@@ -3908,6 +3961,7 @@ bot.on('callback_query', async (callbackQuery) => {
       }
       
     } else if (data === 'upload_photo') {
+      userStates[telegramId] = { uploadingPhoto: true };
       bot.sendMessage(chatId, '📸 **UPLOAD PHOTO** 📸\n\nSend me a photo to add to your profile!\n\n📱 Make sure it\'s a clear, high-quality image.\n\n❌ Send /cancel to abort.');
       
     } else if (data.startsWith('delete_photo_')) {
