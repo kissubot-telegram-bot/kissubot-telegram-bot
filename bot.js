@@ -1,4 +1,4 @@
-// bot.js
+﻿// bot.js
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
@@ -673,8 +673,65 @@ bot.on('callback_query', async (query) => {
   } else {
     switch(data) {
       case 'edit_profile':
-        bot.sendMessage(chatId, 'To edit your profile, use these commands:\n/setname - Set your name\n/setage - Set your age\n/setlocation - Set your location\n/setbio - Set your bio');
-        break;
+        case 'settings_profile':
+          try {
+            const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+            const user = profileRes.data;
+  
+            const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
+              `📝 **Current Information:**\n` +
+              `• Name: ${user.name || 'Not set'}\n` +
+              `• Age: ${user.age || 'Not set'}\n` +
+              `• Location: ${user.location || 'Not set'}\n` +
+              `• Bio: ${user.bio || 'Not set'}\n\n` +
+              `✏️ **What would you like to edit?**`;
+  
+            const buttons = [
+              [
+                { text: '📝 Edit Name', callback_data: 'edit_name' },
+                { text: '🎂 Edit Age', callback_data: 'edit_age' }
+              ],
+              [
+                { text: '📍 Edit Location', callback_data: 'edit_location' },
+                { text: '💭 Edit Bio', callback_data: 'edit_bio' }
+              ],
+              [
+                { text: '📸 Manage Photos', callback_data: 'manage_photos' }
+              ],
+              [
+                { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+              ]
+            ];
+  
+            bot.sendMessage(chatId, profileMsg, {
+              reply_markup: {
+                inline_keyboard: buttons
+              }
+            });
+          } catch (err) {
+            bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
+          }
+          break;
+  
+        case 'edit_name':
+          userStates[telegramId] = { editing: 'name' };
+          bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:');
+          break;
+  
+        case 'edit_age':
+          userStates[telegramId] = { editing: 'age' };
+          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-99):');
+          break;
+  
+        case 'edit_location':
+          userStates[telegramId] = { editing: 'location' };
+          bot.sendMessage(chatId, '📍 **Edit Location**\n\nPlease enter your city/location:');
+          break;
+  
+        case 'edit_bio':
+          userStates[telegramId] = { editing: 'bio' };
+          bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
+          break;
       case 'view_stories':
         try {
           const storiesRes = await axios.get(`${API_BASE}/stories/recent/${telegramId}`);
