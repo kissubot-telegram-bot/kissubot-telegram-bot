@@ -270,7 +270,7 @@ bot.onText(/\/contact/, (msg) => {
     `Monday - Friday: 9 AM - 6 PM UTC\n` +
     `Weekend: Limited support\n\n` +
     `📧 **Contact Methods:**\n` +
-    `• Email: support@kisu1bot.com\n` +
+    `• Email: spprtksbt@gmail.com\n` +
     `• Response time: 24-48 hours\n\n` +
     `💬 **Common Issues:**\n` +
     `• Profile not showing up\n` +
@@ -513,19 +513,6 @@ bot.onText(/\/browse/, async (msg) => {
   }
 });
 
-// PROFILE
-bot.onText(/\/profile/, async (msg) => {
-  const chatId = msg.chat.id;
-  // Placeholder: you can fetch real user data from DB later
-  bot.sendMessage(chatId, `🧍 Your Profile:
-
-• Name: (not set)
-• Age: (not set)
-• Gender: (not set)
-• Bio: (not set)
-
-Update coming soon!`);
-});
 
 // MATCHES
 bot.onText(/\/matches/, async (msg) => {
@@ -1951,7 +1938,7 @@ bot.on('callback_query', async (query) => {
       case 'email_support':
         bot.sendMessage(chatId, `📧 **EMAIL SUPPORT** 📧\n\n` +
           `Send your support request to:\n` +
-          `📮 **support@kisu1bot.com**\n\n` +
+          `📮 **spprtksbt@gmail.com**\n\n` +
           `📋 **Please include:**\n` +
           `• Your Telegram username: @${query.from.username || 'N/A'}\n` +
           `• Your user ID: ${telegramId}\n` +
@@ -1969,7 +1956,7 @@ bot.on('callback_query', async (query) => {
           `Monday - Friday: 9 AM - 6 PM UTC\n` +
           `Weekend: Limited support\n\n` +
           `📧 **Contact Methods:**\n` +
-          `• Email: support@kisu1bot.com\n` +
+          `• Email: spprtksbt@gmail.com\n` +
           `• Response time: 24-48 hours\n\n` +
           `💬 **Common Issues:**\n` +
           `• Profile not showing up\n` +
