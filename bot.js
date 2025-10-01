@@ -74,8 +74,27 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'Kisu1bot is running!', 
     timestamp: new Date().toISOString(),
-    mode: process.env.NODE_ENV || 'development'
+    mode: process.env.NODE_ENV || 'development',
+    isProduction: isProduction,
+    webhookEndpoint: `/bot${BOT_TOKEN ? '[TOKEN_SET]' : '[TOKEN_MISSING]'}`
   });
+});
+
+// Debug endpoint to check webhook status
+app.get('/webhook-info', async (req, res) => {
+  try {
+    const webhookInfo = await bot.getWebHookInfo();
+    res.json({
+      webhook: webhookInfo,
+      botToken: BOT_TOKEN ? 'SET' : 'MISSING',
+      expectedUrl: `https://kissubot-telegram-bot.onrender.com/bot${BOT_TOKEN ? '[TOKEN]' : '[MISSING]'}`
+    });
+  } catch (error) {
+    res.json({
+      error: error.message,
+      botToken: BOT_TOKEN ? 'SET' : 'MISSING'
+    });
+  }
 });
 
 // Set webhook URL for production
