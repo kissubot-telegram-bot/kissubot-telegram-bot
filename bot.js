@@ -4176,15 +4176,33 @@ bot.on('callback_query', async (callbackQuery) => {
   }
 });
 
+// Start the Express server for webhook handling
 app.listen(PORT, () => {
   console.log(`Bot server running on port ${PORT}`);
 });
 
+// In production, also start the API server
+if (process.env.NODE_ENV === 'production') {
+  console.log('Starting API server in production mode...');
+  const { spawn } = require('child_process');
+  
+  const server = spawn('node', ['server.js'], {
+    stdio: 'inherit',
+    cwd: __dirname,
+    env: { ...process.env, PORT: '3000' }
+  });
 
+  server.on('close', (code) => {
+    console.log(`API server process exited with code ${code}`);
+  });
 
-
-
-
+  // Handle process termination gracefully
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down gracefully...');
+    server.kill();
+    process.exit();
+  });
+}
 
 
 

@@ -1,7 +1,7 @@
 {
   "name": "kisu1bot-telegram-bot",
   "version": "1.0.0",
-  "main": "start.js",
+  "main": "bot.js",
   "scripts": {
     "start": "node start.js",
     "dev": "node bot.js"
