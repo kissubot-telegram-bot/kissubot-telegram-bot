@@ -1,9 +1,10 @@
 {
   "name": "kisu1bot-telegram-bot",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "start.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node start.js",
+    "dev": "node bot.js"
   },
   "dependencies": {
     "express": "^4.18.2",

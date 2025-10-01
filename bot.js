@@ -9,7 +9,10 @@ const app = express();
 app.use(bodyParser.json());
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE;
+// Use localhost for development, deployed URL for production
+const API_BASE = process.env.NODE_ENV === 'production' 
+  ? 'http://localhost:3000'  // Server runs on same instance in production
+  : (process.env.API_BASE || 'http://localhost:3000');
 // Bot configuration
 // Use webhook for production (Render), polling for local development
 const bot = new TelegramBot(BOT_TOKEN, {
