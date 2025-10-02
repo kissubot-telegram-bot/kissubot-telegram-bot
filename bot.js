@@ -750,15 +750,11 @@ bot.on('callback_query', async (query) => {
           bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-99):');
           break;
   
-        case 'edit_location':
-          userStates[telegramId] = { editing: 'location' };
-          bot.sendMessage(chatId, '📍 **Edit Location**\n\nPlease enter your city/location:');
-          break;
-  
         case 'edit_bio':
           userStates[telegramId] = { editing: 'bio' };
           bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
           break;
+
       case 'view_stories':
         try {
           const storiesRes = await axios.get(`${API_BASE}/stories/recent/${telegramId}`);
