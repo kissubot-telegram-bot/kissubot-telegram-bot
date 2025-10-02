@@ -2832,9 +2832,10 @@ bot.on('photo', async (msg) => {
       const fileId = photo.file_id;
       const filePath = await bot.getFileLink(fileId);
       
-      // Upload photo to backend
-      const response = await axios.post(`${API_BASE}/profile/${telegramId}/photo`, {
-        photoUrl: filePath
+      // Upload photo to backend using the correct endpoint
+      const UPLOAD_URL = 'https://kisu1bot-backend-repo.onrender.com/api/upload-photo';
+      const response = await axios.post(`${UPLOAD_URL}/${telegramId}`, {
+        image: filePath
       });
       
       // Clear user state
