@@ -3939,7 +3939,7 @@ bot.on('callback_query', async (callbackQuery) => {
     } else if (data === 'edit_location') {
       // Set user state for location editing
       userStates[telegramId] = { editing: 'location' };
-      bot.sendMessage(chatId, '📍 EDIT LOCATION\n\nPlease send your new location (e.g., Lagos, Nigeria).\n\n❌ Send /cancel to abort.');
+      bot.sendMessage(chatId, '📍 EDIT LOCATION\n\nPlease send your new location (e.g., USA).\n\n❌ Send /cancel to abort.');
       
     } else if (data === 'edit_bio') {
       // Set user state for bio editing
