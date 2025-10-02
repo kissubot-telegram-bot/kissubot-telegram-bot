@@ -2,12 +2,15 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
+
+// Configure axios with timeout and retry logic
+axios.defaults.timeout = 10000; // 10 second timeout
+axios.defaults.headers.common['Connection'] = 'keep-alive';
 const express = require('express');
 const bodyParser = require('body-parser');
 
 const app = express();
 app.use(bodyParser.json());
-
 const BOT_TOKEN = process.env.BOT_TOKEN;
 // Use localhost for development, deployed URL for production
 const API_BASE = process.env.NODE_ENV === 'production' 
@@ -111,6 +114,41 @@ if (isProduction) {
 
 const userMatchQueue = {}; // Temporary in-memory queue
 const userStates = {}; // Temporary user states for multi-step actions
+
+// Performance optimizations
+const userCache = new Map(); // Cache user profiles for 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper function to get cached user data
+async function getCachedUserProfile(telegramId) {
+  const cacheKey = `profile_${telegramId}`;
+  const cached = userCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+  
+  try {
+    const res = await axios.get(`${API_BASE}/profile/${telegramId}`);
+    userCache.set(cacheKey, {
+      data: res.data,
+      timestamp: Date.now()
+    });
+    return res.data;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Clear cache periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of userCache.entries()) {
+    if (now - value.timestamp > CACHE_DURATION) {
+      userCache.delete(key);
+    }
+  }
+}, CACHE_DURATION);
 
 function sendNextProfile(chatId, telegramId) {
   const queue = userMatchQueue[telegramId];
@@ -358,8 +396,8 @@ bot.onText(/\/start/, async (msg) => {
   try {
     // Check if user is already registered
     try {
-      const existingUser = await axios.get(`${API_BASE}/profile/${telegramId}`);
-      if (existingUser.data) {
+      const existingUser = await getCachedUserProfile(telegramId);
+      if (existingUser) {
         return bot.sendMessage(
           chatId,
           '✅ You\'re already registered!\n\n' +
@@ -414,8 +452,8 @@ bot.onText(/\/register/, async (msg) => {
   try {
     // Check if user is already registered
     try {
-      const existingUser = await axios.get(`${API_BASE}/profile/${telegramId}`);
-      if (existingUser.data) {
+      const existingUser = await getCachedUserProfile(telegramId);
+      if (existingUser) {
         return bot.sendMessage(
           chatId,
           '✅ You\'re already registered!\n\n' +
