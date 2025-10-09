@@ -28,6 +28,17 @@ const userStates = {};
 
 console.log('🤖 Kisu1bot is starting...');
 
+// Get bot information
+bot.getMe().then((botInfo) => {
+  console.log('🤖 Bot Details:');
+  console.log('Name:', botInfo.first_name);
+  console.log('Username: @' + botInfo.username);
+  console.log('ID:', botInfo.id);
+  console.log('Description:', botInfo.description || 'No description set');
+}).catch((error) => {
+  console.error('❌ Failed to get bot info:', error.message);
+});
+
 // Setup all command modules
 setupAuthCommands(bot);
 setupProfileCommands(bot);
