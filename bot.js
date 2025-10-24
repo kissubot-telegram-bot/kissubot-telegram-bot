@@ -105,7 +105,7 @@ if (isProduction) {
   const webhookUrl = `https://kissubot-telegram-bot.onrender.com/bot${BOT_TOKEN}`;
   bot.setWebHook(webhookUrl)
     .then(() => {
-      console.log('Webhook set successfully:', webhookUrl);
+      console.log('Webhook set successfully:', webhookUrl.replace(BOT_TOKEN, '[TOKEN_MASKED]'));
     })
     .catch((error) => {
       console.error('Failed to set webhook:', error);
