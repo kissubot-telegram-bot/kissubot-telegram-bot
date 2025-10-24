@@ -4331,31 +4331,17 @@ bot.on('callback_query', async (callbackQuery) => {
   }
 });
 
-// In production (detect by Render's PORT or explicit NODE_ENV), start the API server and use webhook mode
+// In production (detect by Render's PORT or explicit NODE_ENV), use webhook mode without spawning API server here
 if (isProduction) {
-  console.log('Production mode: Starting API server and using webhook...');
-  const { spawn } = require('child_process');
-  
-  // Start the API server on port 3000
-  const server = spawn('node', ['server.js'], {
-    stdio: 'inherit',
-    cwd: __dirname,
-    env: { ...process.env, PORT: '3000' }
-  });
-
-  // Start Express server for webhook on Render's port
+  console.log('Production mode: Using webhook...');
+  // Only start the Express server for webhook; server.js should be started separately (e.g., by start.js or hosting platform)
   app.listen(PORT, () => {
     console.log(`Webhook server running on port ${PORT}`);
-  });
-
-  server.on('close', (code) => {
-    console.log(`API server process exited with code ${code}`);
   });
 
   // Handle process termination gracefully
   process.on('SIGTERM', () => {
     console.log('Received SIGTERM, shutting down gracefully...');
-    server.kill();
     process.exit();
   });
 } else {
