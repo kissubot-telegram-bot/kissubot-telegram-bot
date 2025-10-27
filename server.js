@@ -402,6 +402,146 @@ app.get('/likes/:telegramId', async (req, res) => {
   }
 });
 
+// Like a user
+app.post('/like', async (req, res) => {
+  const { fromUserId, toUserId } = req.body;
+  
+  try {
+    // Find the target user
+    const targetUser = await User.findOne({ telegramId: toUserId });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found' });
+    }
+
+    // Find the user who is liking
+    const fromUser = await User.findOne({ telegramId: fromUserId });
+    if (!fromUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already liked
+    if (targetUser.likes.includes(fromUserId)) {
+      return res.status(400).json({ error: 'User already liked' });
+    }
+
+    // Add like
+    targetUser.likes.push(fromUserId);
+    await targetUser.save();
+
+    // Check if it's a match (both users liked each other)
+    const isMatch = fromUser.likes.includes(toUserId);
+    
+    if (isMatch) {
+      // Create match for both users
+      const matchData = {
+        userId: toUserId,
+        matchedAt: new Date()
+      };
+      const reverseMatchData = {
+        userId: fromUserId,
+        matchedAt: new Date()
+      };
+
+      // Add match to both users if not already exists
+      if (!fromUser.matches.some(match => match.userId === toUserId)) {
+        fromUser.matches.push(matchData);
+        await fromUser.save();
+      }
+      if (!targetUser.matches.some(match => match.userId === fromUserId)) {
+        targetUser.matches.push(reverseMatchData);
+        await targetUser.save();
+      }
+
+      res.json({ message: 'Like sent successfully', isMatch: true });
+    } else {
+      res.json({ message: 'Like sent successfully', isMatch: false });
+    }
+  } catch (err) {
+    console.error('Like error:', err);
+    res.status(500).json({ error: 'Failed to send like' });
+  }
+});
+
+// Pass a user
+app.post('/pass', async (req, res) => {
+  const { fromUserId, toUserId } = req.body;
+  
+  try {
+    // Find the user who is passing
+    const fromUser = await User.findOne({ telegramId: fromUserId });
+    if (!fromUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // For now, we just acknowledge the pass
+    // In a more complex system, you might want to store passes to avoid showing the same user again
+    res.json({ message: 'Pass recorded successfully' });
+  } catch (err) {
+    console.error('Pass error:', err);
+    res.status(500).json({ error: 'Failed to record pass' });
+  }
+});
+
+// Super like a user
+app.post('/superlike', async (req, res) => {
+  const { fromUserId, toUserId } = req.body;
+  
+  try {
+    // Find the target user
+    const targetUser = await User.findOne({ telegramId: toUserId });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Target user not found' });
+    }
+
+    // Find the user who is super liking
+    const fromUser = await User.findOne({ telegramId: fromUserId });
+    if (!fromUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already liked
+    if (targetUser.likes.includes(fromUserId)) {
+      return res.status(400).json({ error: 'User already liked' });
+    }
+
+    // Add super like (same as regular like but with priority)
+    targetUser.likes.push(fromUserId);
+    await targetUser.save();
+
+    // Check if it's a match
+    const isMatch = fromUser.likes.includes(toUserId);
+    
+    if (isMatch) {
+      // Create match for both users
+      const matchData = {
+        userId: toUserId,
+        matchedAt: new Date()
+      };
+      const reverseMatchData = {
+        userId: fromUserId,
+        matchedAt: new Date()
+      };
+
+      // Add match to both users if not already exists
+      if (!fromUser.matches.some(match => match.userId === toUserId)) {
+        fromUser.matches.push(matchData);
+        await fromUser.save();
+      }
+      if (!targetUser.matches.some(match => match.userId === fromUserId)) {
+        targetUser.matches.push(reverseMatchData);
+        await targetUser.save();
+      }
+
+      res.json({ message: 'Super like sent successfully', isMatch: true });
+    } else {
+      res.json({ message: 'Super like sent successfully', isMatch: false });
+    }
+  } catch (err) {
+    console.error('Super like error:', err);
+    res.status(500).json({ error: 'Failed to send super like' });
+  }
+});
+
 // Get user stories
 app.get('/stories/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
@@ -1212,29 +1352,6 @@ app.delete('/stories/:telegramId/:storyId', async (req, res) => {
 });
 
 // Update user profile
-app.post('/profile/update/:telegramId', async (req, res) => {
-  const { telegramId } = req.params;
-  const { field, value } = req.body;
-  
-  const allowedFields = ['name', 'age', 'location', 'bio'];
-  if (!allowedFields.includes(field)) {
-    return res.status(400).json({ error: 'Invalid field' });
-  }
-
-  try {
-    const user = await User.findOne({ telegramId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    user[field] = value;
-    await user.save();
-    res.json({ message: 'Profile updated successfully', user });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to update profile' });
-  }
-});
-
 // Get user search settings
 app.get('/search-settings/:telegramId', async (req, res) => {
   const { telegramId } = req.params;

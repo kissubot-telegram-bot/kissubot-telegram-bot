@@ -455,9 +455,80 @@ bot.on('callback_query', async (query) => {
           '• /help - Get help and support');
         break;
 
+      case 'manage_photos':
+        bot.sendMessage(chatId, '📸 **MANAGE PHOTOS** 📸\n\n' +
+          'Photo management features:\n\n' +
+          '📤 **Upload Photos:**\n' +
+          '• Send photos directly to the bot\n' +
+          '• Use /photo command for guided upload\n\n' +
+          '🗂️ **Photo Tips:**\n' +
+          '• Use high-quality, clear photos\n' +
+          '• Show your face clearly\n' +
+          '• Add variety (close-up, full body, activities)\n' +
+          '• Keep photos recent and authentic\n\n' +
+          '💡 **Pro Tip:** Profiles with photos get 10x more matches!');
+        break;
+
       default:
-        console.log('Unhandled callback data:', data);
-        bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
+        // Handle like, pass, superlike callbacks with dynamic IDs
+        if (data.startsWith('like_')) {
+          const targetUserId = data.replace('like_', '');
+          try {
+            await axios.post(`${API_BASE}/like`, {
+              fromUserId: telegramId,
+              toUserId: targetUserId
+            });
+            
+            bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+              chat_id: chatId,
+              message_id: query.message.message_id
+            });
+            
+            bot.sendMessage(chatId, '💚 **LIKED!** 💚\n\nYour like has been sent! If they like you back, it\'s a match! 💕\n\nUse /browse to see more profiles.');
+          } catch (err) {
+            console.error('Like error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to send like. Please try again.');
+          }
+        } else if (data.startsWith('pass_')) {
+          const targetUserId = data.replace('pass_', '');
+          try {
+            await axios.post(`${API_BASE}/pass`, {
+              fromUserId: telegramId,
+              toUserId: targetUserId
+            });
+            
+            bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+              chat_id: chatId,
+              message_id: query.message.message_id
+            });
+            
+            bot.sendMessage(chatId, '💔 **PASSED** 💔\n\nNo worries, there are plenty more profiles to explore!\n\nUse /browse to continue browsing.');
+          } catch (err) {
+            console.error('Pass error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to pass. Please try again.');
+          }
+        } else if (data.startsWith('superlike_')) {
+          const targetUserId = data.replace('superlike_', '');
+          try {
+            await axios.post(`${API_BASE}/superlike`, {
+              fromUserId: telegramId,
+              toUserId: targetUserId
+            });
+            
+            bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+              chat_id: chatId,
+              message_id: query.message.message_id
+            });
+            
+            bot.sendMessage(chatId, '⭐ **SUPER LIKED!** ⭐\n\nYour super like has been sent! This shows extra interest and increases your chances of matching! 💫\n\nUse /browse to see more profiles.');
+          } catch (err) {
+            console.error('Super like error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to send super like. Please try again.');
+          }
+        } else {
+          console.log('Unhandled callback data:', data);
+          bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
+        }
         break;
     }
   } catch (err) {
@@ -494,6 +565,87 @@ bot.on('error', (error) => {
 // Add connection status monitoring
 bot.on('webhook_error', (error) => {
   console.error('❌ Webhook error:', error.message);
+});
+
+// Handle photo uploads
+bot.on('photo', async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  try {
+    // Get the highest resolution photo
+    const photo = msg.photo[msg.photo.length - 1];
+    const fileId = photo.file_id;
+    
+    // Get file info from Telegram
+    const file = await bot.getFile(fileId);
+    const fileUrl = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`;
+    
+    // Send loading message
+    const loadingMsg = await bot.sendMessage(chatId, '📤 Uploading your photo...');
+    
+    // Download and upload to server
+    const axios = require('axios');
+    const FormData = require('form-data');
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Download the image
+    const response = await axios.get(fileUrl, { responseType: 'stream' });
+    const tempPath = path.join(__dirname, `temp_${telegramId}_${Date.now()}.jpg`);
+    const writer = fs.createWriteStream(tempPath);
+    
+    response.data.pipe(writer);
+    
+    writer.on('finish', async () => {
+      try {
+        // Create form data for upload
+        const form = new FormData();
+        form.append('image', fs.createReadStream(tempPath));
+        
+        // Upload to server
+        const uploadResponse = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
+          headers: {
+            ...form.getHeaders()
+          }
+        });
+        
+        // Clean up temp file
+        fs.unlinkSync(tempPath);
+        
+        // Update loading message with success
+        bot.editMessageText('✅ Photo uploaded successfully!\n\n📸 Your profile photo has been updated.\n\n💡 Tip: Use /profile to manage your profile settings.', {
+          chat_id: chatId,
+          message_id: loadingMsg.message_id
+        });
+        
+      } catch (uploadErr) {
+        console.error('Photo upload error:', uploadErr);
+        
+        // Clean up temp file
+        if (fs.existsSync(tempPath)) {
+          fs.unlinkSync(tempPath);
+        }
+        
+        bot.editMessageText('❌ Failed to upload photo. Please try again.', {
+          chat_id: chatId,
+          message_id: loadingMsg.message_id
+        });
+      }
+    });
+    
+    writer.on('error', (err) => {
+      console.error('File write error:', err);
+      bot.editMessageText('❌ Failed to process photo. Please try again.', {
+        chat_id: chatId,
+        message_id: loadingMsg.message_id
+      });
+    });
+    
+  } catch (err) {
+    console.error('Photo handler error:', err);
+    bot.sendMessage(chatId, '❌ Failed to process your photo. Please try again.');
+  }
 });
 
 console.log('✅ Kisu1bot is running successfully!');

@@ -48,6 +48,24 @@ function setupProfileCommands(bot) {
   });
 
   // Profile editing commands
+  // Help command for setname
+  bot.onText(/^\/setname$/, (msg) => {
+    const chatId = msg.chat.id;
+    const helpMsg = `📝 **How to set your name:**\n\n` +
+      `✅ **Correct usage:** \`/setname Your Name\`\n\n` +
+      `📋 **Examples:**\n` +
+      `• \`/setname John\`\n` +
+      `• \`/setname Sarah Smith\`\n` +
+      `• \`/setname Alex_123\`\n\n` +
+      `⚠️ **Requirements:**\n` +
+      `• Name must be 1-50 characters\n` +
+      `• Can include letters, numbers, spaces, and basic symbols\n` +
+      `• Cannot be empty\n\n` +
+      `💡 **Tip:** Just type \`/setname\` followed by a space and your desired name!`;
+    
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+  });
+
   bot.onText(/\/setname (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
@@ -67,6 +85,24 @@ function setupProfileCommands(bot) {
         bot.sendMessage(chatId, '❌ Failed to update name. Please try again.');
       }
     }
+  });
+
+  // Help command for setage
+  bot.onText(/^\/setage$/, (msg) => {
+    const chatId = msg.chat.id;
+    const helpMsg = `🎂 **How to set your age:**\n\n` +
+      `✅ **Correct usage:** \`/setage 25\`\n\n` +
+      `📋 **Examples:**\n` +
+      `• \`/setage 21\`\n` +
+      `• \`/setage 35\`\n` +
+      `• \`/setage 28\`\n\n` +
+      `⚠️ **Requirements:**\n` +
+      `• Age must be between 18 and 100\n` +
+      `• Must be a valid number\n` +
+      `• No letters or special characters\n\n` +
+      `💡 **Tip:** Just type \`/setage\` followed by your age in numbers!`;
+    
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
   bot.onText(/\/setage (.+)/, async (msg, match) => {
@@ -94,6 +130,24 @@ function setupProfileCommands(bot) {
     }
   });
 
+  // Help command for setlocation
+  bot.onText(/^\/setlocation$/, (msg) => {
+    const chatId = msg.chat.id;
+    const helpMsg = `📍 **How to set your location:**\n\n` +
+      `✅ **Correct usage:** \`/setlocation Your City\`\n\n` +
+      `📋 **Examples:**\n` +
+      `• \`/setlocation New York\`\n` +
+      `• \`/setlocation London, UK\`\n` +
+      `• \`/setlocation Tokyo\`\n\n` +
+      `⚠️ **Requirements:**\n` +
+      `• Location must be 1-100 characters\n` +
+      `• Can include letters, numbers, spaces, and commas\n` +
+      `• Cannot be empty\n\n` +
+      `💡 **Tip:** Be specific! Include city and country for better matches.`;
+    
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+  });
+
   bot.onText(/\/setlocation (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
@@ -113,6 +167,24 @@ function setupProfileCommands(bot) {
         bot.sendMessage(chatId, '❌ Failed to update location. Please try again.');
       }
     }
+  });
+
+  // Help command for setbio
+  bot.onText(/^\/setbio$/, (msg) => {
+    const chatId = msg.chat.id;
+    const helpMsg = `💬 **How to set your bio:**\n\n` +
+      `✅ **Correct usage:** \`/setbio Your bio description\`\n\n` +
+      `📋 **Examples:**\n` +
+      `• \`/setbio Love traveling and photography\`\n` +
+      `• \`/setbio Coffee enthusiast and book lover\`\n` +
+      `• \`/setbio Looking for meaningful connections\`\n\n` +
+      `⚠️ **Requirements:**\n` +
+      `• Bio must be 1-500 characters\n` +
+      `• Can include any text, emojis, and symbols\n` +
+      `• Cannot be empty\n\n` +
+      `💡 **Tip:** Make it interesting! Tell others about your hobbies and interests.`;
+    
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
   bot.onText(/\/setbio (.+)/, async (msg, match) => {
