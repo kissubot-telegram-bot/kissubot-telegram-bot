@@ -388,61 +388,7 @@ bot.onText(/\/settings/, (msg) => {
   });
 });
 
-// START
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-
-  try {
-    // Check if user is already registered
-    try {
-      const existingUser = await getCachedUserProfile(telegramId);
-      if (existingUser) {
-        return bot.sendMessage(
-          chatId,
-          '✅ You\'re already registered!\n\n' +
-          'You can:\n' +
-          '• Use /profile to view your profile\n' +
-          '• Use /browse to find people\n' +
-          '• Use /matches to see your matches'
-        );
-      }
-    } catch (err) {
-      // User not found, continue with registration
-      if (err.response?.status !== 404) {
-        throw err;
-      }
-    }
-
-    // Register the user
-    const res = await axios.post(`${API_BASE}/register`, {
-      telegramId,
-      username: msg.from.username || '',
-      name: msg.from.first_name || '',
-    });
-
-    // Send welcome message with next steps
-    const welcomeMsg = 
-      '🎉 Registration successful!\n\n' +
-      'Let\'s set up your profile:\n' +
-      '1️⃣ Use /setname to set your display name\n' +
-      '2️⃣ Use /setage to set your age\n' +
-      '3️⃣ Use /setlocation to set your location\n' +
-      '4️⃣ Use /setbio to write about yourself\n\n' +
-      'After setting up your profile, you can:\n' +
-      '• Use /browse to find people\n' +
-      '• Use /matches to see your matches';
-
-    bot.sendMessage(chatId, welcomeMsg);
-  } catch (err) {
-    console.error('[/register] Error:', err.response?.data || err.message);
-    bot.sendMessage(
-      chatId,
-      '❌ Registration failed. Please try again later.\n' +
-      'If the problem persists, contact support.'
-    );
-  }
-});
+// Removed duplicate /start handler that was incorrectly auto-registering users
 
 // REGISTER command
 bot.onText(/\/register/, async (msg) => {
