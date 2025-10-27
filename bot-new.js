@@ -13,18 +13,153 @@ const { setupSocialCommands } = require('./commands/social');
 
 // Bot configuration
 const token = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE || 'http://localhost:3000/api';
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 if (!token) {
   console.error('❌ BOT_TOKEN is required in .env file');
   process.exit(1);
 }
 
-// Create bot instance
-const bot = new TelegramBot(token, { polling: true });
+// Create bot instance with better error handling and timeout settings
+const bot = new TelegramBot(token, { 
+  polling: {
+    interval: 1000,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
+  },
+  request: {
+    agentOptions: {
+      keepAlive: true,
+      family: 4 // Force IPv4
+    },
+    timeout: 30000 // 30 second timeout
+  }
+});
 
 // User state management for interactive flows
 const userStates = {};
+
+// Helper functions for optimized callback handling
+function handleProfileEdit(chatId, telegramId, field) {
+  userStates[telegramId] = { editing: field };
+  
+  const editMessages = {
+    name: {
+      title: '✏️ **Edit Name** ✏️',
+      prompt: 'Please enter your new display name:',
+      tips: ['Use your real first name', 'Keep it simple and memorable', 'Avoid special characters']
+    },
+    age: {
+      title: '🎂 **Edit Age** 🎂',
+      prompt: 'Please enter your age (18-100):',
+      tips: ['Be honest about your age', 'Age helps with better matches', 'Must be between 18 and 100']
+    },
+    location: {
+      title: '📍 **Edit Location** 📍',
+      prompt: 'Please enter your city and country:',
+      tips: ['Examples:', '• New York, USA', '• London, UK', '• Tokyo, Japan']
+    },
+    bio: {
+      title: '💬 **Edit Bio** 💬',
+      prompt: 'Tell others about yourself (max 500 characters):',
+      tips: ['Share your interests and hobbies', 'Be authentic and positive', 'Mention what you\'re looking for', 'Keep it engaging and fun']
+    }
+  };
+  
+  const config = editMessages[field];
+  if (config) {
+    const message = `${config.title}\n\n${config.prompt}\n\n💡 **Tips:**\n${config.tips.map(tip => tip.startsWith('•') ? tip : `• ${tip}`).join('\n')}\n\n❌ Type /cancel to stop editing`;
+    bot.sendMessage(chatId, message);
+  }
+}
+
+function handleReportFlow(chatId, telegramId, reportType) {
+  const type = reportType.replace('report_', '');
+  userStates[telegramId] = { reporting: type === 'feature_request' ? 'feature' : type };
+  
+  const reportMessages = {
+    report_user: {
+      title: '👤 **Report User** 👤',
+      prompt: 'Please describe the inappropriate behavior:',
+      details: ['What the user did wrong', 'When it happened', 'Any relevant context']
+    },
+    report_content: {
+      title: '📸 **Report Content** 📸',
+      prompt: 'Please describe the inappropriate content:',
+      details: ['What type of content (photo, message, etc.)', 'Why it\'s inappropriate', 'Where you saw it']
+    },
+    report_bug: {
+      title: '🐛 **Report Bug** 🐛',
+      prompt: 'Please describe the technical issue:',
+      details: ['What you were trying to do', 'What went wrong', 'Any error messages you saw'],
+      footer: '🔧 **This helps us fix issues faster**'
+    },
+    feature_request: {
+      title: '💡 **Feature Request** 💡',
+      prompt: 'Please describe your feature idea:',
+      details: ['What feature you\'d like to see', 'How it would help you', 'Any specific details'],
+      footer: '🚀 **Great ideas help improve Kisu1bot**'
+    }
+  };
+  
+  const config = reportMessages[reportType];
+  if (config) {
+    const message = `${config.title}\n\n${config.prompt}\n\n📋 **Include details about:**\n${config.details.map(detail => `• ${detail}`).join('\n')}\n\n${config.footer || '🔒 **Your report is confidential**'}\n❌ Type /cancel to stop${reportType === 'feature_request' ? '' : ' reporting'}`;
+    bot.sendMessage(chatId, message);
+  }
+}
+
+function showMainMenu(chatId) {
+  const mainMenuMsg = `🏠 **MAIN MENU** 🏠\n\n` +
+    `Welcome to Kisu1bot! Choose what you'd like to do:\n\n` +
+    `👤 **Profile & Dating**\n` +
+    `• View and edit your profile\n` +
+    `• Browse and match with people\n` +
+    `• See your matches\n\n` +
+    `⚙️ **Settings & Support**\n` +
+    `• Customize your preferences\n` +
+    `• Get help and support\n` +
+    `• Upgrade to VIP`;
+
+  bot.sendMessage(chatId, mainMenuMsg, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '👤 My Profile', callback_data: 'view_profile' },
+          { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
+        ],
+        [
+          { text: '💕 My Matches', callback_data: 'view_matches' },
+          { text: '⚙️ Settings', callback_data: 'main_settings' }
+        ],
+        [
+          { text: '💎 Get VIP', callback_data: 'manage_vip' },
+          { text: '❓ Help', callback_data: 'show_help' }
+        ]
+      ]
+    }
+  });
+}
+
+function handleNavigation(chatId, action) {
+  const navigationMessages = {
+    show_help: '❓ For help, use the /help command to see all available options.',
+    view_profile: '👤 Use the /profile command to view and edit your profile.',
+    browse_profiles: '🔍 Use the /browse command to start browsing profiles.',
+    view_matches: '💕 Use the /matches command to see your matches.',
+    main_settings: '⚙️ Use the /settings command to access all settings.',
+    manage_vip: '💎 Use the /vip command to manage your VIP membership.',
+    contact_support: '📞 Use the /contact command to get support information.',
+    report_menu: '🚨 Use the /report command to report issues or users.'
+  };
+  
+  const message = navigationMessages[action];
+  if (message) {
+    bot.sendMessage(chatId, message);
+  }
+}
 
 console.log('🤖 Kisu1bot is starting...');
 
@@ -135,6 +270,8 @@ bot.on('callback_query', async (query) => {
   const telegramId = query.from.id;
   const data = query.data;
 
+  // Removed debug logging for production
+
   // Answer callback query to remove loading state
   bot.answerCallbackQuery(query.id);
 
@@ -142,97 +279,18 @@ bot.on('callback_query', async (query) => {
     switch (data) {
       // Profile editing callbacks
       case 'edit_name':
-        userStates[telegramId] = { editing: 'name' };
-        bot.sendMessage(chatId, '✏️ **Edit Name** ✏️\n\n' +
-          'Please enter your new display name:\n\n' +
-          '💡 **Tips:**\n' +
-          '• Use your real first name\n' +
-          '• Keep it simple and memorable\n' +
-          '• Avoid special characters\n\n' +
-          '❌ Type /cancel to stop editing');
-        break;
-
       case 'edit_age':
-        userStates[telegramId] = { editing: 'age' };
-        bot.sendMessage(chatId, '🎂 **Edit Age** 🎂\n\n' +
-          'Please enter your age (18-100):\n\n' +
-          '💡 **Tips:**\n' +
-          '• Be honest about your age\n' +
-          '• Age helps with better matches\n' +
-          '• Must be between 18 and 100\n\n' +
-          '❌ Type /cancel to stop editing');
-        break;
-
       case 'edit_location':
-        userStates[telegramId] = { editing: 'location' };
-        bot.sendMessage(chatId, '📍 **Edit Location** 📍\n\n' +
-          'Please enter your city and country:\n\n' +
-          '💡 **Examples:**\n' +
-          '• New York, USA\n' +
-          '• London, UK\n' +
-          '• Tokyo, Japan\n\n' +
-          '❌ Type /cancel to stop editing');
-        break;
-
       case 'edit_bio':
-        userStates[telegramId] = { editing: 'bio' };
-        bot.sendMessage(chatId, '💬 **Edit Bio** 💬\n\n' +
-          'Tell others about yourself (max 500 characters):\n\n' +
-          '💡 **Tips:**\n' +
-          '• Share your interests and hobbies\n' +
-          '• Be authentic and positive\n' +
-          '• Mention what you\'re looking for\n' +
-          '• Keep it engaging and fun\n\n' +
-          '❌ Type /cancel to stop editing');
+        handleProfileEdit(chatId, telegramId, data.replace('edit_', ''));
         break;
 
       // Report callbacks
       case 'report_user':
-        userStates[telegramId] = { reporting: 'user' };
-        bot.sendMessage(chatId, '👤 **Report User** 👤\n\n' +
-          'Please describe the inappropriate behavior:\n\n' +
-          '📋 **Include details about:**\n' +
-          '• What the user did wrong\n' +
-          '• When it happened\n' +
-          '• Any relevant context\n\n' +
-          '🔒 **Your report is confidential**\n' +
-          '❌ Type /cancel to stop reporting');
-        break;
-
       case 'report_content':
-        userStates[telegramId] = { reporting: 'content' };
-        bot.sendMessage(chatId, '📸 **Report Content** 📸\n\n' +
-          'Please describe the inappropriate content:\n\n' +
-          '📋 **Include details about:**\n' +
-          '• What type of content (photo, message, etc.)\n' +
-          '• Why it\'s inappropriate\n' +
-          '• Where you saw it\n\n' +
-          '🔒 **Your report is confidential**\n' +
-          '❌ Type /cancel to stop reporting');
-        break;
-
       case 'report_bug':
-        userStates[telegramId] = { reporting: 'bug' };
-        bot.sendMessage(chatId, '🐛 **Report Bug** 🐛\n\n' +
-          'Please describe the technical issue:\n\n' +
-          '📋 **Include details about:**\n' +
-          '• What you were trying to do\n' +
-          '• What went wrong\n' +
-          '• Any error messages you saw\n\n' +
-          '🔧 **This helps us fix issues faster**\n' +
-          '❌ Type /cancel to stop reporting');
-        break;
-
       case 'feature_request':
-        userStates[telegramId] = { reporting: 'feature' };
-        bot.sendMessage(chatId, '💡 **Feature Request** 💡\n\n' +
-          'Please describe your feature idea:\n\n' +
-          '📋 **Tell us about:**\n' +
-          '• What feature you\'d like to see\n' +
-          '• How it would help you\n' +
-          '• Any specific details\n\n' +
-          '🚀 **Great ideas help improve Kisu1bot**\n' +
-          '❌ Type /cancel to stop');
+        handleReportFlow(chatId, telegramId, data);
         break;
 
       case 'cancel_report':
@@ -365,8 +423,41 @@ bot.on('callback_query', async (query) => {
           '🙏 **Thank you for helping us improve Kisu1bot!**');
         break;
 
+      // Main menu and navigation callbacks
+      case 'main_menu':
+        showMainMenu(chatId);
+        break;
+
+      // Navigation shortcuts
+      case 'show_help':
+      case 'view_profile':
+      case 'browse_profiles':
+      case 'view_matches':
+      case 'main_settings':
+      case 'manage_vip':
+      case 'contact_support':
+      case 'report_menu':
+        handleNavigation(chatId, data);
+        break;
+
+      case 'user_guide':
+        bot.sendMessage(chatId, '📚 **USER GUIDE** 📚\n\n' +
+          'Here are the main commands to get started:\n\n' +
+          '🚀 **Getting Started:**\n' +
+          '• /register - Create your profile\n' +
+          '• /profile - Edit your information\n' +
+          '• /browse - Find matches\n\n' +
+          '💕 **Dating Features:**\n' +
+          '• /matches - See your matches\n' +
+          '• /likesyou - See who likes you (VIP)\n\n' +
+          '⚙️ **Settings:**\n' +
+          '• /settings - Customize preferences\n' +
+          '• /help - Get help and support');
+        break;
+
       default:
         console.log('Unhandled callback data:', data);
+        bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
         break;
     }
   } catch (err) {
@@ -378,10 +469,31 @@ bot.on('callback_query', async (query) => {
 // Error handling
 bot.on('polling_error', (error) => {
   console.error('❌ Polling error:', error.message);
+  
+  // If it's a network error, try to restart polling after a delay
+  if (error.code === 'ENOTFOUND' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+    console.log('🔄 Network error detected, attempting to restart polling in 10 seconds...');
+    setTimeout(() => {
+      try {
+        bot.stopPolling();
+        setTimeout(() => {
+          bot.startPolling();
+          console.log('✅ Polling restarted successfully');
+        }, 5000);
+      } catch (restartError) {
+        console.error('❌ Failed to restart polling:', restartError.message);
+      }
+    }, 10000);
+  }
 });
 
 bot.on('error', (error) => {
   console.error('❌ Bot error:', error.message);
+});
+
+// Add connection status monitoring
+bot.on('webhook_error', (error) => {
+  console.error('❌ Webhook error:', error.message);
 });
 
 console.log('✅ Kisu1bot is running successfully!');

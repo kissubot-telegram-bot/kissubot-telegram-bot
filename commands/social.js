@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000/api';
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupSocialCommands(bot) {
   // STORIES command

@@ -173,6 +173,20 @@ app.post('/register', async (req, res) => {
   }
 });
 
+// Get User Profile
+app.get('/users/:telegramId', async (req, res) => {
+  const { telegramId } = req.params;
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+});
+
 // Browse Users
 app.get('/browse/:telegramId', async (req, res) => {
   const { telegramId } = req.params;

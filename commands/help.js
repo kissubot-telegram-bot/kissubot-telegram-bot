@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000/api';
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupHelpCommands(bot) {
   // HELP command

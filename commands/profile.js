@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000/api';
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupProfileCommands(bot) {
   // PROFILE command - View/edit profile
@@ -53,11 +53,19 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
     const name = match[1];
 
+    console.log(`[/setname] User ${telegramId} trying to set name to: ${name}`);
+
     try {
-      await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'name', value: name });
+      const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'name', value: name });
+      console.log(`[/setname] Success for user ${telegramId}`);
       bot.sendMessage(chatId, `✅ Name updated to: ${name}`);
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to update name. Please try again.');
+      console.error(`[/setname] Error for user ${telegramId}:`, err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
+        bot.sendMessage(chatId, '❌ Server connection issue. Please try again in a moment.');
+      } else {
+        bot.sendMessage(chatId, '❌ Failed to update name. Please try again.');
+      }
     }
   });
 
@@ -66,15 +74,23 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
     const age = parseInt(match[1]);
 
+    console.log(`[/setage] User ${telegramId} trying to set age to: ${age}`);
+
     if (age < 18 || age > 100) {
       return bot.sendMessage(chatId, '❌ Age must be between 18 and 100.');
     }
 
     try {
-      await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'age', value: age });
+      const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'age', value: age });
+      console.log(`[/setage] Success for user ${telegramId}`);
       bot.sendMessage(chatId, `✅ Age updated to: ${age}`);
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to update age. Please try again.');
+      console.error(`[/setage] Error for user ${telegramId}:`, err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
+        bot.sendMessage(chatId, '❌ Server connection issue. Please try again in a moment.');
+      } else {
+        bot.sendMessage(chatId, '❌ Failed to update age. Please try again.');
+      }
     }
   });
 
@@ -83,11 +99,19 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
     const location = match[1];
 
+    console.log(`[/setlocation] User ${telegramId} trying to set location to: ${location}`);
+
     try {
-      await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'location', value: location });
+      const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'location', value: location });
+      console.log(`[/setlocation] Success for user ${telegramId}`);
       bot.sendMessage(chatId, `✅ Location updated to: ${location}`);
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to update location. Please try again.');
+      console.error(`[/setlocation] Error for user ${telegramId}:`, err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
+        bot.sendMessage(chatId, '❌ Server connection issue. Please try again in a moment.');
+      } else {
+        bot.sendMessage(chatId, '❌ Failed to update location. Please try again.');
+      }
     }
   });
 
@@ -96,15 +120,23 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
     const bio = match[1];
 
+    console.log(`[/setbio] User ${telegramId} trying to set bio (${bio.length} chars)`);
+
     if (bio.length > 500) {
       return bot.sendMessage(chatId, '❌ Bio must be 500 characters or less.');
     }
 
     try {
-      await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'bio', value: bio });
+      const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'bio', value: bio });
+      console.log(`[/setbio] Success for user ${telegramId}`);
       bot.sendMessage(chatId, `✅ Bio updated successfully!`);
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to update bio. Please try again.');
+      console.error(`[/setbio] Error for user ${telegramId}:`, err.response?.data || err.message);
+      if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
+        bot.sendMessage(chatId, '❌ Server connection issue. Please try again in a moment.');
+      } else {
+        bot.sendMessage(chatId, '❌ Failed to update bio. Please try again.');
+      }
     }
   });
 
