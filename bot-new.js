@@ -469,6 +469,81 @@ bot.on('callback_query', async (query) => {
           '💡 **Pro Tip:** Profiles with photos get 10x more matches!');
         break;
 
+      // Settings menu callbacks
+      case 'settings_profile':
+        bot.sendMessage(chatId, '👤 **PROFILE SETTINGS** 👤\n\n' +
+          'Manage your profile information:\n\n' +
+          '📝 **Edit Profile:**\n' +
+          '• /setname - Change your name\n' +
+          '• /setage - Update your age\n' +
+          '• /setlocation - Set your location\n' +
+          '• /setbio - Write your bio\n\n' +
+          '📸 **Photos:**\n' +
+          '• Send photos directly to update\n' +
+          '• /photo - Guided photo upload\n\n' +
+          '👁️ **View Profile:**\n' +
+          '• /profile - See your complete profile');
+        break;
+
+      case 'settings_search':
+        bot.sendMessage(chatId, '🔍 **SEARCH SETTINGS** 🔍\n\n' +
+          'Customize your search preferences:\n\n' +
+          '🎯 **Age Range:**\n' +
+          '• Set minimum and maximum age\n\n' +
+          '📍 **Distance:**\n' +
+          '• Set maximum search radius\n\n' +
+          '👥 **Gender Preference:**\n' +
+          '• Choose who you want to see\n\n' +
+          '🌍 **Location:**\n' +
+          '• Set preferred search areas\n\n' +
+          '💡 Use /searchsettings to modify these preferences');
+        break;
+
+      case 'settings_notifications':
+        bot.sendMessage(chatId, '🔔 **NOTIFICATION SETTINGS** 🔔\n\n' +
+          'Control your notification preferences:\n\n' +
+          '💕 **Match Notifications:**\n' +
+          '• Get notified of new matches\n\n' +
+          '💌 **Message Notifications:**\n' +
+          '• Receive message alerts\n\n' +
+          '👀 **Profile View Notifications:**\n' +
+          '• Know when someone views you\n\n' +
+          '🎁 **Gift Notifications:**\n' +
+          '• Get alerted about received gifts\n\n' +
+          '⚙️ Notification settings are managed through your Telegram app settings.');
+        break;
+
+      case 'settings_privacy':
+        bot.sendMessage(chatId, '🔒 **PRIVACY SETTINGS** 🔒\n\n' +
+          'Control your privacy and visibility:\n\n' +
+          '👁️ **Profile Visibility:**\n' +
+          '• Control who can see your profile\n\n' +
+          '📍 **Location Privacy:**\n' +
+          '• Manage location sharing\n\n' +
+          '🚫 **Blocking:**\n' +
+          '• Block unwanted users\n\n' +
+          '📊 **Data Control:**\n' +
+          '• Manage your personal data\n\n' +
+          '🔐 **Account Security:**\n' +
+          '• Your account is secured by Telegram\'s encryption');
+        break;
+
+      case 'settings_help':
+        bot.sendMessage(chatId, '❓ **HELP & SUPPORT** ❓\n\n' +
+          'Get help and support:\n\n' +
+          '📚 **User Guide:**\n' +
+          '• /help - Complete command list\n' +
+          '• /guide - Step-by-step tutorial\n\n' +
+          '🆘 **Support:**\n' +
+          '• /contact - Contact support team\n' +
+          '• /report - Report issues or users\n\n' +
+          '💡 **Tips:**\n' +
+          '• /tips - Dating and profile tips\n\n' +
+          '🔄 **Updates:**\n' +
+          '• Stay updated with new features\n\n' +
+          '📞 **Emergency:** Contact @support for urgent issues');
+        break;
+
       default:
         // Handle like, pass, superlike callbacks with dynamic IDs
         if (data.startsWith('like_')) {
@@ -614,7 +689,7 @@ bot.on('photo', async (msg) => {
         fs.unlinkSync(tempPath);
         
         // Update loading message with success
-        bot.editMessageText('✅ Photo uploaded successfully!\n\n📸 Your profile photo has been updated.\n\n💡 Tip: Use /profile to manage your profile settings.', {
+        bot.editMessageText('✅ **Photo Uploaded Successfully!**\n\n📸 Your profile photo has been updated and is now visible to other users.\n\n🌟 **Profile Boost:** Profiles with photos get 10x more matches!\n\n💡 Tip: Use /profile to see your complete profile', {
           chat_id: chatId,
           message_id: loadingMsg.message_id
         });

@@ -76,7 +76,7 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'name', value: name });
       console.log(`[/setname] Success for user ${telegramId}`);
-      bot.sendMessage(chatId, `✅ Name updated to: ${name}`);
+      bot.sendMessage(chatId, `✅ **Name Updated Successfully!**\n\n👤 Your name is now: **${name}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setname] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -119,7 +119,7 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'age', value: age });
       console.log(`[/setage] Success for user ${telegramId}`);
-      bot.sendMessage(chatId, `✅ Age updated to: ${age}`);
+      bot.sendMessage(chatId, `✅ **Age Updated Successfully!**\n\n🎂 Your age is now: **${age}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setage] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -158,7 +158,7 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'location', value: location });
       console.log(`[/setlocation] Success for user ${telegramId}`);
-      bot.sendMessage(chatId, `✅ Location updated to: ${location}`);
+      bot.sendMessage(chatId, `✅ **Location Updated Successfully!**\n\n📍 Your location is now: **${location}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setlocation] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -201,7 +201,7 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'bio', value: bio });
       console.log(`[/setbio] Success for user ${telegramId}`);
-      bot.sendMessage(chatId, `✅ Bio updated successfully!`);
+      bot.sendMessage(chatId, `✅ **Bio Updated Successfully!**\n\n💬 Your bio has been updated with your new description.\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setbio] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
