@@ -3,17 +3,17 @@ const axios = require('axios');
 require('dotenv').config();
 
 // Import command modules
-const { setupAuthCommands } = require('./commands/auth');
+const { setupAuthCommands, invalidateUserCache } = require('./commands/auth');
 const { setupProfileCommands } = require('./commands/profile');
 const { setupBrowsingCommands } = require('./commands/browsing');
 const { setupHelpCommands } = require('./commands/help');
 const { setupSettingsCommands } = require('./commands/settings');
 const { setupPremiumCommands } = require('./commands/premium');
-const { setupSocialCommands } = require('./commands/social');
+const { setupSocialCommands } = require('./commands/social-debug');
 
 // Bot configuration
 const token = process.env.BOT_TOKEN;
-const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+const API_BASE = process.env.API_BASE || 'http://localhost:3002';
 
 if (!token) {
   console.error('❌ BOT_TOKEN is required in .env file');
@@ -58,7 +58,7 @@ function handleProfileEdit(chatId, telegramId, field) {
     },
     location: {
       title: '📍 **Edit Location** 📍',
-      prompt: 'Please enter your city and country:',
+      prompt: 'Please ent er your city and country:',
       tips: ['Examples:', '• New York, USA', '• London, UK', '• Tokyo, Japan']
     },
     bio: {
@@ -183,6 +183,697 @@ setupSettingsCommands(bot);
 setupPremiumCommands(bot);
 setupSocialCommands(bot);
 
+// Additional commands not in modules
+
+// MATCHES command - View user matches
+bot.onText(/\/matches/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
+    const matches = res.data;
+
+    if (!matches || matches.length === 0) {
+      const noMatchesMsg = `💔 **No Matches Yet** 💔\n\n` +
+        `Don't worry! Your perfect match is out there.\n\n` +
+        `💡 **Tips to get more matches:**\n` +
+        `• Complete your profile with photos\n` +
+        `• Write an interesting bio\n` +
+        `• Be active and browse profiles\n` +
+        `• Try expanding your search radius\n\n` +
+        `Keep swiping! 💪`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
+            ],
+            [
+              { text: '👤 Edit Profile', callback_data: 'edit_profile' },
+              { text: '⚙️ Settings', callback_data: 'main_settings' }
+            ]
+          ]
+        }
+      };
+
+      return bot.sendMessage(chatId, noMatchesMsg, opts);
+    }
+
+    const matchesMsg = `💕 **YOUR MATCHES (${matches.length})** 💕\n\n` +
+      `You have ${matches.length} amazing match${matches.length > 1 ? 'es' : ''}!\n\n` +
+      `💬 **Start conversations and get to know each other!**`;
+
+    const matchButtons = matches.slice(0, 10).map(match => [
+      { text: `💕 ${match.name}, ${match.age}`, callback_data: `view_match_${match.telegramId}` }
+    ]);
+
+    matchButtons.push([
+      { text: '🔍 Browse More', callback_data: 'browse_profiles' },
+      { text: '🔙 Back', callback_data: 'main_menu' }
+    ]);
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: matchButtons
+      }
+    };
+
+    bot.sendMessage(chatId, matchesMsg, opts);
+  } catch (err) {
+    console.error('Matches error:', err.response?.data || err.message);
+    bot.sendMessage(chatId, '❌ Failed to load matches. Please try again later.');
+  }
+});
+
+// LIKESYOU command - See who likes you (Enhanced version)
+bot.onText(/\/likesyou/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+    const user = userRes.data;
+    const res = await axios.get(`${API_BASE}/likes/${telegramId}`);
+    const likesData = res.data;
+
+    // Show preview even for non-VIP users
+    if (!likesData.likes || likesData.totalLikes === 0) {
+      const noLikesMsg = `💔 **No Likes Yet** 💔\n\n` +
+        `No one has liked you yet, but don't give up!\n\n` +
+        `💡 **Tips to get more likes:**\n` +
+        `• Add more photos to your profile\n` +
+        `• Update your bio\n` +
+        `• Be more active\n` +
+        `• Use priority boost\n\n` +
+        `Your perfect match is out there! 💪`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
+            ],
+            [
+              { text: '🚀 Priority Boost', callback_data: 'priority_boost' },
+              { text: '👤 Edit Profile', callback_data: 'edit_profile' }
+            ]
+          ]
+        }
+      };
+
+      return bot.sendMessage(chatId, noLikesMsg, opts);
+    }
+
+    // Enhanced likes display
+    let likesMsg;
+    if (user.isVip) {
+      likesMsg = `👀 **${likesData.totalLikes} PEOPLE LIKE YOU** 👀\n\n`;
+      likesData.likes.forEach((like, index) => {
+        const onlineStatus = like.isOnline ? '🟢' : '⚫';
+        const timeAgo = getTimeAgo(like.likedAt);
+        likesMsg += `${index + 1}. ${onlineStatus} **${like.name}, ${like.age}**\n`;
+        likesMsg += `   📍 ${like.location}\n`;
+        likesMsg += `   💕 Liked ${timeAgo}\n`;
+        if (like.bio) {
+          likesMsg += `   💬 "${like.bio.substring(0, 50)}${like.bio.length > 50 ? '...' : ''}"\n`;
+        }
+        likesMsg += `\n`;
+      });
+      likesMsg += `💚 **Tap on a profile to view and like back!**`;
+    } else {
+      likesMsg = `👀 **${likesData.totalLikes} PEOPLE LIKE YOU** 👀\n\n`;
+      if (likesData.visibleLikes > 0) {
+        likesMsg += `🔒 **Preview (${likesData.visibleLikes} of ${likesData.totalLikes}):**\n\n`;
+        likesData.likes.forEach((like, index) => {
+          likesMsg += `${index + 1}. 💖 **${like.name}, ${like.age}**\n`;
+          likesMsg += `   📍 ${like.location}\n`;
+          likesMsg += `   💬 ${like.bio}\n\n`;
+        });
+      }
+      if (likesData.previewCount > 0) {
+        likesMsg += `🔒 **${likesData.previewCount} more likes hidden**\n\n`;
+      }
+      likesMsg += `⭐ **Upgrade to VIP to:**\n`;
+      likesMsg += `• See all ${likesData.totalLikes} people who liked you\n`;
+      likesMsg += `• View their full profiles and photos\n`;
+      likesMsg += `• See who's online now\n`;
+      likesMsg += `• Get unlimited likes\n\n`;
+      likesMsg += `💕 **Like them back to create matches!**`;
+    }
+
+    // Create buttons
+    const buttons = [];
+    
+    if (user.isVip) {
+      // VIP users can view individual profiles
+      const profileButtons = likesData.likes.slice(0, 8).map(like => [
+        { text: `💖 ${like.name}, ${like.age}`, callback_data: `view_liker_${like.telegramId}` }
+      ]);
+      buttons.push(...profileButtons);
+      
+      if (likesData.likes.length > 8) {
+        buttons.push([{ text: `📋 View All ${likesData.totalLikes} Likes`, callback_data: 'view_all_likes' }]);
+      }
+    } else {
+      // Non-VIP users get upgrade option
+      buttons.push([{ text: '⭐ Upgrade to VIP - See All Likes', callback_data: 'manage_vip' }]);
+      if (likesData.visibleLikes > 0) {
+        buttons.push([{ text: '💚 Browse & Like Back', callback_data: 'browse_profiles' }]);
+      }
+    }
+    
+    buttons.push([
+      { text: '🔍 Browse More', callback_data: 'browse_profiles' },
+      { text: '🔙 Back', callback_data: 'main_menu' }
+    ]);
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: buttons
+      }
+    };
+
+    bot.sendMessage(chatId, likesMsg, opts);
+  } catch (err) {
+    console.error('Likes you error:', err.response?.data || err.message);
+    bot.sendMessage(chatId, '❌ Failed to load likes. Please try again later.');
+  }
+});
+
+// Helper function for time ago
+function getTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - new Date(date);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return `${Math.floor(diffDays / 7)}w ago`;
+}
+
+// COINS command - Manage coins
+bot.onText(/\/coins/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+    const user = userRes.data;
+
+    const coinsMsg = `🪙 **YOUR COINS** 🪙\n\n` +
+      `💰 **Current Balance:** ${user.coins || 0} coins\n\n` +
+      `✨ **Use coins for:**\n` +
+      `• Send virtual gifts (5-50 coins)\n` +
+      `• Priority boost (10 coins)\n` +
+      `• Super likes (2 coins)\n` +
+      `• Undo last swipe (1 coin)\n\n` +
+      `💎 **Buy more coins:**`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🪙 100 Coins - $0.99', callback_data: 'buy_coins_100' },
+            { text: '🪙 500 Coins - $3.99', callback_data: 'buy_coins_500' }
+          ],
+          [
+            { text: '🪙 1000 Coins - $6.99', callback_data: 'buy_coins_1000' },
+            { text: '🪙 2500 Coins - $14.99', callback_data: 'buy_coins_2500' }
+          ],
+          [
+            { text: '🎁 Gift Shop', callback_data: 'gift_shop' },
+            { text: '🚀 Priority Boost', callback_data: 'priority_boost' }
+          ],
+          [
+            { text: '🔙 Back', callback_data: 'main_menu' }
+          ]
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, coinsMsg, opts);
+  } catch (err) {
+    console.error('Coins error:', err.response?.data || err.message);
+    bot.sendMessage(chatId, '❌ Failed to load coin balance. Please try again later.');
+  }
+});
+
+// GIFTS command - Gift center
+bot.onText(/\/gifts/, async (msg) => {
+  const chatId = msg.chat.id;
+  const giftsMsg = `🎁 **GIFT CENTER** 🎁\n\n` +
+    `Send virtual gifts to your matches and show you care!\n\n` +
+    `💝 **Available Gifts:**\n` +
+    `• 🌹 Rose (5 coins)\n` +
+    `• 💖 Heart (10 coins)\n` +
+    `• 🍫 Chocolate (15 coins)\n` +
+    `• 🌺 Flowers (20 coins)\n` +
+    `• 💎 Diamond (50 coins)\n\n` +
+    `✨ **Gifts help you:**\n` +
+    `• Stand out from other matches\n` +
+    `• Show genuine interest\n` +
+    `• Start meaningful conversations\n` +
+    `• Express your feelings`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🎁 Browse Gift Shop', callback_data: 'gift_shop' }
+        ],
+        [
+          { text: '📨 Sent Gifts', callback_data: 'sent_gifts' },
+          { text: '📬 Received Gifts', callback_data: 'received_gifts' }
+        ],
+        [
+          { text: '🪙 Buy Coins', callback_data: 'buy_coins_menu' },
+          { text: '🔙 Back', callback_data: 'main_menu' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, giftsMsg, opts);
+});
+
+// PRIORITY command - Priority boost
+bot.onText(/\/priority/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+    const user = userRes.data;
+
+    const priorityMsg = `🚀 **PRIORITY BOOST** 🚀\n\n` +
+      `Get 10x more profile views for 30 minutes!\n\n` +
+      `⚡ **Priority Boost Benefits:**\n` +
+      `• Your profile appears first in browse\n` +
+      `• 10x more visibility\n` +
+      `• Lasts for 30 minutes\n` +
+      `• Significantly more matches\n\n` +
+      `💰 **Cost:** 10 coins\n` +
+      `🪙 **Your Balance:** ${user.coins || 0} coins\n\n` +
+      `${user.coins >= 10 ? '🚀 Ready to boost?' : '❌ Not enough coins!'}`;
+
+    const buttons = [];
+    
+    if (user.coins >= 10) {
+      buttons.push([{ text: '🚀 Activate Priority Boost (10 coins)', callback_data: 'activate_priority_boost' }]);
+    } else {
+      buttons.push([{ text: '🪙 Buy Coins', callback_data: 'buy_coins_menu' }]);
+    }
+    
+    buttons.push([{ text: '🔙 Back', callback_data: 'main_menu' }]);
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: buttons
+      }
+    };
+
+    bot.sendMessage(chatId, priorityMsg, opts);
+  } catch (err) {
+    console.error('Priority error:', err.response?.data || err.message);
+    bot.sendMessage(chatId, '❌ Failed to load priority boost. Please try again later.');
+  }
+});
+
+// SEARCH command - Advanced search
+bot.onText(/\/search/, async (msg) => {
+  const chatId = msg.chat.id;
+  const searchMsg = `🔍 **ADVANCED SEARCH** 🔍\n\n` +
+    `Find exactly who you're looking for!\n\n` +
+    `🎯 **Search Filters:**\n` +
+    `• Age range\n` +
+    `• Distance radius\n` +
+    `• Gender preference\n` +
+    `• Location\n` +
+    `• Interests (VIP)\n` +
+    `• Education (VIP)\n` +
+    `• Height (VIP)\n\n` +
+    `⚙️ **Customize your search preferences:**`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🎂 Age Range', callback_data: 'search_age_range' },
+          { text: '📍 Distance', callback_data: 'search_distance' }
+        ],
+        [
+          { text: '👥 Gender', callback_data: 'search_gender' },
+          { text: '🌍 Location', callback_data: 'search_location' }
+        ],
+        [
+          { text: '⭐ VIP Filters', callback_data: 'search_vip_filters' }
+        ],
+        [
+          { text: '🔍 Start Search', callback_data: 'start_advanced_search' },
+          { text: '🔙 Back', callback_data: 'main_menu' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, searchMsg, opts);
+});
+
+// CONTACT command - Contact support
+bot.onText(/\/contact/, (msg) => {
+  const chatId = msg.chat.id;
+  const contactMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
+    `Need help? We're here for you!\n\n` +
+    `💬 **Support Options:**\n` +
+    `• Live chat support\n` +
+    `• Email support\n` +
+    `• FAQ and help guides\n` +
+    `• Report issues\n\n` +
+    `⏰ **Support Hours:**\n` +
+    `Monday - Friday: 9 AM - 6 PM EST\n` +
+    `Weekend: 10 AM - 4 PM EST\n\n` +
+    `📧 **Email:** support@kisu1bot.com`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '💬 Live Chat', callback_data: 'live_chat_support' },
+          { text: '📧 Email Support', callback_data: 'email_support' }
+        ],
+        [
+          { text: '❓ FAQ', callback_data: 'faq_help' },
+          { text: '🚨 Report Issue', callback_data: 'report_menu' }
+        ],
+        [
+          { text: '💬 Send Feedback', callback_data: 'send_feedback' }
+        ],
+        [
+          { text: '🔙 Back', callback_data: 'main_menu' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, contactMsg, opts);
+});
+
+// Profile editing commands
+// SETNAME command - Set user name
+bot.onText(/\/setname/, (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  userStates.set(telegramId, { action: 'editing_name' });
+  
+  const nameMsg = `✏️ **SET YOUR NAME** ✏️\n\n` +
+    `Please enter your first name:\n\n` +
+    `💡 **Tips:**\n` +
+    `• Use your real first name\n` +
+    `• Keep it simple and authentic\n` +
+    `• No special characters or numbers\n\n` +
+    `Type your name below:`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, nameMsg, opts);
+});
+
+// SETAGE command - Set user age
+bot.onText(/\/setage/, (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  userStates.set(telegramId, { action: 'editing_age' });
+  
+  const ageMsg = `🎂 **SET YOUR AGE** 🎂\n\n` +
+    `Please enter your age:\n\n` +
+    `💡 **Requirements:**\n` +
+    `• Must be 18 or older\n` +
+    `• Enter numbers only\n` +
+    `• Be honest about your age\n\n` +
+    `Type your age below:`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, ageMsg, opts);
+});
+
+// SETLOCATION command - Set user location
+bot.onText(/\/setlocation/, (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  userStates.set(telegramId, { action: 'editing_location' });
+  
+  const locationMsg = `📍 **SET YOUR LOCATION** 📍\n\n` +
+    `Please enter your city and country:\n\n` +
+    `💡 **Examples:**\n` +
+    `• New York, USA\n` +
+    `• London, UK\n` +
+    `• Tokyo, Japan\n\n` +
+    `Type your location below:`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📍 Share Location', callback_data: 'share_location' },
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, locationMsg, opts);
+});
+
+// SETBIO command - Set user bio
+bot.onText(/\/setbio/, (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  userStates.set(telegramId, { action: 'editing_bio' });
+  
+  const bioMsg = `💬 **SET YOUR BIO** 💬\n\n` +
+    `Tell people about yourself! Write a short bio that shows your personality:\n\n` +
+    `💡 **Tips for a great bio:**\n` +
+    `• Be authentic and genuine\n` +
+    `• Mention your interests/hobbies\n` +
+    `• Keep it positive and fun\n` +
+    `• Maximum 500 characters\n\n` +
+    `Type your bio below:`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, bioMsg, opts);
+});
+
+// PHOTO command - Upload profile photo
+bot.onText(/\/photo/, (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  
+  userStates.set(telegramId, { action: 'uploading_photo' });
+  
+  const photoMsg = `📸 **UPLOAD PROFILE PHOTO** 📸\n\n` +
+    `Send me a photo to add to your profile!\n\n` +
+    `📱 **Photo Guidelines:**\n` +
+    `• Clear, high-quality images\n` +
+    `• Show your face clearly\n` +
+    `• No group photos as main photo\n` +
+    `• Keep it appropriate\n` +
+    `• Maximum 6 photos per profile\n\n` +
+    `📷 Send your photo now:`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📸 Camera', callback_data: 'use_camera' },
+          { text: '🖼️ Gallery', callback_data: 'use_gallery' }
+        ],
+        [
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ]
+    }
+  };
+
+  bot.sendMessage(chatId, photoMsg, opts);
+});
+
+// Media handlers for photos and videos
+bot.on('photo', async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  const userState = userStates.get(telegramId);
+
+  if (!userState) return;
+
+  if (userState.action === 'uploading_photo') {
+    try {
+      // Get the highest resolution photo
+      const photo = msg.photo[msg.photo.length - 1];
+      const fileId = photo.file_id;
+
+      // Upload photo to profile
+      const uploadRes = await axios.post(`${API_BASE}/profile/${telegramId}/photo`, {
+        fileId: fileId,
+        caption: msg.caption || ''
+      });
+
+      userStates.delete(telegramId);
+
+      const successMsg = `✅ **Photo Uploaded Successfully!** ✅\n\n` +
+        `Your new photo has been added to your profile.\n\n` +
+        `📸 **Want to add more photos?**`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📸 Add Another Photo', callback_data: 'add_another_photo' },
+              { text: '👤 View Profile', callback_data: 'view_profile' }
+            ],
+            [
+              { text: '🔍 Start Browsing', callback_data: 'browse_profiles' },
+              { text: '🔙 Back', callback_data: 'main_menu' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, successMsg, opts);
+    } catch (err) {
+      console.error('Photo upload error:', err.response?.data || err.message);
+      userStates.delete(telegramId);
+      bot.sendMessage(chatId, '❌ Failed to upload photo. Please try again later.');
+    }
+  } else if (userState.action === 'uploading_story') {
+    try {
+      // Get the highest resolution photo
+      const photo = msg.photo[msg.photo.length - 1];
+      const fileId = photo.file_id;
+
+      // Upload story photo
+      const storyRes = await axios.post(`${API_BASE}/stories/${telegramId}`, {
+        type: 'photo',
+        fileId: fileId,
+        caption: msg.caption || ''
+      });
+
+      userStates.delete(telegramId);
+
+      const successMsg = `✅ **Story Posted!** ✅\n\n` +
+        `Your story has been shared with your matches!\n\n` +
+        `👀 **Your story will be visible for 24 hours.**`;
+
+      const opts = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📸 Add Another Story', callback_data: 'add_story' },
+              { text: '👀 View My Stories', callback_data: 'view_my_stories' }
+            ],
+            [
+              { text: '🔙 Back to Menu', callback_data: 'main_menu' }
+            ]
+          ]
+        }
+      };
+
+      bot.sendMessage(chatId, successMsg, opts);
+    } catch (err) {
+      console.error('Story upload error:', err.response?.data || err.message);
+      userStates.delete(telegramId);
+      bot.sendMessage(chatId, '❌ Failed to post story. Please try again later.');
+    }
+  }
+});
+
+// Video handler for stories
+bot.on('video', async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  const userState = userStates.get(telegramId);
+
+  if (!userState || userState.action !== 'uploading_story') return;
+
+  try {
+    const video = msg.video;
+    const fileId = video.file_id;
+
+    // Check video duration (max 30 seconds for stories)
+    if (video.duration > 30) {
+      return bot.sendMessage(chatId, '❌ Video too long! Stories can be maximum 30 seconds.');
+    }
+
+    // Upload story video
+    const storyRes = await axios.post(`${API_BASE}/stories/${telegramId}`, {
+      type: 'video',
+      fileId: fileId,
+      duration: video.duration,
+      caption: msg.caption || ''
+    });
+
+    userStates.delete(telegramId);
+
+    const successMsg = `✅ **Video Story Posted!** ✅\n\n` +
+      `Your video story has been shared with your matches!\n\n` +
+      `👀 **Your story will be visible for 24 hours.**`;
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📹 Add Another Story', callback_data: 'add_story' },
+            { text: '👀 View My Stories', callback_data: 'view_my_stories' }
+          ],
+          [
+            { text: '🔙 Back to Menu', callback_data: 'main_menu' }
+          ]
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, successMsg, opts);
+  } catch (err) {
+    console.error('Video story upload error:', err.response?.data || err.message);
+    userStates.delete(telegramId);
+    bot.sendMessage(chatId, '❌ Failed to post video story. Please try again later.');
+  }
+});
+
 // Global message handler for interactive flows (editing, reporting)
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -272,8 +963,18 @@ bot.on('callback_query', async (query) => {
 
   // Removed debug logging for production
 
-  // Answer callback query to remove loading state
-  bot.answerCallbackQuery(query.id);
+  // Skip answering VIP callbacks immediately - let premium.js handle them
+  const vipCallbacks = [
+    'extend_vip', 'gift_vip', 'manage_vip', 'cancel_vip',
+    'buy_vip_1', 'buy_vip_3', 'buy_vip_6',
+    'gift_vip_1', 'gift_vip_3', 'gift_vip_6',
+    'vip_purchase_monthly', 'vip_purchase_yearly', 'vip_purchase_lifetime'
+  ];
+  
+  if (!vipCallbacks.includes(data)) {
+    // Answer callback query to remove loading state for non-VIP callbacks
+    bot.answerCallbackQuery(query.id);
+  }
 
   try {
     switch (data) {
@@ -600,9 +1301,840 @@ bot.on('callback_query', async (query) => {
             console.error('Super like error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to send super like. Please try again.');
           }
+        } else if (data.startsWith('view_liker_')) {
+          const likerUserId = data.replace('view_liker_', '');
+          try {
+            const profileRes = await axios.get(`${API_BASE}/profile/${likerUserId}`);
+            const profile = profileRes.data;
+            
+            if (!profile) {
+              return bot.sendMessage(chatId, '❌ Profile not found.');
+            }
+            
+            const profileMsg = `💖 **${profile.name}, ${profile.age}** ${profile.isVip ? '👑' : ''}\n\n` +
+              `📍 **Location:** ${profile.location}\n` +
+              `💬 **Bio:** ${profile.bio || 'No bio available'}\n\n` +
+              `👀 **This person liked your profile!**\n\n` +
+              `💕 **Like them back to create a match!**`;
+            
+            const opts = {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '💚 Like Back', callback_data: `like_${likerUserId}` },
+                    { text: '💔 Pass', callback_data: `pass_${likerUserId}` }
+                  ],
+                  [
+                    { text: '⭐ Super Like', callback_data: `superlike_${likerUserId}` }
+                  ],
+                  [
+                    { text: '🔙 Back to Likes', callback_data: 'back_to_likes' },
+                    { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                  ]
+                ]
+              }
+            };
+            
+            if (profile.profilePhoto) {
+              bot.sendPhoto(chatId, profile.profilePhoto, {
+                caption: profileMsg,
+                reply_markup: opts.reply_markup
+              });
+            } else {
+              bot.sendMessage(chatId, profileMsg, opts);
+            }
+          } catch (err) {
+            console.error('View liker error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to load profile. Please try again.');
+          }
+        } else if (data === 'view_all_likes') {
+          try {
+            const res = await axios.get(`${API_BASE}/likes/${telegramId}`);
+            const likesData = res.data;
+            
+            if (!likesData.likes || likesData.totalLikes === 0) {
+              return bot.sendMessage(chatId, '💔 No likes to show.');
+            }
+            
+            let allLikesMsg = `👀 **ALL ${likesData.totalLikes} PEOPLE WHO LIKE YOU** 👀\n\n`;
+            
+            likesData.likes.forEach((like, index) => {
+              const onlineStatus = like.isOnline ? '🟢' : '⚫';
+              const timeAgo = getTimeAgo(like.likedAt);
+              allLikesMsg += `${index + 1}. ${onlineStatus} **${like.name}, ${like.age}**\n`;
+              allLikesMsg += `   📍 ${like.location}\n`;
+              allLikesMsg += `   💕 Liked ${timeAgo}\n`;
+              if (like.bio) {
+                allLikesMsg += `   💬 "${like.bio.substring(0, 30)}${like.bio.length > 30 ? '...' : ''}"\n`;
+              }
+              allLikesMsg += `\n`;
+            });
+            
+            allLikesMsg += `💚 **Tap on any profile to view and like back!**`;
+            
+            const profileButtons = likesData.likes.slice(0, 15).map(like => [
+              { text: `💖 ${like.name}, ${like.age}`, callback_data: `view_liker_${like.telegramId}` }
+            ]);
+            
+            profileButtons.push([
+              { text: '🔙 Back to Likes', callback_data: 'back_to_likes' },
+              { text: '🏠 Main Menu', callback_data: 'main_menu' }
+            ]);
+            
+            const opts = {
+              reply_markup: {
+                inline_keyboard: profileButtons
+              }
+            };
+            
+            bot.sendMessage(chatId, allLikesMsg, opts);
+          } catch (err) {
+            console.error('View all likes error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to load all likes. Please try again.');
+          }
+        } else if (data === 'back_to_likes') {
+          // Redirect back to /likesyou command
+          bot.sendMessage(chatId, '/likesyou');
+          return;
+        // VIP and Premium callbacks
+        } else if (data === 'buy_coins' || data === 'buy_coins_menu') {
+          const coinsMsg = `🪙 **COIN PACKAGES** 🪙\n\n` +
+            `Choose a coin package:\n\n` +
+            `💰 **Starter Pack** - 1,000 coins\n` +
+            `Price: $4.99\n\n` +
+            `🔥 **Popular Pack** - 5,500 coins (500 bonus!)\n` +
+            `Price: $19.99\n\n` +
+            `💎 **Premium Pack** - 14,000 coins (2,000 bonus!)\n` +
+            `Price: $39.99\n\n` +
+            `👑 **Ultimate Pack** - 38,000 coins (8,000 bonus!)\n` +
+            `Price: $79.99`;
+
+          const opts = {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '💰 Starter ($4.99)', callback_data: 'buy_coins_starter' },
+                  { text: '🔥 Popular ($19.99)', callback_data: 'buy_coins_popular' }
+                ],
+                [
+                  { text: '💎 Premium ($39.99)', callback_data: 'buy_coins_premium' },
+                  { text: '👑 Ultimate ($79.99)', callback_data: 'buy_coins_ultimate' }
+                ],
+                [
+                  { text: '🔙 Back', callback_data: 'main_menu' }
+                ]
+              ]
+            }
+          };
+
+          bot.sendMessage(chatId, coinsMsg, opts);
+        } else if (data.startsWith('buy_coins_')) {
+          const packageId = data.split('_')[2];
+          
+          const packageDetails = {
+            starter: { name: 'Starter Pack', coins: 1000, bonus: 0, price: 4.99 },
+            popular: { name: 'Popular Pack', coins: 5000, bonus: 500, price: 19.99 },
+            premium: { name: 'Premium Pack', coins: 12000, bonus: 2000, price: 39.99 },
+            ultimate: { name: 'Ultimate Pack', coins: 30000, bonus: 8000, price: 79.99 }
+          };
+          
+          const pack = packageDetails[packageId];
+          const confirmMsg = `💳 **CONFIRM PURCHASE** 💳\n\n` +
+            `📦 **Package:** ${pack.name}\n` +
+            `🪙 **Coins:** ${pack.coins.toLocaleString()}${pack.bonus > 0 ? ` (+${pack.bonus} bonus!)` : ''}\n` +
+            `💰 **Price:** $${pack.price}\n\n` +
+            `⚠️ **Important:**\n` +
+            `• This is a one-time purchase\n` +
+            `• Coins will be added instantly\n` +
+            `• No refunds after purchase\n\n` +
+            `Are you sure you want to proceed?`;
+          
+          bot.sendMessage(chatId, confirmMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Confirm Purchase', callback_data: `confirm_coins_${packageId}` },
+                  { text: '❌ Cancel', callback_data: 'buy_coins_menu' }
+                ]
+              ]
+            }
+          });
+        } else if (data.startsWith('confirm_coins_')) {
+          const packageId = data.split('_')[2];
+          try {
+            const res = await axios.post(`${API_BASE}/coins/purchase/${telegramId}`, {
+              packageId
+            });
+            
+            const { coinsAdded, newBalance } = res.data;
+            
+            const packageDetails = {
+              starter: { name: 'Starter Pack', coins: 1000, bonus: 0, price: 4.99 },
+              popular: { name: 'Popular Pack', coins: 5000, bonus: 500, price: 19.99 },
+              premium: { name: 'Premium Pack', coins: 12000, bonus: 2000, price: 39.99 },
+              ultimate: { name: 'Ultimate Pack', coins: 30000, bonus: 8000, price: 79.99 }
+            };
+            
+            const pack = packageDetails[packageId];
+            const successMsg = `🎉 **PURCHASE SUCCESSFUL!** 🎉\n\n` +
+              `📦 **${pack.name}** purchased!\n` +
+              `💰 **${coinsAdded} coins** added to your account\n` +
+              `🪙 **New Balance:** ${newBalance} coins\n\n` +
+              `✨ **What you can do with coins:**\n` +
+              `• 👑 Purchase VIP membership\n` +
+              `• 🎁 Send premium gifts\n` +
+              `• ⚡️ Boost your profile priority\n` +
+              `• 🌟 Unlock special features\n\n` +
+              `Thank you for your purchase! 💙`;
+            
+            bot.sendMessage(chatId, successMsg, {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '👑 Get VIP', callback_data: 'manage_vip' },
+                    { text: '🎁 Send Gifts', callback_data: 'send_gift' }
+                  ],
+                  [
+                    { text: '⚡️ Priority Boost', callback_data: 'priority_boost' },
+                    { text: '💰 Buy More Coins', callback_data: 'buy_coins' }
+                  ]
+                ]
+              }
+            });
+            
+          } catch (err) {
+            console.error('Coin purchase error:', err);
+            if (err.response?.status === 400) {
+              bot.sendMessage(chatId, '❌ Invalid package selected. Please try again.');
+            } else if (err.response?.status === 404) {
+              bot.sendMessage(chatId, '❌ User not found. Please register first using /start.');
+            } else {
+              bot.sendMessage(chatId, '❌ Failed to purchase coins. Please try again later.');
+            }
+          }
+        // VIP handlers are now in commands/premium.js
+        // Search Settings callbacks are handled in commands/settings.js
+        } else if (data === 'gift_shop') {
+          const giftShopMsg = `🎁 **GIFT SHOP** 🎁\n\n` +
+            `Choose a gift to send to your matches:\n\n` +
+            `🌹 **Rose** - 5 coins\n` +
+            `💖 **Heart** - 10 coins\n` +
+            `🍫 **Chocolate** - 15 coins\n` +
+            `🌺 **Flowers** - 20 coins\n` +
+            `💎 **Diamond** - 50 coins\n\n` +
+            `💡 **To send a gift:**\n` +
+            `1. Go to /matches\n` +
+            `2. Select someone special\n` +
+            `3. Choose "Send Gift"\n` +
+            `4. Pick your perfect gift!`;
+
+          bot.sendMessage(chatId, giftShopMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '💕 View Matches', callback_data: 'view_matches' },
+                  { text: '🪙 Buy Coins', callback_data: 'buy_coins_menu' }
+                ],
+                [
+                  { text: '🔙 Back', callback_data: 'main_menu' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'sent_gifts') {
+          try {
+            const response = await axios.get(`${API_BASE}/gifts/sent/${telegramId}`);
+            const sentGifts = response.data.gifts;
+
+            if (sentGifts.length === 0) {
+              bot.sendMessage(chatId, '📨 **SENT GIFTS** 📨\n\n' +
+                'You haven\'t sent any gifts yet.\n\n' +
+                '💡 **Send your first gift:**\n' +
+                '• Go to /matches\n' +
+                '• Select someone special\n' +
+                '• Choose "Send Gift"\n\n' +
+                '🎁 Gifts help you stand out and show you care!', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '💕 View Matches', callback_data: 'view_matches' },
+                      { text: '🎁 Gift Shop', callback_data: 'gift_shop' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            } else {
+              const giftsList = sentGifts.slice(0, 10).map(gift => 
+                `🎁 ${gift.giftType} → ${gift.recipientName} (${gift.value} coins)`
+              ).join('\n');
+
+              bot.sendMessage(chatId, `📨 **SENT GIFTS (${sentGifts.length})** 📨\n\n` +
+                `${giftsList}\n\n` +
+                `💰 **Total Value:** ${sentGifts.reduce((sum, gift) => sum + gift.value, 0)} coins`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🎁 Send More Gifts', callback_data: 'gift_shop' },
+                      { text: '💕 View Matches', callback_data: 'view_matches' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Sent gifts error:', err);
+            bot.sendMessage(chatId, '❌ Failed to load sent gifts. Please try again later.');
+          }
+        } else if (data === 'received_gifts') {
+          try {
+            const response = await axios.get(`${API_BASE}/gifts/received/${telegramId}`);
+            const receivedGifts = response.data.gifts;
+
+            if (receivedGifts.length === 0) {
+              bot.sendMessage(chatId, '📬 **RECEIVED GIFTS** 📬\n\n' +
+                'You haven\'t received any gifts yet.\n\n' +
+                '💡 **Get more gifts by:**\n' +
+                '• Adding great photos to your profile\n' +
+                '• Writing an interesting bio\n' +
+                '• Being active and engaging\n\n' +
+                '🌟 Great profiles attract more attention!', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '👤 Edit Profile', callback_data: 'edit_profile' },
+                      { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            } else {
+              const giftsList = receivedGifts.slice(0, 10).map(gift => 
+                `🎁 ${gift.giftType} from ${gift.senderName}${gift.senderIsVip ? ' 👑' : ''}`
+              ).join('\n');
+
+              bot.sendMessage(chatId, `📬 **RECEIVED GIFTS (${receivedGifts.length})** 📬\n\n` +
+                `${giftsList}\n\n` +
+                `💰 **Total Value:** ${receivedGifts.reduce((sum, gift) => sum + gift.value, 0)} coins\n\n` +
+                `💕 **You're popular! Keep being awesome!**`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '💕 View Matches', callback_data: 'view_matches' },
+                      { text: '🎁 Send Gifts', callback_data: 'gift_shop' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Received gifts error:', err);
+            bot.sendMessage(chatId, '❌ Failed to load received gifts. Please try again later.');
+          }
+        } else if (data === 'view_matches') {
+          // Redirect to matches command
+          bot.sendMessage(chatId, '💕 Loading your matches...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/matches');
+          }, 500);
+        } else if (data === 'browse_profiles') {
+          // Redirect to browse command
+          bot.sendMessage(chatId, '🔍 Starting profile browsing...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/browse');
+          }, 500);
+        } else if (data === 'edit_profile') {
+          // Redirect to profile command
+          bot.sendMessage(chatId, '👤 Opening profile editor...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/profile');
+          }, 500);
+        } else if (data === 'main_settings') {
+          // Redirect to settings command
+          bot.sendMessage(chatId, '⚙️ Opening settings...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/settings');
+          }, 500);
+        } else if (data === 'main_menu') {
+          // Redirect to start command
+          bot.sendMessage(chatId, '🏠 Returning to main menu...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/start');
+          }, 500);
+        } else if (data === 'priority_boost') {
+          // Redirect to priority command
+          bot.sendMessage(chatId, '🚀 Opening priority boost...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/priority');
+          }, 500);
+        } else if (data === 'back_to_search') {
+          // Redirect to search command
+          bot.sendMessage(chatId, '🔍 Returning to search settings...');
+          setTimeout(() => {
+            bot.sendMessage(chatId, '/search');
+          }, 500);
+        } else if (data === 'live_chat_support' || data === 'email_support' || data === 'faq_support' || data === 'report_issue') {
+          // Support options
+          bot.sendMessage(chatId, '📞 **SUPPORT CONTACT** 📞\n\n' +
+            'Thank you for reaching out! Here are your support options:\n\n' +
+            '📧 **Email:** support@kisu1bot.com\n' +
+            '💬 **Live Chat:** Available 9 AM - 6 PM EST\n' +
+            '📱 **Response Time:** Usually within 24 hours\n\n' +
+            '🔒 **All communications are confidential and secure.**');
+        // Search callback handlers
+        } else if (data === 'search_age_range') {
+          bot.sendMessage(chatId, '🎂 **SET AGE RANGE** 🎂\n\nChoose your preferred age range for matches:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '18-25', callback_data: 'age_range_18_25' },
+                  { text: '26-35', callback_data: 'age_range_26_35' }
+                ],
+                [
+                  { text: '36-45', callback_data: 'age_range_36_45' },
+                  { text: '46-55', callback_data: 'age_range_46_55' }
+                ],
+                [
+                  { text: '18-35', callback_data: 'age_range_18_35' },
+                  { text: '25-45', callback_data: 'age_range_25_45' }
+                ],
+                [
+                  { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'search_distance') {
+          bot.sendMessage(chatId, '📍 **SET DISTANCE** 📍\n\nChoose maximum distance for matches:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '10 km', callback_data: 'distance_10' },
+                  { text: '25 km', callback_data: 'distance_25' }
+                ],
+                [
+                  { text: '50 km', callback_data: 'distance_50' },
+                  { text: '100 km', callback_data: 'distance_100' }
+                ],
+                [
+                  { text: '250 km', callback_data: 'distance_250' },
+                  { text: 'Unlimited', callback_data: 'distance_unlimited' }
+                ],
+                [
+                  { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'search_gender') {
+          bot.sendMessage(chatId, '👥 **SET GENDER PREFERENCE** 👥\n\nWho would you like to see?', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '👨 Men', callback_data: 'gender_male' },
+                  { text: '👩 Women', callback_data: 'gender_female' }
+                ],
+                [
+                  { text: '👥 Everyone', callback_data: 'gender_any' }
+                ],
+                [
+                  { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'search_location') {
+          bot.sendMessage(chatId, '🌍 **SET LOCATION FILTER** 🌍\n\nChoose location preferences:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '📍 Current Location', callback_data: 'location_current' },
+                  { text: '🏙️ Specific City', callback_data: 'location_city' }
+                ],
+                [
+                  { text: '🌎 Any Location', callback_data: 'location_any' }
+                ],
+                [
+                  { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'search_vip_filters') {
+          try {
+            const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+            const user = userRes.data;
+            
+            if (!user.isVip) {
+              bot.sendMessage(chatId, '👑 **VIP FILTERS** 👑\n\n' +
+                '🔒 **VIP Exclusive Features:**\n' +
+                '• Filter by interests & hobbies\n' +
+                '• Education level filter\n' +
+                '• Height preferences\n' +
+                '• Profession filter\n' +
+                '• Lifestyle preferences\n\n' +
+                '✨ **Upgrade to VIP to unlock advanced filters!**', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '👑 Get VIP', callback_data: 'manage_vip' }
+                    ],
+                    [
+                      { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                    ]
+                  ]
+                }
+              });
+            } else {
+              bot.sendMessage(chatId, '👑 **VIP FILTERS** 👑\n\n' +
+                'Choose advanced filters:', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '🎯 Interests', callback_data: 'filter_interests' },
+                      { text: '🎓 Education', callback_data: 'filter_education' }
+                    ],
+                    [
+                      { text: '📏 Height', callback_data: 'filter_height' },
+                      { text: '💼 Profession', callback_data: 'filter_profession' }
+                    ],
+                    [
+                      { text: '🏃 Lifestyle', callback_data: 'filter_lifestyle' }
+                    ],
+                    [
+                      { text: '🔙 Back to Search', callback_data: 'back_to_search' }
+                    ]
+                  ]
+                }
+              });
+            }
+          } catch (err) {
+            console.error('VIP filters error:', err);
+            bot.sendMessage(chatId, '❌ Failed to load VIP filters. Please try again.');
+          }
+        } else if (data === 'start_advanced_search') {
+          try {
+            const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+            const user = userRes.data;
+            const preferences = user.searchPreferences || {};
+            
+            // Start advanced search with current preferences
+            const searchRes = await axios.post(`${API_BASE}/search/advanced/${telegramId}`, {
+              ageRange: preferences.ageRange || '18-35',
+              maxDistance: preferences.maxDistance || 50,
+              gender: preferences.gender || 'any',
+              location: preferences.location || 'any'
+            });
+            
+            const profiles = searchRes.data.profiles;
+            
+            if (profiles.length === 0) {
+              bot.sendMessage(chatId, '🔍 **SEARCH RESULTS** 🔍\n\n' +
+                'No profiles found matching your criteria.\n\n' +
+                '💡 **Try adjusting your filters:**\n' +
+                '• Increase distance range\n' +
+                '• Expand age range\n' +
+                '• Change gender preference\n\n' +
+                'Or browse all profiles with /browse', {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '⚙️ Adjust Filters', callback_data: 'back_to_search' },
+                      { text: '🔍 Browse All', callback_data: 'browse_profiles' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            } else {
+              bot.sendMessage(chatId, `🔍 **SEARCH RESULTS** 🔍\n\n` +
+                `Found ${profiles.length} profiles matching your criteria!\n\n` +
+                `🎯 **Your Search Filters:**\n` +
+                `• Age: ${preferences.ageRange || '18-35'}\n` +
+                `• Distance: ${preferences.maxDistance || 50} km\n` +
+                `• Gender: ${preferences.gender || 'Any'}\n\n` +
+                `Ready to start browsing?`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '👀 Start Browsing', callback_data: 'browse_profiles' }
+                    ],
+                    [
+                      { text: '⚙️ Adjust Filters', callback_data: 'back_to_search' },
+                      { text: '🔙 Back', callback_data: 'main_menu' }
+                    ]
+                  ]
+                }
+              });
+            }
+          } catch (err) {
+             console.error('Advanced search error:', err);
+             bot.sendMessage(chatId, '❌ Failed to perform search. Please try again later.');
+           }
+        // Location filter handlers
+        } else if (data === 'location_current') {
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              location: 'current'
+            });
+            bot.sendMessage(chatId, '✅ **Location updated to current location!**\n\nYour search will now prioritize people near you.');
+          } catch (err) {
+            console.error('Location update error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update location preference. Please try again.');
+          }
+        } else if (data === 'location_city') {
+          bot.sendMessage(chatId, '🏙️ **SPECIFIC CITY** 🏙️\n\n' +
+            'Please send me the name of the city you want to search in.\n\n' +
+            '📍 **Example:** "New York" or "London"\n\n' +
+            'I\'ll update your location preference once you send the city name.');
+        } else if (data === 'location_any') {
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              location: 'any'
+            });
+            bot.sendMessage(chatId, '✅ **Location updated to any location!**\n\nYour search will now include people from anywhere.');
+          } catch (err) {
+            console.error('Location update error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update location preference. Please try again.');
+          }
+        // VIP filter handlers
+        } else if (data === 'filter_interests') {
+          bot.sendMessage(chatId, '🎯 **INTEREST FILTERS** 🎯\n\n' +
+            'Choose interests to filter by:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🎵 Music', callback_data: 'interest_music' },
+                  { text: '🏃 Sports', callback_data: 'interest_sports' }
+                ],
+                [
+                  { text: '📚 Reading', callback_data: 'interest_reading' },
+                  { text: '🎬 Movies', callback_data: 'interest_movies' }
+                ],
+                [
+                  { text: '✈️ Travel', callback_data: 'interest_travel' },
+                  { text: '🍳 Cooking', callback_data: 'interest_cooking' }
+                ],
+                [
+                  { text: '🎨 Art', callback_data: 'interest_art' },
+                  { text: '🎮 Gaming', callback_data: 'interest_gaming' }
+                ],
+                [
+                  { text: '🔙 Back to VIP Filters', callback_data: 'search_vip_filters' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'filter_education') {
+          bot.sendMessage(chatId, '🎓 **EDUCATION FILTERS** 🎓\n\n' +
+            'Filter by education level:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🏫 High School', callback_data: 'edu_highschool' },
+                  { text: '🎓 Bachelor\'s', callback_data: 'edu_bachelors' }
+                ],
+                [
+                  { text: '📚 Master\'s', callback_data: 'edu_masters' },
+                  { text: '🔬 PhD', callback_data: 'edu_phd' }
+                ],
+                [
+                  { text: '💼 Professional', callback_data: 'edu_professional' },
+                  { text: '🎯 Any Level', callback_data: 'edu_any' }
+                ],
+                [
+                  { text: '🔙 Back to VIP Filters', callback_data: 'search_vip_filters' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'filter_height') {
+          bot.sendMessage(chatId, '📏 **HEIGHT FILTERS** 📏\n\n' +
+            'Filter by height preference:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '< 160cm', callback_data: 'height_under160' },
+                  { text: '160-170cm', callback_data: 'height_160_170' }
+                ],
+                [
+                  { text: '170-180cm', callback_data: 'height_170_180' },
+                  { text: '180-190cm', callback_data: 'height_180_190' }
+                ],
+                [
+                  { text: '> 190cm', callback_data: 'height_over190' },
+                  { text: '🎯 Any Height', callback_data: 'height_any' }
+                ],
+                [
+                  { text: '🔙 Back to VIP Filters', callback_data: 'search_vip_filters' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'filter_profession') {
+          bot.sendMessage(chatId, '💼 **PROFESSION FILTERS** 💼\n\n' +
+            'Filter by profession:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '💻 Tech', callback_data: 'prof_tech' },
+                  { text: '⚕️ Healthcare', callback_data: 'prof_healthcare' }
+                ],
+                [
+                  { text: '📚 Education', callback_data: 'prof_education' },
+                  { text: '💰 Finance', callback_data: 'prof_finance' }
+                ],
+                [
+                  { text: '🎨 Creative', callback_data: 'prof_creative' },
+                  { text: '🏢 Business', callback_data: 'prof_business' }
+                ],
+                [
+                  { text: '🔧 Engineering', callback_data: 'prof_engineering' },
+                  { text: '🎯 Any Profession', callback_data: 'prof_any' }
+                ],
+                [
+                  { text: '🔙 Back to VIP Filters', callback_data: 'search_vip_filters' }
+                ]
+              ]
+            }
+          });
+        } else if (data === 'filter_lifestyle') {
+          bot.sendMessage(chatId, '🏃 **LIFESTYLE FILTERS** 🏃\n\n' +
+            'Filter by lifestyle preferences:', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🚭 Non-smoker', callback_data: 'lifestyle_nonsmoker' },
+                  { text: '🍷 Social Drinker', callback_data: 'lifestyle_social_drinker' }
+                ],
+                [
+                  { text: '🏃 Active', callback_data: 'lifestyle_active' },
+                  { text: '📚 Intellectual', callback_data: 'lifestyle_intellectual' }
+                ],
+                [
+                  { text: '🌱 Vegetarian', callback_data: 'lifestyle_vegetarian' },
+                  { text: '🐕 Pet Lover', callback_data: 'lifestyle_pet_lover' }
+                ],
+                [
+                  { text: '🎯 Any Lifestyle', callback_data: 'lifestyle_any' }
+                ],
+                [
+                  { text: '🔙 Back to VIP Filters', callback_data: 'search_vip_filters' }
+                ]
+              ]
+            }
+          });
+        // Interest filter handlers
+        } else if (data.startsWith('interest_')) {
+          const interest = data.replace('interest_', '');
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              interests: [interest]
+            });
+            bot.sendMessage(chatId, `✅ **Interest filter updated!**\n\nYou will now see people interested in ${interest}.`);
+          } catch (err) {
+            console.error('Interest filter error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update interest filter. Please try again.');
+          }
+        // Education filter handlers
+        } else if (data.startsWith('edu_')) {
+          const education = data.replace('edu_', '').replace('_', ' ');
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              education: education
+            });
+            bot.sendMessage(chatId, `✅ **Education filter updated!**\n\nYou will now see people with ${education} education.`);
+          } catch (err) {
+            console.error('Education filter error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update education filter. Please try again.');
+          }
+        // Height filter handlers
+        } else if (data.startsWith('height_')) {
+          const height = data.replace('height_', '').replace('_', '-');
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              height: height
+            });
+            bot.sendMessage(chatId, `✅ **Height filter updated!**\n\nYou will now see people with ${height} height preference.`);
+          } catch (err) {
+            console.error('Height filter error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update height filter. Please try again.');
+          }
+        // Profession filter handlers
+        } else if (data.startsWith('prof_')) {
+          const profession = data.replace('prof_', '');
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              profession: profession
+            });
+            bot.sendMessage(chatId, `✅ **Profession filter updated!**\n\nYou will now see people working in ${profession}.`);
+          } catch (err) {
+            console.error('Profession filter error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update profession filter. Please try again.');
+          }
+        // Lifestyle filter handlers
+        } else if (data.startsWith('lifestyle_')) {
+          const lifestyle = data.replace('lifestyle_', '').replace('_', ' ');
+          try {
+            await axios.post(`${API_BASE}/preferences/${telegramId}`, {
+              lifestyle: lifestyle
+            });
+            bot.sendMessage(chatId, `✅ **Lifestyle filter updated!**\n\nYou will now see people with ${lifestyle} lifestyle.`);
+          } catch (err) {
+            console.error('Lifestyle filter error:', err);
+            bot.sendMessage(chatId, '❌ Failed to update lifestyle filter. Please try again.');
+          }
         } else {
-          console.log('Unhandled callback data:', data);
-          bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
+          // Skip callbacks that are handled by other modules
+          const handledCallbacks = [
+            // VIP callbacks handled by premium.js
+            'extend_vip', 'gift_vip', 'manage_vip', 'cancel_vip',
+            'buy_vip_1', 'buy_vip_3', 'buy_vip_6',
+            'gift_vip_1', 'gift_vip_3', 'gift_vip_6',
+            'vip_purchase_monthly', 'vip_purchase_yearly', 'vip_purchase_lifetime',
+            'vip_purchase_weekly',
+            // Settings callbacks handled by settings.js
+            'age_range_18_25', 'age_range_26_35', 'age_range_36_45', 'age_range_46_55',
+            'age_range_18_35', 'age_range_25_45',
+            'distance_10', 'distance_25', 'distance_50', 'distance_100', 'distance_250', 'distance_unlimited',
+            'gender_male', 'gender_female', 'gender_any',
+            'set_age_range', 'set_distance', 'set_gender_pref',
+            'settings_search', 'back_to_search', 'main_settings',
+            'settings_profile', 'settings_notifications', 'settings_privacy', 'settings_help',
+            // Search callbacks handled in bot-new.js
+            'search_age_range', 'search_distance', 'search_gender', 'search_location',
+            'vip_filters', 'search_vip_filters', 'start_advanced_search',
+            'location_current', 'location_city', 'location_any',
+            // VIP filter callbacks
+            'filter_interests', 'filter_education', 'filter_height', 'filter_profession', 'filter_lifestyle',
+            // Likes You callbacks
+            'view_all_likes', 'back_to_likes'
+          ];
+          
+          // Check for dynamic callbacks (with IDs)
+          const isDynamicCallback = data.startsWith('view_liker_') || 
+                                   data.startsWith('like_') || 
+                                   data.startsWith('pass_') || 
+                                   data.startsWith('superlike_');
+          
+          if (!handledCallbacks.includes(data) && !isDynamicCallback) {
+            console.log('Unhandled callback data:', data);
+            bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
+          }
+          // These callbacks are handled by other modules - do nothing here
         }
         break;
     }
@@ -687,6 +2219,9 @@ bot.on('photo', async (msg) => {
         
         // Clean up temp file
         fs.unlinkSync(tempPath);
+        
+        // Invalidate cache so /profile shows updated photo
+        invalidateUserCache(telegramId);
         
         // Update loading message with success
         bot.editMessageText('✅ **Photo Uploaded Successfully!**\n\n📸 Your profile photo has been updated and is now visible to other users.\n\n🌟 **Profile Boost:** Profiles with photos get 10x more matches!\n\n💡 Tip: Use /profile to see your complete profile', {

@@ -3,45 +3,129 @@ const axios = require('axios');
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupHelpCommands(bot) {
+  // Callback query handlers
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const telegramId = query.from.id;
+    const data = query.data;
+
+    try {
+      switch (data) {
+        case 'email_support':
+          bot.sendMessage(chatId, `📧 **EMAIL SUPPORT** 📧\n\n` +
+            `Send your support request to:\n` +
+            `📮 **spprtksbt@gmail.com**\n\n` +
+            `📋 **Please include:**\n` +
+            `• Your Telegram username: @${query.from.username || 'N/A'}\n` +
+            `• Your user ID: ${telegramId}\n` +
+            `• Detailed description of your issue\n` +
+            `• Screenshots if relevant\n\n` +
+            `⏰ **Response time:** 24-48 hours\n\n` +
+            `💡 **Tip:** Copy the email address above and paste it in your email app.`);
+          break;
+
+        case 'contact_support':
+          const supportMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
+            `Our support team is here to help!\n\n` +
+            `🕐 **Support Hours:**\n` +
+            `Monday - Friday: 9 AM - 6 PM UTC\n` +
+            `Weekend: Limited support\n\n` +
+            `📧 **Contact Methods:**\n` +
+            `• Email: spprtksbt@gmail.com\n` +
+            `• Response time: 24-48 hours\n\n` +
+            `💬 **Common Issues:**\n` +
+            `• Profile not showing up\n` +
+            `• Payment/VIP problems\n` +
+            `• Technical difficulties\n` +
+            `• Account recovery\n` +
+            `• Report violations\n\n` +
+            `📋 **Before contacting:**\n` +
+            `• Check /help for common solutions\n` +
+            `• Include your Telegram username\n` +
+            `• Describe the issue clearly`;
+
+          bot.sendMessage(chatId, supportMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '📧 Send Email', callback_data: 'email_support' }
+                ],
+                [
+                  { text: '🔙 Back to Help', callback_data: 'show_help' }
+                ]
+              ]
+            },
+            parse_mode: 'Markdown'
+          });
+          break;
+
+        case 'show_help':
+        case 'help_menu':
+          const helpText = `🤖 **KISU1BOT HELP** 🤖\n\n` +
+            `📋 **Available Commands:**\n\n` +
+            `🏠 /start - Start the bot and access main menu\n` +
+            `👤 /profile - View and edit your profile\n` +
+            `🔍 /browse - Browse potential matches\n` +
+            `💕 /matches - View your matches\n` +
+            `⚙️ /settings - Access settings menu\n` +
+            `📱 /stories - View and post stories\n` +
+            `💰 /coins - Check coin balance and buy coins\n` +
+            `👑 /vip - Manage VIP membership\n` +
+            `❓ /help - Show this help message\n\n` +
+            `💡 **Tips:**\n` +
+            `• Complete your profile to get more matches\n` +
+            `• Upload multiple photos for better visibility\n` +
+            `• Use VIP features to boost your profile\n` +
+            `• Post stories to increase engagement\n\n` +
+            `📞 **Need Support?**\n` +
+            `Contact us at: spprtksbt@gmail.com\n\n` +
+            `Happy matching! 💙`;
+
+          bot.sendMessage(chatId, helpText, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '📞 Contact Support', callback_data: 'contact_support' }
+                ],
+                [
+                  { text: '🔙 Back to Menu', callback_data: 'main_menu' }
+                ]
+              ]
+            },
+            parse_mode: 'Markdown'
+          });
+          break;
+      }
+    } catch (err) {
+      console.error('Help callback error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+    }
+  });
+
   // HELP command
   bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
-    const helpMsg = `🤖 **KISU1BOT HELP GUIDE** 🤖\n\n` +
-      `📋 **Main Commands:**\n` +
-      `• /start - Welcome message\n` +
-      `• /register - Create your dating profile\n` +
-      `• /browse - Browse and like profiles\n` +
-      `• /profile - View/edit your profile\n` +
-      `• /settings - Access all settings\n\n` +
-      `💕 **Dating Features:**\n` +
-      `• /matches - See your matches\n` +
-      `• /likesyou - See who likes you (VIP)\n` +
-      `• /photo - Upload profile photos\n\n` +
-      `⭐ **Premium Features:**\n` +
-      `• /vip - Upgrade to VIP\n` +
-      `• /coins - Buy coins\n` +
-      `• /gifts - Send virtual gifts\n\n` +
-      `❓ **Need More Help?**`;
+    const helpText = `🤖 **KISU1BOT HELP** 🤖\n\n` +
+      `📋 **Available Commands:**\n\n` +
+      `🏠 /start - Start the bot and access main menu\n` +
+      `👤 /profile - View and edit your profile\n` +
+      `🔍 /browse - Browse potential matches\n` +
+      `💕 /matches - View your matches\n` +
+      `⚙️ /settings - Access settings menu\n` +
+      `📱 /stories - View and post stories\n` +
+      `💰 /coins - Check coin balance and buy coins\n` +
+      `👑 /vip - Manage VIP membership\n` +
+      `❓ /help - Show this help message\n\n` +
+      `💡 **Tips:**\n` +
+      `• Complete your profile to get more matches\n` +
+      `• Upload multiple photos for better visibility\n` +
+      `• Use VIP features to boost your profile\n` +
+      `• Post stories to increase engagement\n\n` +
+      `📞 **Need Support?**\n` +
+      `Contact us at: spprtksbt@gmail.com\n\n` +
+      `Happy matching! 💙`;
 
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '📞 Contact Support', callback_data: 'contact_support' },
-            { text: '⭐ Get VIP', callback_data: 'manage_vip' }
-          ],
-          [
-            { text: '📚 User Guide', callback_data: 'user_guide' },
-            { text: '🚨 Report Issue', callback_data: 'report_menu' }
-          ],
-          [
-            { text: '💬 Send Feedback', callback_data: 'email_feedback' }
-          ]
-        ]
-      }
-    };
-
-    bot.sendMessage(chatId, helpMsg, opts);
+    bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
   });
 
   // REPORT command

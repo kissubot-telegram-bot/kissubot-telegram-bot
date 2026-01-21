@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+const API_BASE = process.env.API_BASE || 'http://localhost:3002';
 
 // Cache for user profiles
 const userProfileCache = new Map();
@@ -13,6 +13,11 @@ async function getCachedUserProfile(telegramId) {
   const res = await axios.get(`${API_BASE}/users/${telegramId}`);
   userProfileCache.set(telegramId, res.data);
   return res.data;
+}
+
+// Function to invalidate cache after profile updates
+function invalidateUserCache(telegramId) {
+  userProfileCache.delete(telegramId);
 }
 
 function setupAuthCommands(bot) {
@@ -86,5 +91,6 @@ function setupAuthCommands(bot) {
 
 module.exports = {
   setupAuthCommands,
-  getCachedUserProfile
+  getCachedUserProfile,
+  invalidateUserCache
 };

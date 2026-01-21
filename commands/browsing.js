@@ -4,6 +4,148 @@ const { getCachedUserProfile } = require('./auth');
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupBrowsingCommands(bot) {
+  // Callback query handlers
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const telegramId = query.from.id;
+    const data = query.data;
+    const message = query.message;
+
+    // Check if data exists
+    if (!data) {
+      console.log('No callback data found');
+      return;
+    }
+
+    try {
+      // Like/Pass/SuperLike handlers
+      if (data.startsWith('like_')) {
+        const targetId = data.split('_')[1];
+        const res = await axios.post(`${API_BASE}/like`, {
+          fromUserId: telegramId,
+          toUserId: targetId
+        });
+        
+        bot.editMessageReplyMarkup({}, {
+          chat_id: chatId,
+          message_id: message.message_id
+        });
+        
+        if (res.data.matched) {
+          bot.sendMessage(chatId, `🎉 **IT'S A MATCH!** 🎉\n\nYou and ${res.data.matchedUser?.name || 'this person'} liked each other!\n\n💬 Start chatting now or use /matches to see all your matches.`);
+        } else {
+          bot.sendMessage(chatId, '❤️ You liked this profile! Use /browse to see more.');
+        }
+        
+      } else if (data.startsWith('pass_')) {
+        const targetId = data.split('_')[1];
+        await axios.post(`${API_BASE}/pass`, {
+          fromUserId: telegramId,
+          toUserId: targetId
+        });
+        
+        bot.editMessageReplyMarkup({}, {
+          chat_id: chatId,
+          message_id: message.message_id
+        });
+        
+        bot.sendMessage(chatId, '👎 You passed on this profile. Use /browse to see more.');
+        
+      } else if (data.startsWith('superlike_')) {
+        const targetId = data.split('_')[1];
+        try {
+          await axios.post(`${API_BASE}/superlike`, {
+            fromUserId: telegramId,
+            toUserId: targetId
+          });
+          
+          bot.editMessageReplyMarkup({}, {
+            chat_id: chatId,
+            message_id: message.message_id
+          });
+          
+          bot.sendMessage(chatId, '⭐ You super liked this profile! They\'ll be notified and you\'ll appear at the top of their queue.');
+        } catch (err) {
+          if (err.response?.data?.error === 'Insufficient coins') {
+            bot.sendMessage(chatId, '❌ You need 10 coins to send a super like. Use /coins to buy more!');
+          } else {
+            bot.sendMessage(chatId, '❌ Failed to send super like. Please try again.');
+          }
+        }
+        
+      } else if (data.startsWith('chat_')) {
+        const targetId = data.split('_')[1];
+        bot.sendMessage(chatId, '💬 **Chat Feature Coming Soon!**\n\nFor now, you can:\n• Continue browsing with /browse\n• View your matches with /matches\n• Send gifts to show interest');
+        
+      } else if (data.startsWith('unmatch_')) {
+        const targetId = data.split('_')[1];
+        try {
+          await axios.post(`${API_BASE}/matches/unmatch`, {
+            fromId: telegramId,
+            toId: targetId
+          });
+          bot.sendMessage(chatId, '💔 Successfully unmatched. Use /browse to find new matches!');
+        } catch (err) {
+          bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again later.');
+        }
+        
+      } else {
+        switch (data) {
+          case 'view_matches':
+            try {
+              const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
+              const matches = res.data;
+        
+              if (!matches || matches.length === 0) {
+                return bot.sendMessage(chatId, 
+                  '💞 **No Matches Yet** 💞\n\n' +
+                  'Keep browsing to find your perfect match!\n\n' +
+                  '💡 **Tips:**\n' +
+                  '• Use /browse to see more profiles\n' +
+                  '• Complete your profile to attract more likes\n' +
+                  '• Add more photos to stand out\n\n' +
+                  'Your special someone is out there! 💕'
+                );
+              }
+        
+              let matchMsg = `💕 **YOUR MATCHES (${matches.length})** 💕\n\n`;
+              
+              matches.slice(0, 10).forEach((match, index) => {
+                matchMsg += `${index + 1}. **${match.name}**, ${match.age}\n`;
+                matchMsg += `   📍 ${match.location}\n`;
+                if (match.bio) {
+                  matchMsg += `   💬 ${match.bio.substring(0, 50)}${match.bio.length > 50 ? '...' : ''}\n`;
+                }
+                matchMsg += `\n`;
+              });
+        
+              if (matches.length > 10) {
+                matchMsg += `\n... and ${matches.length - 10} more matches!`;
+              }
+        
+              const matchButtons = matches.slice(0, 5).map(match => ([
+                { text: `💬 Chat with ${match.name}`, callback_data: `chat_${match.telegramId}` }
+              ]));
+        
+              matchButtons.push([{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]);
+        
+              bot.sendMessage(chatId, matchMsg, {
+                reply_markup: {
+                  inline_keyboard: matchButtons
+                }
+              });
+            } catch (err) {
+              console.error('Matches error:', err.response?.data || err.message);
+              bot.sendMessage(chatId, '❌ Failed to load matches. Please try again later.');
+            }
+            break;
+        }
+      }
+    } catch (err) {
+      console.error('Browsing callback error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+    }
+  });
   // BROWSE command - Browse and like profiles
   bot.onText(/\/browse/, async (msg) => {
     const chatId = msg.chat.id;

@@ -98,6 +98,8 @@ const userSchema = new mongoose.Schema({
   // VIP Status
   isVip: { type: Boolean, default: false },
   vipDetails: {
+    vipTier: { type: String, enum: ['bronze', 'silver', 'gold'], default: 'bronze' }, // New: VIP tier
+    lastCoinGrantDate: { type: Date }, // New: To track monthly coin grants
     expiresAt: Date,
     subscriptionType: { type: String, enum: ['monthly', 'yearly', 'lifetime'] },
     benefits: {
@@ -105,7 +107,12 @@ const userSchema = new mongoose.Schema({
       hideAds: { type: Boolean, default: false },
       priorityMatch: { type: Boolean, default: false },
       seeViewers: { type: Boolean, default: false },
-      specialBadge: { type: Boolean, default: false }
+      specialBadge: { type: Boolean, default: false },
+      unlimitedViewing: { type: Boolean, default: false },
+      storyFilters: { type: Boolean, default: false },
+      guaranteedMatches: { type: Boolean, default: false },
+      monthlyCoins: { type: Number, default: 0 },
+      adFree: { type: Boolean, default: false }
     }
   },
 
@@ -140,7 +147,20 @@ const userSchema = new mongoose.Schema({
     mediaUrl: String,
     caption: String,
     createdAt: { type: Date, default: Date.now },
-    expiresAt: Date
+    expiresAt: Date,
+    views: [{ type: String }], // Array of telegramIds who viewed
+    reactions: [{
+      userId: String,
+      reaction: String, // emoji
+      createdAt: { type: Date, default: Date.now }
+    }],
+    messages: [{
+      fromUserId: String,
+      message: String,
+      isAnonymous: { type: Boolean, default: true },
+      createdAt: { type: Date, default: Date.now },
+      isRevealed: { type: Boolean, default: false }
+    }]
   }],
 
   // Search Settings
@@ -176,13 +196,17 @@ app.post('/register', async (req, res) => {
 // Get User Profile
 app.get('/users/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
+  console.log(`Fetching profile for telegramId: ${telegramId}`);
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
+      console.log(`User not found for telegramId: ${telegramId}`);
       return res.status(404).json({ error: 'User not found' });
     }
+    console.log(`User found for telegramId: ${telegramId}`);
     res.json(user);
   } catch (err) {
+    console.error(`Error fetching user profile for telegramId: ${telegramId}`, err);
     res.status(500).json({ error: 'Failed to fetch user profile' });
   }
 });
@@ -191,7 +215,17 @@ app.get('/users/:telegramId', async (req, res) => {
 app.get('/browse/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
   try {
-    const users = await User.find({ telegramId: { $ne: telegramId } }).limit(5);
+    const currentUser = await User.findOne({ telegramId });
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let query = User.find({ telegramId: { $ne: telegramId } });
+    if (!currentUser.isVip) {
+      query = query.limit(5);
+    }
+
+    const users = await query;
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profiles' });
@@ -322,30 +356,24 @@ app.post('/matches/unmatch', async (req, res) => {
   }
 });
 
-// Get user profile
-app.get('/profile/:telegramId', async (req, res) => {
-  const { telegramId } = req.params;
-  
+// Grant monthly coins to VIP users
+app.post('/vip/grant-coins', async (req, res) => {
   try {
-    // Try both string and number formats to handle data type mismatches
-    const user = await User.findOne({ 
-      $or: [
-        { telegramId: telegramId },
-        { telegramId: parseInt(telegramId) },
-        { telegramId: telegramId.toString() }
-      ]
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const usersToGrant = await User.find({
+      isVip: true,
+      'vipDetails.lastCoinGrantDate': { $lt: thirtyDaysAgo }
     });
-    
-    if (!user) {
-      console.log(`Profile not found for telegramId: ${telegramId}`);
-      return res.status(404).json({ error: 'User not found' });
+
+    for (const user of usersToGrant) {
+      user.coins += 1000;
+      user.vipDetails.lastCoinGrantDate = new Date();
+      await user.save();
     }
-    
-    console.log(`Profile found for telegramId: ${telegramId}`);
-    res.json(user);
+
+    res.json({ message: `Granted coins to ${usersToGrant.length} VIP users.` });
   } catch (err) {
-    console.error('Error fetching profile:', err);
-    res.status(500).json({ error: 'Failed to fetch profile' });
+    res.status(500).json({ error: 'Failed to grant coins' });
   }
 });
 
@@ -378,24 +406,42 @@ app.get('/likes/:telegramId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Get users who liked this user
+    // Get users who liked this user with more detailed info
     const likers = await User.find({ 
       telegramId: { $in: user.likes }
-    }).select('telegramId name age location bio isVip');
+    }).select('telegramId name age location bio isVip profilePhoto createdAt lastActive');
+
+    // Add like timestamp and sort by most recent
+    const likersWithTimestamp = likers.map(liker => {
+      const likeIndex = user.likes.indexOf(liker.telegramId);
+      return {
+        ...liker.toObject(),
+        likedAt: new Date(Date.now() - (likeIndex * 60000)), // Approximate timestamp
+        isOnline: liker.lastActive && (Date.now() - liker.lastActive.getTime()) < 300000 // 5 minutes
+      };
+    }).sort((a, b) => b.likedAt - a.likedAt);
 
     // Check if user is VIP to determine how many likes to show
-    const likesToShow = user.isVip ? likers.length : Math.min(3, likers.length);
-    const hasHiddenLikes = likers.length > likesToShow;
+    const likesToShow = user.isVip ? likersWithTimestamp.length : Math.min(3, likersWithTimestamp.length);
+    const hasHiddenLikes = likersWithTimestamp.length > likesToShow;
 
-    // Get preview of likes
-    const visibleLikes = likers.slice(0, likesToShow);
+    // Get preview of likes for non-VIP (blurred/limited info)
+    const visibleLikes = user.isVip 
+      ? likersWithTimestamp.slice(0, likesToShow)
+      : likersWithTimestamp.slice(0, likesToShow).map(liker => ({
+          ...liker,
+          name: liker.name.charAt(0) + '*'.repeat(liker.name.length - 1),
+          bio: 'Upgrade to VIP to see full profile',
+          profilePhoto: null // Hide photo for non-VIP
+        }));
     
     res.json({
       likes: visibleLikes,
-      totalLikes: likers.length,
+      totalLikes: likersWithTimestamp.length,
       visibleLikes: likesToShow,
       hasHiddenLikes,
-      isVip: user.isVip
+      isVip: user.isVip,
+      previewCount: user.isVip ? 0 : Math.max(0, likersWithTimestamp.length - 3)
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch likes' });
@@ -422,6 +468,22 @@ app.post('/like', async (req, res) => {
     // Check if already liked
     if (targetUser.likes.includes(fromUserId)) {
       return res.status(400).json({ error: 'User already liked' });
+    }
+
+    // Check daily like limit for non-VIP users (50 likes per day)
+    if (!fromUser.isVip) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Count likes sent today
+      const likesToday = await User.countDocuments({
+        likes: fromUserId,
+        'likes.0': { $exists: true }
+      });
+      
+      if (likesToday >= 50) {
+        return res.status(400).json({ error: 'Daily like limit reached. Upgrade to VIP for unlimited likes!' });
+      }
     }
 
     // Add like
@@ -504,6 +566,17 @@ app.post('/superlike', async (req, res) => {
       return res.status(400).json({ error: 'User already liked' });
     }
 
+    // Check if user has enough coins (10 coins for super like)
+    if (!fromUser.isVip && fromUser.coins < 10) {
+      return res.status(400).json({ error: 'Insufficient coins' });
+    }
+
+    // Deduct coins if not VIP
+    if (!fromUser.isVip) {
+      fromUser.coins -= 10;
+      await fromUser.save();
+    }
+
     // Add super like (same as regular like but with priority)
     targetUser.likes.push(fromUserId);
     await targetUser.save();
@@ -542,23 +615,7 @@ app.post('/superlike', async (req, res) => {
   }
 });
 
-// Get user stories
-app.get('/stories/:telegramId', async (req, res) => {
-  const { telegramId } = req.params;
-  try {
-    const user = await User.findOne({ telegramId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    // Filter out expired stories
-    const activeStories = user.stories.filter(story => 
-      story.expiresAt > new Date()
-    );
-    res.json(activeStories);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch stories' });
-  }
-});
+
 
 // Get user gifts
 app.get('/gifts/:telegramId', async (req, res) => {
@@ -673,6 +730,17 @@ app.get('/vip/:telegramId', async (req, res) => {
     }
 
     const vipPlans = {
+      weekly: {
+        price: 300, // in coins
+        duration: 7, // days
+        benefits: {
+          extraSwipes: 50,
+          hideAds: true,
+          priorityMatch: true,
+          seeViewers: true,
+          specialBadge: true
+        }
+      },
       monthly: {
         price: 1000, // in coins
         duration: 30, // days
@@ -724,7 +792,10 @@ app.post('/vip/purchase/:telegramId', async (req, res) => {
   const { planType } = req.body;
   
   const plans = {
+    weekly: { price: 300, days: 7 },
     monthly: { price: 1000, days: 30 },
+    quarterly: { price: 2500, days: 90 }, // 3 months
+    biannual: { price: 4500, days: 180 }, // 6 months
     yearly: { price: 10000, days: 365 },
     lifetime: { price: 25000, days: 3650 }
   };
@@ -1067,6 +1138,33 @@ function getGiftPrice(giftType) {
   return prices[giftType] || 0;
 }
 
+// Purchase coins
+app.post('/coins/purchase/:telegramId', async (req, res) => {
+  const { telegramId } = req.params;
+  const { amount } = req.body;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'Invalid coin amount' });
+  }
+
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.coins += amount;
+    await user.save();
+
+    res.json({
+      message: 'Coins purchased successfully',
+      newBalance: user.coins
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to purchase coins' });
+  }
+});
+
 // Update user profile
 app.post('/profile/update/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
@@ -1092,30 +1190,7 @@ app.post('/profile/update/:telegramId', async (req, res) => {
 });
 
 // Post a story
-app.post('/stories/post', async (req, res) => {
-  const { telegramId, mediaUrl, caption } = req.body;
-  try {
-    const user = await User.findOne({ telegramId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // Stories expire after 24 hours
-    
-    user.stories.push({
-      mediaUrl,
-      caption,
-      createdAt: new Date(),
-      expiresAt
-    });
-    
-    await user.save();
-    res.json({ message: 'Story posted successfully' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to post story' });
-  }
-});
+
 
 // Placeholder for Chat (future)
 app.post('/chat', (req, res) => {
@@ -1199,6 +1274,169 @@ app.get('/stories/recent/:telegramId', async (req, res) => {
   }
 });
 
+// Send anonymous message to story
+app.post('/stories/message', async (req, res) => {
+  const { storyId, storyOwnerId, fromUserId, message, isAnonymous = true } = req.body;
+  
+  try {
+    const storyOwner = await User.findOne({ telegramId: storyOwnerId });
+    if (!storyOwner) {
+      return res.status(404).json({ error: 'Story owner not found' });
+    }
+    
+    // Add message to story owner's storyMessages
+    storyOwner.storyMessages.push({
+      storyId,
+      storyOwnerId,
+      fromUserId,
+      message,
+      isAnonymous,
+      createdAt: new Date(),
+      isRead: false,
+      isRevealed: false
+    });
+    
+    await storyOwner.save();
+    res.json({ message: 'Story message sent successfully' });
+  } catch (err) {
+    console.error('Error sending story message:', err);
+    res.status(500).json({ error: 'Failed to send story message' });
+  }
+});
+
+// Get story messages for a user
+app.get('/stories/messages/:telegramId', async (req, res) => {
+  const { telegramId } = req.params;
+  
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Get sender details for non-anonymous messages
+    const messagesWithSenders = await Promise.all(
+      user.storyMessages.map(async (msg) => {
+        if (!msg.isAnonymous || msg.isRevealed) {
+          const sender = await User.findOne({ telegramId: msg.fromUserId }).select('name age location profilePhoto');
+          return {
+            ...msg.toObject(),
+            senderInfo: sender ? {
+              name: sender.name,
+              age: sender.age,
+              location: sender.location,
+              profilePhoto: sender.profilePhoto
+            } : null
+          };
+        }
+        return msg.toObject();
+      })
+    );
+    
+    res.json({ messages: messagesWithSenders });
+  } catch (err) {
+    console.error('Error fetching story messages:', err);
+    res.status(500).json({ error: 'Failed to fetch story messages' });
+  }
+});
+
+// Reveal identity in story message
+app.post('/stories/reveal/:messageId', async (req, res) => {
+  const { messageId } = req.params;
+  const { telegramId } = req.body;
+  
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const message = user.storyMessages.id(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    message.isRevealed = true;
+    await user.save();
+    
+    res.json({ message: 'Identity revealed successfully' });
+  } catch (err) {
+    console.error('Error revealing identity:', err);
+    res.status(500).json({ error: 'Failed to reveal identity' });
+  }
+});
+
+// Add reaction to story
+app.post('/stories/react', async (req, res) => {
+  const { storyId, storyOwnerId, fromUserId, reaction } = req.body;
+  
+  try {
+    const storyOwner = await User.findOne({ telegramId: storyOwnerId });
+    if (!storyOwner) {
+      return res.status(404).json({ error: 'Story owner not found' });
+    }
+    
+    const story = storyOwner.stories.id(storyId);
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    // Remove existing reaction from this user
+    story.reactions = story.reactions.filter(r => r.userId !== fromUserId);
+    
+    // Add new reaction
+    story.reactions.push({
+      userId: fromUserId,
+      reaction,
+      createdAt: new Date()
+    });
+    
+    await storyOwner.save();
+    res.json({ message: 'Reaction added successfully' });
+  } catch (err) {
+    console.error('Error adding reaction:', err);
+    res.status(500).json({ error: 'Failed to add reaction' });
+  }
+});
+
+// Mark story as viewed
+app.post('/stories/view/:storyId', async (req, res) => {
+  const { storyId } = req.params;
+  const { viewerId } = req.body;
+  
+  try {
+    const storyOwner = await User.findOne({ 'stories._id': storyId });
+    if (!storyOwner) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    const story = storyOwner.stories.id(storyId);
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    // Add viewer if not already viewed
+    if (!story.views.includes(viewerId)) {
+      story.views.push(viewerId);
+      await storyOwner.save();
+    }
+    
+    res.json({ 
+      message: 'Story viewed successfully',
+      story: {
+        ...story.toObject(),
+        userName: storyOwner.name,
+        isVip: storyOwner.isVip,
+        userId: storyOwner.telegramId
+      },
+      viewCount: story.views.length
+    });
+  } catch (err) {
+    console.error('Error marking story as viewed:', err);
+    res.status(500).json({ error: 'Failed to mark story as viewed' });
+  }
+});
+
 // Post a new story
 app.post('/stories/post/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
@@ -1241,50 +1479,27 @@ app.post('/stories/post/:telegramId', async (req, res) => {
   }
 });
 
-// View a specific story (and record the view)
-app.post('/stories/view/:storyId', async (req, res) => {
-  const { storyId } = req.params;
-  const { viewerId } = req.body;
-  
+// Get user stories
+app.get('/stories/:telegramId', async (req, res) => {
+  const { telegramId } = req.params;
   try {
-    // Find user who owns the story
-    const user = await User.findOne({ 'stories._id': storyId });
+    const user = await User.findOne({ telegramId });
     if (!user) {
-      return res.status(404).json({ error: 'Story not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
-
-    const story = user.stories.id(storyId);
-    if (!story) {
-      return res.status(404).json({ error: 'Story not found' });
-    }
-
-    // Check if story is expired
-    if (new Date() > story.expiresAt) {
-      return res.status(410).json({ error: 'Story has expired' });
-    }
-
-    // Record the view if not already viewed by this user
-    if (!story.views.includes(viewerId)) {
-      story.views.push(viewerId);
-      await user.save();
-    }
-
-    // Get viewer info
-    const viewer = await User.findOne({ telegramId: viewerId });
-    
-    res.json({ 
-      story: {
-        ...story.toObject(),
-        ownerName: user.name || 'Anonymous',
-        ownerIsVip: user.isVip || false
-      },
-      viewCount: story.views.length
-    });
+    // Filter out expired stories
+    const activeStories = user.stories.filter(story => 
+      story.expiresAt > new Date()
+    );
+    res.json(activeStories);
   } catch (err) {
-    console.error('Error viewing story:', err);
-    res.status(500).json({ error: 'Failed to view story' });
+    res.status(500).json({ error: 'Failed to fetch stories' });
   }
 });
+
+
+
+
 
 // Get story analytics for a user
 app.get('/stories/analytics/:telegramId', async (req, res) => {
@@ -1563,6 +1778,11 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
   }
 });
 
+// Catch-all for unhandled routes (should be after all API routes)
+app.use((req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => console.log('Server running on port', PORT));

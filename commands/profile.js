@@ -1,9 +1,157 @@
 const axios = require('axios');
-const { getCachedUserProfile } = require('./auth');
+const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
 function setupProfileCommands(bot) {
+  // User states for editing
+  const userStates = {};
+
+  // Callback query handlers
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const telegramId = query.from.id;
+    const data = query.data;
+
+    try {
+      switch (data) {
+        case 'edit_profile':
+        case 'settings_profile':
+          try {
+            const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
+            const user = profileRes.data;
+  
+            const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
+              `📝 **Current Information:**\n` +
+              `• Name: ${user.name || 'Not set'}\n` +
+              `• Age: ${user.age || 'Not set'}\n` +
+              `• Location: ${user.location || 'Not set'}\n` +
+              `• Bio: ${user.bio || 'Not set'}\n\n` +
+              `✏️ **What would you like to edit?**`;
+  
+            const buttons = [
+              [
+                { text: '📝 Edit Name', callback_data: 'edit_name' },
+                { text: '🎂 Edit Age', callback_data: 'edit_age' }
+              ],
+              [
+                { text: '📍 Edit Location', callback_data: 'edit_location' },
+                { text: '💭 Edit Bio', callback_data: 'edit_bio' }
+              ],
+              [
+                { text: '📸 Manage Photos', callback_data: 'manage_photos' }
+              ],
+              [
+                { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+              ]
+            ];
+  
+            bot.sendMessage(chatId, profileMsg, {
+              reply_markup: {
+                inline_keyboard: buttons
+              }
+            });
+          } catch (err) {
+            bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
+          }
+          break;
+  
+        case 'edit_name':
+          userStates[telegramId] = { editing: 'name' };
+          bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:');
+          break;
+  
+        case 'edit_age':
+          userStates[telegramId] = { editing: 'age' };
+          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-99):');
+          break;
+
+        case 'edit_location':
+          userStates[telegramId] = { editing: 'location' };
+          bot.sendMessage(chatId, '📍 **Edit Location**\n\nPlease enter your location:');
+          break;
+  
+        case 'edit_bio':
+          userStates[telegramId] = { editing: 'bio' };
+          bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
+          break;
+
+        case 'manage_photos':
+          bot.sendMessage(chatId, '📸 **Photo Management**\n\nPhoto management features coming soon!\n\nFor now, you can:\n• Upload photos via /upload\n• View your profile with /profile');
+          break;
+      }
+    } catch (err) {
+      console.error('Profile callback error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+    }
+  });
+
+  // Handle text messages for profile editing
+  bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const text = msg.text;
+
+    // Skip if it's a command or callback
+    if (!text || text.startsWith('/') || !userStates[telegramId]) return;
+
+    const userState = userStates[telegramId];
+    
+    if (userState.editing) {
+      try {
+        const field = userState.editing;
+        let value = text.trim();
+        
+        // Validate input based on field
+        if (field === 'age') {
+          const age = parseInt(value);
+          if (isNaN(age) || age < 18 || age > 99) {
+            return bot.sendMessage(chatId, '❌ Please enter a valid age between 18 and 99.');
+          }
+          value = age;
+        } else if (field === 'bio' && value.length > 500) {
+          return bot.sendMessage(chatId, '❌ Bio must be 500 characters or less.');
+        } else if (field === 'name' && (value.length < 1 || value.length > 50)) {
+          return bot.sendMessage(chatId, '❌ Name must be between 1 and 50 characters.');
+        }
+
+        // Update profile
+        await axios.post(`${API_BASE}/profile/update/${telegramId}`, {
+          field,
+          value
+        });
+
+        // Clear user state
+        delete userStates[telegramId];
+        
+        // Invalidate cache
+        invalidateUserCache(telegramId);
+        
+        // Send success message
+        const fieldNames = {
+          name: 'Name',
+          age: 'Age', 
+          location: 'Location',
+          bio: 'Bio'
+        };
+        
+        bot.sendMessage(chatId, `✅ **${fieldNames[field]} Updated!**\n\n` +
+          `Your ${field} has been updated successfully.\n\n` +
+          `Use /profile to view your complete profile.`, {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '👤 View Profile', callback_data: 'edit_profile' },
+              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+            ]]
+          }
+        });
+      } catch (err) {
+        console.error('Profile update error:', err);
+        delete userStates[telegramId];
+        bot.sendMessage(chatId, '❌ Failed to update profile. Please try again.');
+      }
+    }
+  });
   // PROFILE command - View/edit profile
   bot.onText(/\/profile/, async (msg) => {
     const chatId = msg.chat.id;
@@ -76,6 +224,8 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'name', value: name });
       console.log(`[/setname] Success for user ${telegramId}`);
+      // Invalidate cache so /profile shows updated data
+      invalidateUserCache(telegramId);
       bot.sendMessage(chatId, `✅ **Name Updated Successfully!**\n\n👤 Your name is now: **${name}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setname] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -119,6 +269,8 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'age', value: age });
       console.log(`[/setage] Success for user ${telegramId}`);
+      // Invalidate cache so /profile shows updated data
+      invalidateUserCache(telegramId);
       bot.sendMessage(chatId, `✅ **Age Updated Successfully!**\n\n🎂 Your age is now: **${age}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setage] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -158,6 +310,8 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'location', value: location });
       console.log(`[/setlocation] Success for user ${telegramId}`);
+      // Invalidate cache so /profile shows updated data
+      invalidateUserCache(telegramId);
       bot.sendMessage(chatId, `✅ **Location Updated Successfully!**\n\n📍 Your location is now: **${location}**\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setlocation] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -201,6 +355,8 @@ function setupProfileCommands(bot) {
     try {
       const response = await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field: 'bio', value: bio });
       console.log(`[/setbio] Success for user ${telegramId}`);
+      // Invalidate cache so /profile shows updated data
+      invalidateUserCache(telegramId);
       bot.sendMessage(chatId, `✅ **Bio Updated Successfully!**\n\n💬 Your bio has been updated with your new description.\n\n💡 Tip: Use /profile to see your complete profile`);
     } catch (err) {
       console.error(`[/setbio] Error for user ${telegramId}:`, err.response?.data || err.message);
