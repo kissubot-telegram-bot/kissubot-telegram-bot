@@ -1,7 +1,9 @@
 const axios = require('axios');
-const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+
+const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 
 function setupProfileCommands(bot) {
   // User states for editing

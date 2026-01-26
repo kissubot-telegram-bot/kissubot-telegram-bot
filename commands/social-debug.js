@@ -1,10 +1,10 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3002';
+const { API_BASE } = require('../config');
 const userStates = {};
 
-function setupSocialCommands(bot) {
+function setupSocialDebugCommands(bot) {
   bot.onText(/\/stories/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await getCachedUserProfile(chatId);
@@ -74,4 +74,4 @@ function setupSocialCommands(bot) {
   bot.on('video', handleStory);
 }
 
-module.exports = { setupSocialCommands };
+module.exports = { setupSocialDebugCommands };

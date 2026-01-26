@@ -1,7 +1,9 @@
 const axios = require('axios');
-const { getCachedUserProfile } = require('./auth');
+
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+
+const { getCachedUserProfile } = require('./auth');
 
 function setupBrowsingCommands(bot) {
   // Callback query handlers

@@ -7,6 +7,78 @@ function setupPremiumCommands(bot) {
   const axios = require('axios');
   const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
+  bot.onText(/\/coins/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    try {
+      const user = await getCachedUserProfile(telegramId);
+      const coinBalance = user.coins || 0;
+
+      const coinMsg = `**Your Coin Balance: ${coinBalance} 🪙**\n\n` +
+        `Coins are used to unlock premium features like VIP subscriptions, gifts, and priority boosts.\n\n` +
+        `**Want to buy more coins?**`;
+
+      bot.sendMessage(chatId, coinMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '💰 Buy 100 Coins', callback_data: 'buy_coins_100' },
+              { text: '💰 Buy 500 Coins', callback_data: 'buy_coins_500' }
+            ],
+            [
+              { text: '💰 Buy 1000 Coins', callback_data: 'buy_coins_1000' },
+              { text: '💰 Buy 5000 Coins', callback_data: 'buy_coins_5000' }
+            ],
+            [
+              { text: '🔙 Back to Main Menu', callback_data: 'main_menu' }
+            ]
+          ]
+        }
+      });
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Failed to fetch your coin balance. Please try again later.');
+    }
+  });
+
+  bot.onText(/\/priority/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    try {
+      const user = await getCachedUserProfile(telegramId);
+
+      if (user.isVip) {
+        bot.sendMessage(chatId, '🚀 **As a VIP, you already have priority in the browse queue!** Your profile is shown to more users.');
+        return;
+      }
+
+      const priorityMsg = `**🚀 Get Your Profile Noticed with Priority Boost!**\n\n` +
+        `A Priority Boost places your profile at the top of the browsing queue for 30 minutes, making you visible to more users.\n\n` +
+        `**Cost:** 100 Coins\n` +
+        `**Your Balance:** ${user.coins || 0} 🪙\n\n` +
+        `Are you sure you want to activate a Priority Boost?`;
+
+      bot.sendMessage(chatId, priorityMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Yes, Boost My Profile!', callback_data: 'activate_priority_boost' }
+            ],
+            [
+              { text: '💰 Buy Coins', callback_data: 'buy_coins_menu' },
+              { text: '🔙 No, Thanks', callback_data: 'main_menu' }
+            ]
+          ]
+        }
+      });
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Failed to fetch your status. Please try again later.');
+    }
+  });
+
   // Callback query handlers
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;

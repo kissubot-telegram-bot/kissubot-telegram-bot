@@ -33,64 +33,124 @@ function setupAuthCommands(bot) {
   });
 
   // REGISTER command - Create new profile
-  bot.onText(/\/register/, async (msg) => {
+  bot.onText(/\/register/, (msg) => {
+    handleRegister(bot, msg);
+  });
+
+  // DEACTIVATE command - Deactivate user profile
+  bot.onText(/\/deactivate/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 
     try {
-      // Check if user is already registered
-      try {
-        const existingUser = await getCachedUserProfile(telegramId);
-        if (existingUser) {
-          return bot.sendMessage(
-            chatId,
-            '✅ You\'re already registered!\n\n' +
-            'You can:\n' +
-            '• Use /profile to view your profile\n' +
-            '• Use /browse to find people\n' +
-            '• Use /matches to see your matches'
-          );
-        }
-      } catch (err) {
-        // User not found, continue with registration
-        if (err.response?.status !== 404) {
-          throw err;
-        }
-      }
-
-      // Register the user
-      const res = await axios.post(`${API_BASE}/register`, {
-        telegramId,
-        username: msg.from.username || '',
-        name: msg.from.first_name || '',
-      });
-
-      // Send welcome message with next steps
-      const welcomeMsg = 
-        '🎉 Registration successful!\n\n' +
-        'Let\'s set up your profile:\n' +
-        '1️⃣ Use /setname to set your display name\n' +
-        '2️⃣ Use /setage to set your age\n' +
-        '3️⃣ Use /setlocation to set your location\n' +
-        '4️⃣ Use /setbio to write about yourself\n\n' +
-        'After setting up your profile, you can:\n' +
-        '• Use /browse to find people\n' +
-        '• Use /matches to see your matches';
-
-      bot.sendMessage(chatId, welcomeMsg);
+      await axios.post(`${API_BASE}/users/deactivate/${telegramId}`);
+      bot.sendMessage(chatId, '⏸️ Your profile has been deactivated. You can reactivate it anytime by using /start.');
     } catch (err) {
-      console.error('[/register] Error:', err.response?.data || err.message);
-      bot.sendMessage(
-        chatId,
-        '❌ Registration failed. Please try again later.\n' +
-        'If the problem persists, contact support.'
-      );
+      console.error('Deactivate error:', err.response?.data || err.message);
+      bot.sendMessage(chatId, '❌ Failed to deactivate profile. Please try again.');
+    }
+  });
+
+  // DELETE command - Delete user profile
+  bot.onText(/\/delete/, (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    const deleteWarningMsg = '🚨 **ARE YOU SURE?** 🚨\n\n' +
+      'This will permanently delete your profile, including all matches and data.\n\n' +
+      'This action CANNOT be undone.';
+
+    const opts = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🗑️ Yes, Delete My Profile', callback_data: 'confirm_delete' },
+            { text: '❌ No, Keep My Profile', callback_data: 'cancel_delete' }
+          ]
+        ]
+      }
+    };
+
+    bot.sendMessage(chatId, deleteWarningMsg, opts);
+  });
+
+  // Callback query handler for deletion
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const telegramId = query.from.id;
+    const data = query.data;
+
+    if (data === 'confirm_delete') {
+      try {
+        await axios.delete(`${API_BASE}/users/delete/${telegramId}`);
+        invalidateUserCache(telegramId);
+        bot.sendMessage(chatId, '💔 Your profile has been permanently deleted. We\'re sorry to see you go.');
+      } catch (err) {
+        console.error('Delete profile error:', err.response?.data || err.message);
+        bot.sendMessage(chatId, '❌ Failed to delete profile. Please try again or contact support.');
+      }
+    } else if (data === 'cancel_delete') {
+      bot.sendMessage(chatId, '✅ Deletion cancelled. Your profile is safe!');
     }
   });
 }
 
-module.exports = {
-  setupAuthCommands,
-  getCachedUserProfile,
-  invalidateUserCache
-};
+module.exports = { setupAuthCommands, invalidateUserCache, handleRegister, getCachedUserProfile };
+
+async function handleRegister(bot, msg) {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+
+  try {
+    // Check if user is already registered
+    try {
+      const existingUser = await getCachedUserProfile(telegramId);
+      if (existingUser) {
+        return bot.sendMessage(
+          chatId,
+          `✅ You're already registered!
+
+You can:
+• Use /profile to view your profile
+• Use /browse to find people
+• Use /matches to see your matches`
+        );
+      }
+    } catch (err) {
+      // User not found, continue with registration
+      if (err.response?.status !== 404) {
+        throw err;
+      }
+    }
+
+    // Register the user
+    const res = await axios.post(`${API_BASE}/register`, {
+      telegramId,
+      username: msg.from.username || '',
+      name: msg.from.first_name || '',
+    });
+
+    // Send welcome message with next steps
+    const welcomeMsg = `🎉 Registration successful!
+
+Let's set up your profile:
+1️⃣ Use /setname to set your display name
+2️⃣ Use /setage to set your age
+3️⃣ Use /setlocation to set your location
+4️⃣ Use /setbio to write about yourself
+
+After setting up your profile, you can:
+• Use /browse to find people
+• Use /matches to see your matches`;
+
+    bot.sendMessage(chatId, welcomeMsg);
+  } catch (err) {
+    console.error('[/register] Full Error:', err);
+    console.error('[/register] Error:', err.response?.data || err.message);
+    bot.sendMessage(
+      chatId,
+      '❌ Registration failed. Please try again later.\\n' +
+      'If the problem persists, contact support.'
+    );
+  }
+}
