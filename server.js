@@ -57,7 +57,7 @@ const connectWithRetry = async () => {
   }
 };
 
-const PORT = process.env.PORT || 3002;
+PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
@@ -1784,5 +1784,5 @@ app.use((req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3003;
+PORT = process.env.PORT || 3003;
 app.listen(PORT, () => console.log('Server running on port', PORT));
