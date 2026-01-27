@@ -20,6 +20,8 @@ function invalidateUserCache(telegramId) {
   userProfileCache.delete(telegramId);
 }
 
+const userRegistrationData = {};
+
 function setupAuthCommands(bot) {
   // START command - Simple welcome message
   bot.onText(/\/start/, (msg) => {
@@ -35,6 +37,53 @@ function setupAuthCommands(bot) {
   // REGISTER command - Create new profile
   bot.onText(/\/register/, (msg) => {
     handleRegister(bot, msg);
+  });
+
+  bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+
+    if (userRegistrationData[userId] && userRegistrationData[userId].promptingForLocation) {
+      const location = msg.text;
+      if (!location) {
+        bot.sendMessage(chatId, 'Please provide a valid location.');
+        return;
+      }
+
+      const { telegramId, username, name } = userRegistrationData[userId];
+
+      try {
+        await axios.post(`${API_BASE}/register`, {
+          telegramId,
+          username,
+          name,
+          location,
+        });
+
+        const welcomeMsg = `🎉 Registration successful!
+
+Let's set up your profile:
+1️⃣ Use /setname to set your display name
+2️⃣ Use /setage to set your age
+3️⃣ Use /setbio to write about yourself
+
+After setting up your profile, you can:
+• Use /browse to find people
+• Use /matches to see your matches`;
+
+        bot.sendMessage(chatId, welcomeMsg);
+      } catch (err) {
+        console.error('[/register] Full Error:', err);
+        console.error('[/register] Error:', err.response?.data || err.message);
+        bot.sendMessage(
+          chatId,
+          '❌ Registration failed. Please try again later.\\n' +
+          'If the problem persists, contact support.'
+        );
+      } finally {
+        delete userRegistrationData[userId];
+      }
+    }
   });
 
   // DEACTIVATE command - Deactivate user profile
@@ -123,27 +172,15 @@ You can:
       }
     }
 
-    // Register the user
-    const res = await axios.post(`${API_BASE}/register`, {
+    // Start the registration conversation
+    userRegistrationData[telegramId] = {
       telegramId,
       username: msg.from.username || '',
       name: msg.from.first_name || '',
-    });
+      promptingForLocation: true,
+    };
 
-    // Send welcome message with next steps
-    const welcomeMsg = `🎉 Registration successful!
-
-Let's set up your profile:
-1️⃣ Use /setname to set your display name
-2️⃣ Use /setage to set your age
-3️⃣ Use /setlocation to set your location
-4️⃣ Use /setbio to write about yourself
-
-After setting up your profile, you can:
-• Use /browse to find people
-• Use /matches to see your matches`;
-
-    bot.sendMessage(chatId, welcomeMsg);
+    bot.sendMessage(chatId, 'Please enter your location to complete registration:');
   } catch (err) {
     console.error('[/register] Full Error:', err);
     console.error('[/register] Error:', err.response?.data || err.message);

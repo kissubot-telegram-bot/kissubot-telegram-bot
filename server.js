@@ -183,12 +183,25 @@ const User = mongoose.model('User', userSchema);
 
 // Register User
 app.post('/register', async (req, res) => {
-  const { telegramId, name, age, location, bio } = req.body;
+  const { telegramId, name, location, username, age, bio } = req.body;
+
+  if (!location) {
+    return res.status(400).json({ error: 'Location is required for registration.' });
+  }
+
   try {
-    const user = new User({ telegramId, name, age, location, bio });
+    const user = new User({
+      telegramId,
+      name: name || '',
+      location,
+      username: username || '',
+      age,
+      bio
+    });
     await user.save();
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
+    console.error('Registration Error:', err);
     res.status(400).json({ error: 'Registration failed' });
   }
 });
