@@ -57,9 +57,9 @@ const connectWithRetry = async () => {
   }
 };
 
-// Handle MongoDB connection errors
-mongoose.connection.on('error', err => {
-  console.error('MongoDB connection error:', err);
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 mongoose.connection.on('disconnected', () => {
