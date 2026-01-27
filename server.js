@@ -88,7 +88,7 @@ const userSchema = new mongoose.Schema({
   username: String,
   name: String,
   age: Number,
-  location: String,
+  location: { type: String, required: true },
   bio: String,
   profilePhoto: String, // Add profile photo field
   
@@ -183,13 +183,13 @@ const User = mongoose.model('User', userSchema);
 
 // Register User
 app.post('/register', async (req, res) => {
-  const { telegramId, name, location, username, age, bio } = req.body;
-
-  if (!location) {
-    return res.status(400).json({ error: 'Location is required for registration.' });
-  }
-
   try {
+    const { telegramId, name, location, username, age, bio } = req.body;
+
+    if (!location) {
+      return res.status(400).json({ error: 'Location is required for registration.' });
+    }
+
     const user = new User({
       telegramId,
       name: name || '',
