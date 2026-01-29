@@ -186,8 +186,8 @@ bot.getMe().then((botInfo) => {
 });
 
 // Setup all command modules
-setupAuthCommands(bot);
-setupProfileCommands(bot);
+setupAuthCommands(bot, userStates);
+setupProfileCommands(bot, userStates);
 setupBrowsingCommands(bot);
 setupHelpCommands(bot);
 setupSettingsCommands(bot);
