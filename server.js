@@ -44,10 +44,23 @@ const connectWithRetry = async () => {
       });
       console.log('MongoDB connected successfully');
 
-      const PORT = process.env.PORT || 3002;
-      app.listen(PORT, '0.0.0.0', () => {
+      const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`Server is listening on port ${PORT}`);
       });
+
+      const gracefulShutdown = (signal) => {
+        console.log(`${signal} received. Shutting down gracefully...`);
+        server.close(() => {
+          console.log('HTTP server closed.');
+          mongoose.connection.close(false, () => {
+            console.log('MongoDB connection closed.');
+            process.exit(0);
+          });
+        });
+      };
+
+      process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+      process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
       break;
     } catch (err) {
