@@ -48,6 +48,16 @@ const connectWithRetry = async () => {
         console.log(`Server is listening on port ${PORT}`);
       });
 
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          console.error(`Error: Port ${PORT} is already in use. Please free up the port and try again.`);
+          process.exit(1);
+        } else {
+          console.error('An unexpected error occurred:', err);
+          process.exit(1);
+        }
+      });
+
       const gracefulShutdown = (signal) => {
         console.log(`${signal} received. Shutting down gracefully...`);
         server.close(() => {
