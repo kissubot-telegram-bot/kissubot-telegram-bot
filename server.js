@@ -43,6 +43,12 @@ const connectWithRetry = async () => {
         socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
       });
       console.log('MongoDB connected successfully');
+
+      const PORT = process.env.PORT || 3002;
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server is listening on port ${PORT}`);
+      });
+
       break;
     } catch (err) {
       retries += 1;
@@ -56,11 +62,6 @@ const connectWithRetry = async () => {
     }
   }
 };
-
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is listening on port ${PORT}`);
-});
 
 mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected. Attempting to reconnect...');
