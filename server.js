@@ -6,6 +6,9 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
+// Define PORT early so it's available before first app.listen
+const PORT = process.env.PORT || 3003;
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -1820,6 +1823,4 @@ app.use((req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
 });
 
-// Start server
-PORT = process.env.PORT || 3003;
-app.listen(PORT, () => console.log('Server running on port', PORT));
+// Removed duplicate app.listen (server is started in connectWithRetry())
