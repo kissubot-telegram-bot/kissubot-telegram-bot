@@ -37,9 +37,9 @@ function setupSocialCommands(bot) {
 
         try {
             const response = await axios.get(`${API_BASE}/matches/${telegramId}`);
-            const matches = response.data.matches;
+            const matches = response.data.matches || response.data || [];
 
-            if (matches.length === 0) {
+            if (!matches || matches.length === 0) {
                 bot.sendMessage(chatId, '💔 **NO MATCHES YET** 💔\n\n' +
                     'You don\'t have any matches right now.\n\n' +
                     '💡 **How to get matches:**\n' +

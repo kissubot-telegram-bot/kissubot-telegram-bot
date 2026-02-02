@@ -77,7 +77,7 @@ After setting up your profile, you can:
         console.error('[/register] Error:', err.response?.data || err.message);
         bot.sendMessage(
           chatId,
-          '❌ Registration failed. Please try again later.\\n' +
+          '❌ Registration failed. Please try again later.\n' +
           'If the problem persists, contact support.'
         );
       } finally {
