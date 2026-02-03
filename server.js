@@ -63,12 +63,16 @@ const connectWithRetry = async () => {
 
       const gracefulShutdown = (signal) => {
         console.log(`${signal} received. Shutting down gracefully...`);
-        server.close(() => {
+        server.close(async () => {
           console.log('HTTP server closed.');
-          mongoose.connection.close(false, () => {
+          try {
+            await mongoose.connection.close();
             console.log('MongoDB connection closed.');
             process.exit(0);
-          });
+          } catch (err) {
+            console.error('Error closing MongoDB:', err);
+            process.exit(1);
+          }
         });
       };
 
