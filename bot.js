@@ -237,10 +237,29 @@ bot.on('photo', async (msg) => {
       const photo = msg.photo[msg.photo.length - 1];
       const fileId = photo.file_id;
 
-      // Upload photo to profile
-      const uploadRes = await axios.post(`${API_BASE}/profile/${telegramId}/photo`, {
-        fileId: fileId,
-        caption: msg.caption || ''
+      // Get file info from Telegram
+      const file = await bot.getFile(fileId);
+      const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+
+      // Upload photo to profile using multipart form
+      const FormData = require('form-data');
+      const https = require('https');
+      const form = new FormData();
+      
+      // Fetch the photo from Telegram
+      const photoBuffer = await new Promise((resolve, reject) => {
+        https.get(fileUrl, (res) => {
+          const chunks = [];
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', reject);
+        });
+      });
+
+      form.append('image', photoBuffer, 'photo.jpg');
+
+      const uploadRes = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
+        headers: form.getHeaders()
       });
 
       userStates.delete(telegramId);
