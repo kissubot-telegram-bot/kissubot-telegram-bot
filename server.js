@@ -4,7 +4,11 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
+const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
+
+// Initialize bot for sending messages only (no polling)
+const bot = new TelegramBot(process.env.BOT_TOKEN);
 
 // Define PORT early so it's available before first app.listen
 const PORT = process.env.PORT || 3003;
@@ -22,6 +26,33 @@ app.use(bodyParser.json());
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
+});
+
+// Telegram webhook endpoint - receives updates from Telegram
+app.post('/webhook/telegram', async (req, res) => {
+  try {
+    const update = req.body;
+    
+    if (update.message) {
+      const msg = update.message;
+      const chatId = msg.chat.id;
+      const telegramId = msg.from.id;
+      const text = msg.text;
+
+      console.log(`[Webhook] Message from ${telegramId}: ${text}`);
+
+      // Echo back for now - we'll integrate command handlers later
+      if (text && !text.startsWith('/')) {
+        bot.sendMessage(chatId, `Received: ${text}`);
+      }
+    }
+
+    // Always respond with 200 to Telegram immediately
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(200).json({ ok: true }); // Still return 200 so Telegram doesn't retry
+  }
 });
 
 // Log all requests
@@ -47,8 +78,19 @@ const connectWithRetry = async () => {
       });
       console.log('MongoDB connected successfully');
 
-      const server = app.listen(PORT, '0.0.0.0', () => {
+      const server = app.listen(PORT, '0.0.0.0', async () => {
         console.log(`Server is listening on port ${PORT}`);
+        
+        // Register webhook with Telegram
+        try {
+          const webhookUrl = process.env.WEBHOOK_URL || `https://kissubot-telegram-bot-3.onrender.com/webhook/telegram`;
+          console.log(`📡 Registering webhook with Telegram: ${webhookUrl}`);
+          
+          await bot.setWebHook(webhookUrl);
+          console.log('✅ Webhook registered successfully with Telegram');
+        } catch (err) {
+          console.error('❌ Failed to register webhook:', err.message);
+        }
       });
 
       server.on('error', (err) => {

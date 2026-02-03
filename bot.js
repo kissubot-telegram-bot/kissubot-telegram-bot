@@ -26,15 +26,9 @@ if (!token) {
   process.exit(1);
 }
 
-// Create bot instance with better error handling and timeout settings
+// Create bot instance WITHOUT polling (webhook mode via server.js)
 const bot = new TelegramBot(token, { 
-  polling: {
-    interval: 1000,
-    autoStart: true,
-    params: {
-      timeout: 10
-    }
-  },
+  polling: false, // Disabled - using webhooks instead
   request: {
     agentOptions: {
       keepAlive: true,
