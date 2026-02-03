@@ -45,7 +45,7 @@ const bot = new TelegramBot(token, {
 });
 
 // User state management for interactive flows
-const userStates = {};
+const userStates = new Map();
 
 // Initialize command modules
 // setupAuthCommands(bot, userStates);
@@ -54,7 +54,7 @@ const userStates = {};
 
 // Helper functions for optimized callback handling
 function handleProfileEdit(chatId, telegramId, field) {
-  userStates[telegramId] = { editing: field };
+  userStates.set(telegramId, { editing: field });
   
   const editMessages = {
     name: {
@@ -88,7 +88,7 @@ function handleProfileEdit(chatId, telegramId, field) {
 
 function handleReportFlow(chatId, telegramId, reportType) {
   const type = reportType.replace('report_', '');
-  userStates[telegramId] = { reporting: type === 'feature_request' ? 'feature' : type };
+  userStates.set(telegramId, { reporting: type === 'feature_request' ? 'feature' : type });
   
   const reportMessages = {
     report_user: {
@@ -375,13 +375,13 @@ bot.on('message', async (msg) => {
   if (text && text.startsWith('/')) return;
 
   // Handle user states
-  if (userStates[telegramId]) {
-    const state = userStates[telegramId];
+  if (userStates.has(telegramId)) {
+    const state = userStates.get(telegramId);
 
     // Handle profile editing states
     if (state.editing) {
       if (text === '/cancel') {
-        delete userStates[telegramId];
+        userStates.delete(telegramId);
         return bot.sendMessage(chatId, '❌ **Editing Cancelled**\n\nYour profile remains unchanged.');
       }
 
@@ -402,7 +402,7 @@ bot.on('message', async (msg) => {
 
       try {
         await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field, value });
-        delete userStates[telegramId];
+        userStates.delete(telegramId);
         
         bot.sendMessage(chatId, `✅ **${field.charAt(0).toUpperCase() + field.slice(1)} Updated!**\n\n` +
           `Your ${field} has been successfully updated to: **${value}**\n\n` +
@@ -417,7 +417,7 @@ bot.on('message', async (msg) => {
     // Handle reporting states
     if (state.reporting) {
       if (text === '/cancel') {
-        delete userStates[telegramId];
+        userStates.delete(telegramId);
         return bot.sendMessage(chatId, '❌ **Report Cancelled**\n\nNo report was submitted.');
       }
 
@@ -434,7 +434,7 @@ bot.on('message', async (msg) => {
       };
 
       console.log(`📋 New ${reportType} report:`, reportData);
-      delete userStates[telegramId];
+      userStates.delete(telegramId);
 
       bot.sendMessage(chatId, `✅ **Report Submitted**\n\n` +
         `Thank you for reporting this ${reportType} issue. Our team will review it shortly.\n\n` +
@@ -486,7 +486,7 @@ bot.on('callback_query', async (query) => {
         break;
 
       case 'cancel_report':
-        delete userStates[telegramId];
+        userStates.delete(telegramId);
         bot.sendMessage(chatId, '❌ **Report Cancelled**\n\nNo report was submitted.');
         break;
 
