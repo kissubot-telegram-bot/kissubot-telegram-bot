@@ -4,11 +4,10 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
-const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
 
-// Initialize bot for sending messages only (no polling)
-const bot = new TelegramBot(process.env.BOT_TOKEN);
+// Import the bot instance from bot.js (which has all command handlers)
+const bot = require('./bot');
 
 // Define PORT early so it's available before first app.listen
 const PORT = process.env.PORT || 3003;
@@ -33,19 +32,11 @@ app.post('/webhook/telegram', async (req, res) => {
   try {
     const update = req.body;
     
-    if (update.message) {
-      const msg = update.message;
-      const chatId = msg.chat.id;
-      const telegramId = msg.from.id;
-      const text = msg.text;
+    console.log(`[Webhook] Received update:`, JSON.stringify(update, null, 2));
 
-      console.log(`[Webhook] Message from ${telegramId}: ${text}`);
-
-      // Echo back for now - we'll integrate command handlers later
-      if (text && !text.startsWith('/')) {
-        bot.sendMessage(chatId, `Received: ${text}`);
-      }
-    }
+    // Process the update through the bot instance
+    // This will trigger all the command handlers and event listeners in bot.js
+    bot.processUpdate(update);
 
     // Always respond with 200 to Telegram immediately
     res.status(200).json({ ok: true });
