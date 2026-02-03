@@ -522,6 +522,13 @@ bot.on('callback_query', async (query) => {
         showMainMenu(chatId);
         break;
 
+      // Photo upload callbacks
+      case 'add_another_photo':
+      case 'manage_photos':
+        userStates.set(telegramId, { action: 'uploading_photo' });
+        bot.sendMessage(chatId, '📸 **Upload Photo** 📸\n\nSend me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• High-quality, clear photos work best\n• Show your face clearly\n• Maximum 6 photos allowed\n\n📤 Ready? Just send the photo!');
+        break;
+
       // Navigation shortcuts
       case 'show_help':
       case 'view_profile':

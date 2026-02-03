@@ -184,6 +184,8 @@ function setupBrowsingCommands(bot) {
 
       // Show first profile
       const profile = profiles[0];
+      const profileId = profile.telegramId || profile._id || profile.id || profile.userId;
+      
       const profileMsg = `💕 **${profile.name}, ${profile.age}** 💕\n\n` +
         `📍 ${profile.location}\n\n` +
         `💬 ${profile.bio || 'No bio available'}\n\n` +
@@ -193,11 +195,11 @@ function setupBrowsingCommands(bot) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '💚 LIKE', callback_data: `like_${profile.telegramId}` },
-              { text: '💔 PASS', callback_data: `pass_${profile.telegramId}` }
+              { text: '💚 LIKE', callback_data: `like_${profileId}` },
+              { text: '💔 PASS', callback_data: `pass_${profileId}` }
             ],
             [
-              { text: '⭐ SUPER LIKE', callback_data: `superlike_${profile.telegramId}` }
+              { text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }
             ],
             [
               { text: '🔙 Back to Menu', callback_data: 'main_menu' }

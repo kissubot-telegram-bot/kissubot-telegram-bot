@@ -79,7 +79,7 @@ function setupProfileCommands(bot) {
           break;
 
         case 'manage_photos':
-          bot.sendMessage(chatId, '📸 **Photo Management**\n\nPhoto management features coming soon!\n\nFor now, you can:\n• Upload photos via /upload\n• View your profile with /profile');
+          bot.sendMessage(chatId, '📸 **Upload Photos** 📸\n\nJust send me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• Use high-quality, clear photos\n• Show your face clearly\n• Maximum 6 photos allowed\n• Recent photos appear first\n\n📤 Ready to upload?');
           break;
       }
     } catch (err) {
@@ -192,6 +192,38 @@ function setupProfileCommands(bot) {
       };
 
       bot.sendMessage(chatId, profileMsg, opts);
+    } catch (err) {
+      bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
+    }
+  });
+
+  // PHOTOS command - Upload photos to profile
+  bot.onText(/\/photos/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    try {
+      const user = await getCachedUserProfile(telegramId);
+      
+      const photoMsg = `📸 **Photo Upload** 📸\n\n` +
+        `You currently have **${user.photos?.length || 0} photos** on your profile.\n\n` +
+        `✨ **Add a New Photo:**\n` +
+        `Just send me a photo and I'll add it to your profile!\n\n` +
+        `📋 **Tips:**\n` +
+        `• Use high-quality, clear photos\n` +
+        `• Show your face clearly\n` +
+        `• Maximum 6 photos allowed\n` +
+        `• Recent photos appear first\n\n` +
+        `📤 Just send the photo as your next message!`;
+
+      bot.sendMessage(chatId, photoMsg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 View Profile', callback_data: 'view_profile' }],
+            [{ text: '🔙 Back', callback_data: 'main_menu' }]
+          ]
+        }
+      });
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
     }
