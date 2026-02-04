@@ -6,18 +6,27 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
-// Import the bot instance from bot.js (which has all command handlers)
-const bot = require('./bot');
-
 // Define PORT early so it's available before first app.listen
 const PORT = process.env.PORT || 3003;
 
-// Configure Cloudinary
+// Configure Cloudinary BEFORE importing bot
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Import the bot instance from bot.js (which has all command handlers)
+// This is done AFTER configuring environment to ensure everything is ready
+let bot;
+try {
+  bot = require('./bot');
+  console.log('✅ Bot module loaded successfully');
+} catch (err) {
+  console.error('❌ Failed to load bot module:', err.message);
+  console.error('Stack trace:', err.stack);
+  process.exit(1);
+}
 
 const app = express();
 app.use(bodyParser.json());
