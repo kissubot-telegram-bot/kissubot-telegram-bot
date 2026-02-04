@@ -168,16 +168,8 @@ function handleNavigation(chatId, action) {
 
 console.log('🤖 Kisu1bot is starting...');
 
-// Get bot information
-bot.getMe().then((botInfo) => {
-  console.log('🤖 Bot Details:');
-  console.log('Name:', botInfo.first_name);
-  console.log('Username: @' + botInfo.username);
-  console.log('ID:', botInfo.id);
-  console.log('Description:', botInfo.description || 'No description set');
-}).catch((error) => {
-  console.error('❌ Failed to get bot info:', error.message);
-});
+// Bot info logging removed for webhook mode - causes initialization issues
+// The bot will work without this info being logged
 
 // Setup all command modules
 setupAuthCommands(bot, userStates);
