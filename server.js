@@ -36,12 +36,35 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Test endpoint to verify server is reachable
+app.get('/test', (req, res) => {
+  console.log('✅ Test endpoint hit!');
+  res.json({ 
+    status: 'success', 
+    message: 'Server is reachable',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Webhook info endpoint - check current webhook status
+app.get('/webhook-info', async (req, res) => {
+  try {
+    const webhookInfo = await bot.getWebHookInfo();
+    console.log('📡 Current webhook info:', webhookInfo);
+    res.json(webhookInfo);
+  } catch (err) {
+    console.error('Error getting webhook info:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Telegram webhook endpoint - receives updates from Telegram
 app.post('/webhook/telegram', async (req, res) => {
   try {
     const update = req.body;
     
-    console.log(`[Webhook] Received update:`, JSON.stringify(update, null, 2));
+    console.log('🔔 [Webhook] Received update from Telegram!');
+    console.log(`[Webhook] Update details:`, JSON.stringify(update, null, 2));
 
     // Process the update through the bot instance
     // This will trigger all the command handlers and event listeners in bot.js
@@ -50,7 +73,7 @@ app.post('/webhook/telegram', async (req, res) => {
     // Always respond with 200 to Telegram immediately
     res.status(200).json({ ok: true });
   } catch (err) {
-    console.error('Webhook error:', err);
+    console.error('❌ Webhook error:', err);
     res.status(200).json({ ok: true }); // Still return 200 so Telegram doesn't retry
   }
 });
