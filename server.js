@@ -1,4 +1,4 @@
- const express = require('express');
+const express = require('express'); 
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -104,9 +104,13 @@ const connectWithRetry = async () => {
       const server = app.listen(PORT, '0.0.0.0', async () => {
         console.log(`Server is listening on port ${PORT}`);
         
-        // Register webhook with Telegram
         try {
-          const webhookUrl = process.env.WEBHOOK_URL || `https://kissubot-telegram-bot-3.onrender.com/webhook/telegram`;
+          const webhookUrl = process.env.WEBHOOK_URL;
+          if (!webhookUrl) {
+            console.error('❌ CRITICAL: WEBHOOK_URL environment variable not set.');
+            return; // Do not proceed if the URL isn't set
+          }
+          
           console.log(`📡 Registering webhook with Telegram: ${webhookUrl}`);
           
           await bot.setWebHook(webhookUrl);
