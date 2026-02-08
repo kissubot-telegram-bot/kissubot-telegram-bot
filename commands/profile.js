@@ -167,7 +167,7 @@ function setupProfileCommands(bot, userStates, User) {
         `🎂 **Age:** ${user.age || 'Not set'}\n` +
         `📍 **Location:** ${user.location || 'Not set'}\n` +
         `💬 **Bio:** ${user.bio || 'Not set'}\n\n` +
-        `📸 **Photos:** ${user.profilePhoto ? '1' : '0'} uploaded\n\n` +
+        `📸 **Photos:** ${user.photos?.length || 0} uploaded\n\n` +
         `✨ Choose what to edit:`;
 
       const opts = {
@@ -209,7 +209,7 @@ function setupProfileCommands(bot, userStates, User) {
       userStates.set(telegramId, { action: 'uploading_photo' });
 
       const photoMsg = `📸 **Photo Upload** 📸\n\n` +
-        `You currently have **${user.profilePhoto ? '1' : '0'} photo** on your profile.\n\n` +
+        `You currently have **${user.photos?.length || 0} photo${user.photos?.length === 1 ? '' : 's'}** on your profile.\n\n` +
         `✨ **Add a New Photo:**\n` +
         `Just send me a photo and I'll add it to your profile!\n\n` +
         `📋 **Tips:**\n` +
@@ -402,6 +402,53 @@ function setupProfileCommands(bot, userStates, User) {
       } else {
         bot.sendMessage(chatId, '❌ Failed to update bio. Please try again.');
       }
+    }
+  });
+
+  // MYPHOTOS command - View all uploaded photos
+  bot.onText(/\/myphotos/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    try {
+      const user = await getCachedUserProfile(telegramId, User);
+
+      if (!user) {
+        return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
+      }
+
+      const photos = user.photos || [];
+
+      if (photos.length === 0) {
+        return bot.sendMessage(chatId, '📸 **No Photos Yet** 📸\n\nYou haven\'t uploaded any photos yet.\n\nUse /photos to add your first photo!');
+      }
+
+      // Send header message
+      bot.sendMessage(chatId, `📸 **Your Photos** (${photos.length}/6) 📸\n\nHere are all your uploaded photos:`);
+
+      // Send each photo with its number
+      for (let i = 0; i < photos.length; i++) {
+        const photoUrl = photos[i];
+        const photoNumber = i + 1;
+
+        const caption = `Photo ${photoNumber}/${photos.length}${i === 0 ? ' (Profile Photo)' : ''}`;
+
+        const buttons = {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🗑️ Delete This Photo', callback_data: `delete_photo_${i}` }
+            ]]
+          }
+        };
+
+        // Send photo from URL
+        await bot.sendPhoto(chatId, photoUrl, { caption, ...buttons });
+      }
+
+      bot.sendMessage(chatId, '💡 **Tip:** You can upload up to 6 photos. Use /photos to add more!');
+    } catch (err) {
+      console.error('View photos error:', err);
+      bot.sendMessage(chatId, '❌ Failed to load your photos. Please try again.');
     }
   });
 

@@ -206,7 +206,8 @@ const userSchema = new mongoose.Schema({
   age: Number,
   location: { type: String, required: true },
   bio: String,
-  profilePhoto: String, // Add profile photo field
+  photos: [String], // Array of photo URLs (max 6)
+  profilePhoto: String, // First photo for backward compatibility
 
   // Currency
   coins: { type: Number, default: 0 },
@@ -1901,23 +1902,36 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
     const imageUrl = req.file.path;
     const telegramId = req.params.telegramId;
 
-    const user = await User.findOneAndUpdate(
-      { telegramId },
-      { profilePhoto: imageUrl },
-      { new: true }
-    );
-
+    // Find user first to check photo count
+    const user = await User.findOne({ telegramId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user already has 6 photos
+    const currentPhotos = user.photos || [];
+    if (currentPhotos.length >= 6) {
+      return res.status(400).json({ error: 'Maximum 6 photos allowed. Please delete a photo first.' });
+    }
+
+    // Add new photo to photos array
+    const updatedUser = await User.findOneAndUpdate(
+      { telegramId },
+      {
+        $push: { photos: imageUrl },
+        profilePhoto: currentPhotos.length === 0 ? imageUrl : user.profilePhoto // Set first photo as profile photo
+      },
+      { new: true }
+    );
+
     res.json({
       message: 'Photo uploaded successfully',
       imageUrl,
+      photoCount: updatedUser.photos.length,
       user: {
-        telegramId: user.telegramId,
-        name: user.name,
-        profilePhoto: user.profilePhoto
+        telegramId: updatedUser.telegramId,
+        name: updatedUser.name,
+        profilePhoto: updatedUser.profilePhoto
       }
     });
   } catch (err) {
