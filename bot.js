@@ -1024,6 +1024,8 @@ bot.on('callback_query', async (query) => {
             'set_age_range', 'set_distance', 'set_gender_pref',
             'settings_search', 'back_to_search', 'main_settings',
             'settings_profile', 'settings_notifications', 'settings_privacy', 'settings_help',
+            // Profile edit callbacks handled in profile.js
+            'edit_profile', 'edit_name', 'edit_age', 'edit_location', 'edit_bio', 'manage_photos',
             // Search callbacks handled in bot-new.js
             'search_age_range', 'search_distance', 'search_gender', 'search_location',
             'vip_filters', 'search_vip_filters', 'start_advanced_search',
