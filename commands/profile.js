@@ -80,6 +80,35 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         default:
+          // Check if it's a delete_photo callback
+          if (data.startsWith('delete_photo_')) {
+            const photoIndex = parseInt(data.replace('delete_photo_', ''));
+
+            try {
+              const user = await User.findOne({ telegramId });
+              if (!user || !user.photos || photoIndex >= user.photos.length) {
+                return bot.sendMessage(chatId, '❌ Photo not found.');
+              }
+
+              // Remove photo from array
+              user.photos.splice(photoIndex, 1);
+
+              // Update profilePhoto if we deleted the first photo
+              if (photoIndex === 0) {
+                user.profilePhoto = user.photos.length > 0 ? user.photos[0] : null;
+              }
+
+              await user.save();
+              invalidateUserCache(telegramId);
+
+              bot.sendMessage(chatId, `✅ **Photo Deleted!**\n\nYou now have ${user.photos.length} photo${user.photos.length === 1 ? '' : 's'}.\n\n💡 Use /myphotos to view your remaining photos.`);
+            } catch (err) {
+              console.error('Delete photo error:', err);
+              bot.sendMessage(chatId, '❌ Failed to delete photo. Please try again.');
+            }
+            return;
+          }
+
           // Not a profile callback, let other handlers process it
           return;
       }
