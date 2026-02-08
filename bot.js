@@ -170,6 +170,9 @@ bot.on('photo', async (msg) => {
 
       userStates.delete(telegramId);
 
+      // Invalidate cache so profile shows updated photo count
+      invalidateUserCache(telegramId);
+
       const successMsg = `✅ **Photo Uploaded Successfully!** ✅\n\n` +
         `Your new photo has been added to your profile.\n\n` +
         `📸 **Want to add more photos?**`;
