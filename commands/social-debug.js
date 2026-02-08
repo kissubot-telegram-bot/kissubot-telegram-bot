@@ -4,7 +4,7 @@ const { getCachedUserProfile } = require('./auth');
 const { API_BASE } = require('../config');
 const userStates = {};
 
-function setupSocialDebugCommands(bot) {
+function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
   bot.onText(/\/stories/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await getCachedUserProfile(chatId);
@@ -70,7 +70,13 @@ function setupSocialDebugCommands(bot) {
     }
   };
 
-  bot.on('photo', handleStory);
+  // Only handle photos when user is posting a story
+  bot.on('photo', (msg) => {
+    const userState = userStates.get(msg.from.id);
+    if (userState?.action === 'uploading_story') {
+      handleStory(msg);
+    }
+  });
   bot.on('video', handleStory);
 }
 

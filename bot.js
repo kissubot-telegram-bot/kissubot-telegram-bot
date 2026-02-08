@@ -1,5 +1,6 @@
-const TelegramBot = require('node-telegram-bot-api');
+const { bot, userStates } = require('./server');
 const axios = require('axios');
+const { API_BASE } = require('./config');
 require('dotenv').config();
 
 // Import command modules
@@ -17,73 +18,11 @@ const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
 
 
-// Bot configuration
-const token = process.env.BOT_TOKEN;
-const { API_BASE } = require('./config');
-
-if (!token) {
-  console.error('❌ BOT_TOKEN is required in .env file');
-  process.exit(1);
-}
-
-// Create bot instance WITHOUT polling (webhook mode via server.js)
-const bot = new TelegramBot(token, { 
-  polling: false, // Disabled - using webhooks instead
-  request: {
-    agentOptions: {
-      keepAlive: true,
-      family: 4 // Force IPv4
-    },
-    timeout: 30000 // 30 second timeout
-  }
-});
-
-// User state management for interactive flows
-const userStates = new Map();
-
-// Initialize command modules
-// setupAuthCommands(bot, userStates);
-// setupProfileCommands(bot, userStates);
-// browsingCommands.setupBrowsingCommands(bot, getCachedUserProfile);
-
 // Helper functions for optimized callback handling
-function handleProfileEdit(chatId, telegramId, field) {
-  userStates.set(telegramId, { editing: field });
-  
-  const editMessages = {
-    name: {
-      title: '✏️ **Edit Name** ✏️',
-      prompt: 'Please enter your new display name:',
-      tips: ['Use your real first name', 'Keep it simple and memorable', 'Avoid special characters']
-    },
-    age: {
-      title: '🎂 **Edit Age** 🎂',
-      prompt: 'Please enter your age (18-100):',
-      tips: ['Be honest about your age', 'Age helps with better matches', 'Must be between 18 and 100']
-    },
-    location: {
-      title: '📍 **Edit Location** 📍',
-      prompt: 'Please ent er your city and country:',
-      tips: ['Examples:', '• New York, USA', '• London, UK', '• Tokyo, Japan']
-    },
-    bio: {
-      title: '💬 **Edit Bio** 💬',
-      prompt: 'Tell others about yourself (max 500 characters):',
-      tips: ['Share your interests and hobbies', 'Be authentic and positive', 'Mention what you\'re looking for', 'Keep it engaging and fun']
-    }
-  };
-  
-  const config = editMessages[field];
-  if (config) {
-    const message = `${config.title}\n\n${config.prompt}\n\n💡 **Tips:**\n${config.tips.map(tip => tip.startsWith('•') ? tip : `• ${tip}`).join('\n')}\n\n❌ Type /cancel to stop editing`;
-    bot.sendMessage(chatId, message);
-  }
-}
-
 function handleReportFlow(chatId, telegramId, reportType) {
   const type = reportType.replace('report_', '');
   userStates.set(telegramId, { reporting: type === 'feature_request' ? 'feature' : type });
-  
+
   const reportMessages = {
     report_user: {
       title: '👤 **Report User** 👤',
@@ -108,7 +47,7 @@ function handleReportFlow(chatId, telegramId, reportType) {
       footer: '🚀 **Great ideas help improve Kisu1bot**'
     }
   };
-  
+
   const config = reportMessages[reportType];
   if (config) {
     const message = `${config.title}\n\n${config.prompt}\n\n📋 **Include details about:**\n${config.details.map(detail => `• ${detail}`).join('\n')}\n\n${config.footer || '🔒 **Your report is confidential**'}\n❌ Type /cancel to stop${reportType === 'feature_request' ? '' : ' reporting'}`;
@@ -159,31 +98,12 @@ function handleNavigation(chatId, action) {
     contact_support: '📞 Use the /contact command to get support information.',
     report_menu: '🚨 Use the /report command to report issues or users.'
   };
-  
+
   const message = navigationMessages[action];
   if (message) {
     bot.sendMessage(chatId, message);
   }
 }
-
-console.log('🤖 Kisu1bot is starting...');
-
-// Bot info logging removed for webhook mode - causes initialization issues
-// The bot will work without this info being logged
-
-// Setup all command modules
-setupAuthCommands(bot, userStates);
-setupProfileCommands(bot, userStates);
-setupBrowsingCommands(bot);
-setupHelpCommands(bot);
-setupSettingsCommands(bot);
-setupPremiumCommands(bot);
-setupGiftCommands(bot);
-setupSocialDebugCommands(bot);
-setupSocialCommands(bot);
-setupSearchCommands(bot);
-setupLikesCommands(bot);
-setupMatchesCommands(bot);
 
 // Additional commands not in modules
 
@@ -194,7 +114,7 @@ function getTimeAgo(date) {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
-  
+
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
@@ -231,7 +151,7 @@ bot.on('photo', async (msg) => {
       const FormData = require('form-data');
       const https = require('https');
       const form = new FormData();
-      
+
       // Fetch the photo from Telegram
       const photoBuffer = await new Promise((resolve, reject) => {
         https.get(fileUrl, (res) => {
@@ -384,40 +304,40 @@ bot.on('message', async (msg) => {
     const state = userStates.get(telegramId);
 
     // Handle profile editing states
-    if (state.editing) {
-      if (text === '/cancel') {
-        userStates.delete(telegramId);
-        return bot.sendMessage(chatId, '❌ **Editing Cancelled**\n\nYour profile remains unchanged.');
-      }
+    // if (state.editing) {
+    //   if (text === '/cancel') {
+    //     userStates.delete(telegramId);
+    //     return bot.sendMessage(chatId, '❌ **Editing Cancelled**\n\nYour profile remains unchanged.');
+    //   }
 
-      const field = state.editing;
-      let value = text;
+    //   const field = state.editing;
+    //   let value = text;
 
-      // Validate input based on field
-      if (field === 'age') {
-        value = parseInt(text);
-        if (isNaN(value) || value < 18 || value > 100) {
-          return bot.sendMessage(chatId, '❌ **Invalid Age**\n\nPlease enter an age between 18 and 100, or use /cancel to stop editing.');
-        }
-      }
+    //   // Validate input based on field
+    //   if (field === 'age') {
+    //     value = parseInt(text);
+    //     if (isNaN(value) || value < 18 || value > 100) {
+    //       return bot.sendMessage(chatId, '❌ **Invalid Age**\n\nPlease enter an age between 18 and 100, or use /cancel to stop editing.');
+    //     }
+    //   }
 
-      if (field === 'bio' && text.length > 500) {
-        return bot.sendMessage(chatId, '❌ **Bio Too Long**\n\nPlease keep your bio under 500 characters, or use /cancel to stop editing.');
-      }
+    //   if (field === 'bio' && text.length > 500) {
+    //     return bot.sendMessage(chatId, '❌ **Bio Too Long**\n\nPlease keep your bio under 500 characters, or use /cancel to stop editing.');
+    //   }
 
-      try {
-        await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field, value });
-        userStates.delete(telegramId);
-        
-        bot.sendMessage(chatId, `✅ **${field.charAt(0).toUpperCase() + field.slice(1)} Updated!**\n\n` +
-          `Your ${field} has been successfully updated to: **${value}**\n\n` +
-          `💡 Use /profile to see your complete profile.`);
-      } catch (err) {
-        console.error(`Update ${field} error:`, err.response?.data || err.message);
-        bot.sendMessage(chatId, `❌ **Update Failed**\n\nFailed to update your ${field}. Please try again later.`);
-      }
-      return;
-    }
+    //   try {
+    //     await axios.post(`${API_BASE}/profile/update/${telegramId}`, { field, value });
+    //     userStates.delete(telegramId);
+
+    //     bot.sendMessage(chatId, `✅ **${field.charAt(0).toUpperCase() + field.slice(1)} Updated!**\n\n` +
+    //       `Your ${field} has been successfully updated to: **${value}**\n\n` +
+    //       `💡 Use /profile to see your complete profile.`);
+    //   } catch (err) {
+    //     console.error(`Update ${field} error:`, err.response?.data || err.message);
+    //     bot.sendMessage(chatId, `❌ **Update Failed**\n\nFailed to update your ${field}. Please try again later.`);
+    //   }
+    //   return;
+    // }
 
     // Handle reporting states
     if (state.reporting) {
@@ -466,7 +386,7 @@ bot.on('callback_query', async (query) => {
     'gift_vip_1', 'gift_vip_3', 'gift_vip_6',
     'vip_purchase_monthly', 'vip_purchase_yearly', 'vip_purchase_lifetime'
   ];
-  
+
   if (!vipCallbacks.includes(data)) {
     // Answer callback query to remove loading state for non-VIP callbacks
     bot.answerCallbackQuery(query.id);
@@ -474,14 +394,6 @@ bot.on('callback_query', async (query) => {
 
   try {
     switch (data) {
-      // Profile editing callbacks
-      case 'edit_name':
-      case 'edit_age':
-      case 'edit_location':
-      case 'edit_bio':
-        handleProfileEdit(chatId, telegramId, data.replace('edit_', ''));
-        break;
-
       // Report callbacks
       case 'report_user':
       case 'report_content':
@@ -529,7 +441,6 @@ bot.on('callback_query', async (query) => {
 
       // Photo upload callbacks
       case 'add_another_photo':
-      case 'manage_photos':
         userStates.set(telegramId, { action: 'uploading_photo' });
         bot.sendMessage(chatId, '📸 **Upload Photo** 📸\n\nSend me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• High-quality, clear photos work best\n• Show your face clearly\n• Maximum 6 photos allowed\n\n📤 Ready? Just send the photo!');
         break;
@@ -559,20 +470,6 @@ bot.on('callback_query', async (query) => {
           '⚙️ **Settings:**\n' +
           '• /settings - Customize preferences\n' +
           '• /help - Get help and support');
-        break;
-
-      case 'manage_photos':
-        bot.sendMessage(chatId, '📸 **MANAGE PHOTOS** 📸\n\n' +
-          'Photo management features:\n\n' +
-          '📤 **Upload Photos:**\n' +
-          '• Send photos directly to the bot\n' +
-          '• Use /photo command for guided upload\n\n' +
-          '🗂️ **Photo Tips:**\n' +
-          '• Use high-quality, clear photos\n' +
-          '• Show your face clearly\n' +
-          '• Add variety (close-up, full body, activities)\n' +
-          '• Keep photos recent and authentic\n\n' +
-          '💡 **Pro Tip:** Profiles with photos get 10x more matches!');
         break;
 
       // Settings menu callbacks
@@ -705,7 +602,7 @@ bot.on('callback_query', async (query) => {
             '💬 **Live Chat:** Available 9 AM - 6 PM EST\n' +
             '📱 **Response Time:** Usually within 24 hours\n\n' +
             '🔒 **All communications are confidential and secure.**');
-        // Search callback handlers
+          // Search callback handlers
         } else if (data === 'search_age_range') {
           bot.sendMessage(chatId, '🎂 **SET AGE RANGE** 🎂\n\nChoose your preferred age range for matches:', {
             reply_markup: {
@@ -788,7 +685,7 @@ bot.on('callback_query', async (query) => {
           try {
             const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
             const user = userRes.data;
-            
+
             if (!user.isVip) {
               bot.sendMessage(chatId, '👑 **VIP FILTERS** 👑\n\n' +
                 '🔒 **VIP Exclusive Features:**\n' +
@@ -841,7 +738,7 @@ bot.on('callback_query', async (query) => {
             const userRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
             const user = userRes.data;
             const preferences = user.searchPreferences || {};
-            
+
             // Start advanced search with current preferences
             const searchRes = await axios.post(`${API_BASE}/search/advanced/${telegramId}`, {
               ageRange: preferences.ageRange || '18-35',
@@ -849,9 +746,9 @@ bot.on('callback_query', async (query) => {
               gender: preferences.gender || 'any',
               location: preferences.location || 'any'
             });
-            
+
             const profiles = searchRes.data.profiles;
-            
+
             if (profiles.length === 0) {
               bot.sendMessage(chatId, '🔍 **SEARCH RESULTS** 🔍\n\n' +
                 'No profiles found matching your criteria.\n\n' +
@@ -894,10 +791,10 @@ bot.on('callback_query', async (query) => {
               });
             }
           } catch (err) {
-             console.error('Advanced search error:', err);
-             bot.sendMessage(chatId, '❌ Failed to perform search. Please try again later.');
-           }
-        // Location filter handlers
+            console.error('Advanced search error:', err);
+            bot.sendMessage(chatId, '❌ Failed to perform search. Please try again later.');
+          }
+          // Location filter handlers
         } else if (data === 'location_current') {
           try {
             await axios.post(`${API_BASE}/preferences/${telegramId}`, {
@@ -923,7 +820,7 @@ bot.on('callback_query', async (query) => {
             console.error('Location update error:', err);
             bot.sendMessage(chatId, '❌ Failed to update location preference. Please try again.');
           }
-        // VIP filter handlers
+          // VIP filter handlers
         } else if (data === 'filter_interests') {
           bot.sendMessage(chatId, '🎯 **INTEREST FILTERS** 🎯\n\n' +
             'Choose interests to filter by:', {
@@ -1050,7 +947,7 @@ bot.on('callback_query', async (query) => {
               ]
             }
           });
-        // Interest filter handlers
+          // Interest filter handlers
         } else if (data.startsWith('interest_')) {
           const interest = data.replace('interest_', '');
           try {
@@ -1062,7 +959,7 @@ bot.on('callback_query', async (query) => {
             console.error('Interest filter error:', err);
             bot.sendMessage(chatId, '❌ Failed to update interest filter. Please try again.');
           }
-        // Education filter handlers
+          // Education filter handlers
         } else if (data.startsWith('edu_')) {
           const education = data.replace('edu_', '').replace('_', ' ');
           try {
@@ -1074,7 +971,7 @@ bot.on('callback_query', async (query) => {
             console.error('Education filter error:', err);
             bot.sendMessage(chatId, '❌ Failed to update education filter. Please try again.');
           }
-        // Height filter handlers
+          // Height filter handlers
         } else if (data.startsWith('height_')) {
           const height = data.replace('height_', '').replace('_', '-');
           try {
@@ -1086,7 +983,7 @@ bot.on('callback_query', async (query) => {
             console.error('Height filter error:', err);
             bot.sendMessage(chatId, '❌ Failed to update height filter. Please try again.');
           }
-        // Profession filter handlers
+          // Profession filter handlers
         } else if (data.startsWith('prof_')) {
           const profession = data.replace('prof_', '');
           try {
@@ -1098,7 +995,7 @@ bot.on('callback_query', async (query) => {
             console.error('Profession filter error:', err);
             bot.sendMessage(chatId, '❌ Failed to update profession filter. Please try again.');
           }
-        // Lifestyle filter handlers
+          // Lifestyle filter handlers
         } else if (data.startsWith('lifestyle_')) {
           const lifestyle = data.replace('lifestyle_', '').replace('_', ' ');
           try {
@@ -1136,20 +1033,20 @@ bot.on('callback_query', async (query) => {
             // Likes You callbacks
             'view_all_likes', 'back_to_likes'
           ];
-          
+
           // Check for dynamic callbacks (with IDs)
-          const isDynamicCallback = data.startsWith('view_liker_') || 
-                                   data.startsWith('like_') || 
-                                   data.startsWith('pass_') || 
-                                   data.startsWith('superlike_');
-          
+          const isDynamicCallback = data.startsWith('view_liker_') ||
+            data.startsWith('like_') ||
+            data.startsWith('pass_') ||
+            data.startsWith('superlike_');
+
           if (!handledCallbacks.includes(data) && !isDynamicCallback) {
             console.log('Unhandled callback data:', data);
             bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
           }
           // These callbacks are handled by other modules - do nothing here
         }
-  }
+    }
   } catch (err) {
 
     console.error('Callback query error:', err.response?.data || err.message);
@@ -1160,7 +1057,7 @@ bot.on('callback_query', async (query) => {
 // Error handling
 bot.on('polling_error', (error) => {
   console.error('❌ Polling error:', error.message);
-  
+
   // If it's a network error, try to restart polling after a delay
   if (error.code === 'ENOTFOUND' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
     console.log('🔄 Network error detected, attempting to restart polling in 10 seconds...');
@@ -1187,89 +1084,6 @@ bot.on('webhook_error', (error) => {
   console.error('❌ Webhook error:', error.message);
 });
 
-// Handle photo uploads
-bot.on('photo', async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-  
-  try {
-    // Get the highest resolution photo
-    const photo = msg.photo[msg.photo.length - 1];
-    const fileId = photo.file_id;
-    
-    // Get file info from Telegram
-    const file = await bot.getFile(fileId);
-    const fileUrl = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`;
-    
-    // Send loading message
-    const loadingMsg = await bot.sendMessage(chatId, '📤 Uploading your photo...');
-    
-    // Download and upload to server
-    const axios = require('axios');
-    const FormData = require('form-data');
-    const fs = require('fs');
-    const path = require('path');
-    
-    // Download the image
-    const response = await axios.get(fileUrl, { responseType: 'stream' });
-    const tempPath = path.join(__dirname, `temp_${telegramId}_${Date.now()}.jpg`);
-    const writer = fs.createWriteStream(tempPath);
-    
-    response.data.pipe(writer);
-    
-    writer.on('finish', async () => {
-      try {
-        // Create form data for upload
-        const form = new FormData();
-        form.append('image', fs.createReadStream(tempPath));
-        
-        // Upload to server
-        const uploadResponse = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
-          headers: {
-            ...form.getHeaders()
-          }
-        });
-        
-        // Clean up temp file
-        fs.unlinkSync(tempPath);
-        
-        // Invalidate cache so /profile shows updated photo
-        invalidateUserCache(telegramId);
-        
-        // Update loading message with success
-        bot.editMessageText('✅ **Photo Uploaded Successfully!**\n\n📸 Your profile photo has been updated and is now visible to other users.\n\n🌟 **Profile Boost:** Profiles with photos get 10x more matches!\n\n💡 Tip: Use /profile to see your complete profile', {
-          chat_id: chatId,
-          message_id: loadingMsg.message_id
-        });
-        
-      } catch (uploadErr) {
-        console.error('Photo upload error:', uploadErr);
-        
-        // Clean up temp file
-        if (fs.existsSync(tempPath)) {
-          fs.unlinkSync(tempPath);
-        }
-        
-        bot.editMessageText('❌ Failed to upload photo. Please try again.', {
-          chat_id: chatId,
-          message_id: loadingMsg.message_id
-        });
-      }
-    });
-    
-    writer.on('error', (err) => {
-      console.error('File write error:', err);
-      bot.editMessageText('❌ Failed to process photo. Please try again.', {
-        chat_id: chatId,
-        message_id: loadingMsg.message_id
-      });
-    });
-    
-  } catch (err) {
-    console.error('Photo handler error:', err);
-    bot.sendMessage(chatId, '❌ Failed to process your photo. Please try again.');
-  }
-});
 
 console.log('✅ Kisu1bot is running successfully!');
 console.log('🔗 API Base:', API_BASE);

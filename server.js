@@ -1,4 +1,4 @@
-const express = require('express'); 
+const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -16,17 +16,33 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Import the bot instance from bot.js (which has all command handlers)
-// This is done AFTER configuring environment to ensure everything is ready
-let bot;
-try {
-  bot = require('./bot');
-  console.log('✅ Bot module loaded successfully');
-} catch (err) {
-  console.error('❌ Failed to load bot module:', err.message);
-  console.error('Stack trace:', err.stack);
+
+
+const TelegramBot = require('node-telegram-bot-api');
+
+// Bot initialization
+const token = process.env.BOT_TOKEN;
+if (!token) {
+  console.error('❌ BOT_TOKEN is required in .env file');
   process.exit(1);
 }
+const bot = new TelegramBot(token);
+
+// Import and setup command modules
+const { setupAuthCommands } = require('./commands/auth');
+const { setupProfileCommands } = require('./commands/profile');
+const { setupBrowsingCommands } = require('./commands/browsing');
+const { setupHelpCommands } = require('./commands/help');
+const { setupSettingsCommands } = require('./commands/settings');
+const { setupPremiumCommands } = require('./commands/premium');
+const { setupGiftCommands } = require('./commands/gifts');
+const { setupSocialDebugCommands } = require('./commands/social-debug');
+const { setupSocialCommands } = require('./commands/social');
+const { setupSearchCommands } = require('./commands/search');
+const { setupLikesCommands } = require('./commands/likes');
+const { setupMatchesCommands } = require('./commands/matches');
+
+const userStates = new Map();
 
 const app = express();
 app.use(bodyParser.json());
@@ -39,8 +55,8 @@ app.get('/', (req, res) => {
 // Test endpoint to verify server is reachable
 app.get('/test', (req, res) => {
   console.log('✅ Test endpoint hit!');
-  res.json({ 
-    status: 'success', 
+  res.json({
+    status: 'success',
     message: 'Server is reachable',
     timestamp: new Date().toISOString()
   });
@@ -62,7 +78,7 @@ app.get('/webhook-info', async (req, res) => {
 app.post('/webhook/telegram', async (req, res) => {
   try {
     const update = req.body;
-    
+
     console.log('🔔 [Webhook] Received update from Telegram!');
     console.log(`[Webhook] Update details:`, JSON.stringify(update, null, 2));
 
@@ -103,16 +119,16 @@ const connectWithRetry = async () => {
 
       const server = app.listen(PORT, '0.0.0.0', async () => {
         console.log(`Server is listening on port ${PORT}`);
-        
+
         try {
           const webhookUrl = process.env.WEBHOOK_URL;
           if (!webhookUrl) {
             console.error('❌ CRITICAL: WEBHOOK_URL environment variable not set.');
             return; // Do not proceed if the URL isn't set
           }
-          
+
           console.log(`📡 Registering webhook with Telegram: ${webhookUrl}`);
-          
+
           await bot.setWebHook(webhookUrl);
           console.log('✅ Webhook registered successfully with Telegram');
         } catch (err) {
@@ -191,10 +207,10 @@ const userSchema = new mongoose.Schema({
   location: { type: String, required: true },
   bio: String,
   profilePhoto: String, // Add profile photo field
-  
+
   // Currency
   coins: { type: Number, default: 0 },
-  
+
   // VIP Status
   isVip: { type: Boolean, default: false },
   vipDetails: {
@@ -235,13 +251,13 @@ const userSchema = new mongoose.Schema({
   // Gifts System
   gifts: [{
     from: String,
-    giftType: { 
-      type: String, 
+    giftType: {
+      type: String,
       enum: ['rose', 'heart', 'diamond', 'crown', 'ring']
     },
     sentAt: { type: Date, default: Date.now }
   }],
-  
+
   // Stories System
   stories: [{
     mediaUrl: String,
@@ -280,6 +296,30 @@ const userSchema = new mongoose.Schema({
   reactivatedAt: Date
 });
 const User = mongoose.model('User', userSchema);
+
+// Setup command handlers (must be after User model is defined)
+// Note: Match and Like models don't exist in this codebase, passing undefined
+const Match = undefined;
+const Like = undefined;
+
+setupAuthCommands(bot, userStates, User);
+setupProfileCommands(bot, userStates, User);
+setupBrowsingCommands(bot, User, Match, Like);
+setupHelpCommands(bot);
+setupSettingsCommands(bot, userStates, User);
+setupPremiumCommands(bot, User);
+setupGiftCommands(bot, User);
+setupSocialDebugCommands(bot, User, Match, Like, userStates);
+setupSocialCommands(bot, User);
+setupSearchCommands(bot, User);
+setupLikesCommands(bot, User, Like);
+setupMatchesCommands(bot, User, Match);
+
+// Export bot and userStates so bot.js can import them
+module.exports = { bot, userStates };
+
+// Load bot.js to register event handlers for webhook
+require('./bot');
 
 // Register User
 app.post('/register', async (req, res) => {
@@ -394,7 +434,7 @@ app.get('/matches/:telegramId', async (req, res) => {
 // Create a new match
 app.post('/matches/create', async (req, res) => {
   const { fromId, toId } = req.body;
-  
+
   try {
     const [user1, user2] = await Promise.all([
       User.findOne({ telegramId: fromId }),
@@ -446,7 +486,7 @@ app.post('/matches/create', async (req, res) => {
 // Unmatch users
 app.post('/matches/unmatch', async (req, res) => {
   const { fromId, toId } = req.body;
-  
+
   try {
     const [user1, user2] = await Promise.all([
       User.findOne({ telegramId: fromId }),
@@ -493,7 +533,7 @@ app.post('/vip/grant-coins', async (req, res) => {
 // Remove a like
 app.post('/likes/remove', async (req, res) => {
   const { fromId, toId } = req.body;
-  
+
   try {
     const user = await User.findOne({ telegramId: toId });
     if (!user) {
@@ -520,7 +560,7 @@ app.get('/likes/:telegramId', async (req, res) => {
     }
 
     // Get users who liked this user with more detailed info
-    const likers = await User.find({ 
+    const likers = await User.find({
       telegramId: { $in: user.likes }
     }).select('telegramId name age location bio isVip profilePhoto createdAt lastActive');
 
@@ -539,15 +579,15 @@ app.get('/likes/:telegramId', async (req, res) => {
     const hasHiddenLikes = likersWithTimestamp.length > likesToShow;
 
     // Get preview of likes for non-VIP (blurred/limited info)
-    const visibleLikes = user.isVip 
+    const visibleLikes = user.isVip
       ? likersWithTimestamp.slice(0, likesToShow)
       : likersWithTimestamp.slice(0, likesToShow).map(liker => ({
-          ...liker,
-          name: liker.name.charAt(0) + '*'.repeat(liker.name.length - 1),
-          bio: 'Upgrade to VIP to see full profile',
-          profilePhoto: null // Hide photo for non-VIP
-        }));
-    
+        ...liker,
+        name: liker.name.charAt(0) + '*'.repeat(liker.name.length - 1),
+        bio: 'Upgrade to VIP to see full profile',
+        profilePhoto: null // Hide photo for non-VIP
+      }));
+
     res.json({
       likes: visibleLikes,
       totalLikes: likersWithTimestamp.length,
@@ -564,7 +604,7 @@ app.get('/likes/:telegramId', async (req, res) => {
 // Like a user
 app.post('/like', async (req, res) => {
   const { fromUserId, toUserId } = req.body;
-  
+
   try {
     // Find the target user
     const targetUser = await User.findOne({ telegramId: toUserId });
@@ -587,13 +627,13 @@ app.post('/like', async (req, res) => {
     if (!fromUser.isVip) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       // Count likes sent today
       const likesToday = await User.countDocuments({
         likes: fromUserId,
         'likes.0': { $exists: true }
       });
-      
+
       if (likesToday >= 50) {
         return res.status(400).json({ error: 'Daily like limit reached. Upgrade to VIP for unlimited likes!' });
       }
@@ -605,7 +645,7 @@ app.post('/like', async (req, res) => {
 
     // Check if it's a match (both users liked each other)
     const isMatch = fromUser.likes.includes(toUserId);
-    
+
     if (isMatch) {
       // Create match for both users
       const matchData = {
@@ -640,7 +680,7 @@ app.post('/like', async (req, res) => {
 // Pass a user
 app.post('/pass', async (req, res) => {
   const { fromUserId, toUserId } = req.body;
-  
+
   try {
     // Find the user who is passing
     const fromUser = await User.findOne({ telegramId: fromUserId });
@@ -660,7 +700,7 @@ app.post('/pass', async (req, res) => {
 // Super like a user
 app.post('/superlike', async (req, res) => {
   const { fromUserId, toUserId } = req.body;
-  
+
   try {
     // Find the target user
     const targetUser = await User.findOne({ telegramId: toUserId });
@@ -696,7 +736,7 @@ app.post('/superlike', async (req, res) => {
 
     // Check if it's a match
     const isMatch = fromUser.likes.includes(toUserId);
-    
+
     if (isMatch) {
       // Create match for both users
       const matchData = {
@@ -780,7 +820,7 @@ app.get('/coins/:telegramId', async (req, res) => {
       }
     };
 
-    res.json({ 
+    res.json({
       coins: user.coins,
       packages: coinPackages
     });
@@ -903,7 +943,7 @@ app.get('/vip/:telegramId', async (req, res) => {
 app.post('/vip/purchase/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
   const { planType } = req.body;
-  
+
   const plans = {
     weekly: { price: 300, days: 7 },
     monthly: { price: 1000, days: 30 },
@@ -925,7 +965,7 @@ app.post('/vip/purchase/:telegramId', async (req, res) => {
 
     // Check if user has enough coins
     if (user.coins < plans[planType].price) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Insufficient coins',
         required: plans[planType].price,
         current: user.coins
@@ -935,7 +975,7 @@ app.post('/vip/purchase/:telegramId', async (req, res) => {
     // Deduct coins and activate VIP
     user.coins -= plans[planType].price;
     user.isVip = true;
-    
+
     // Set expiration date
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + plans[planType].days);
@@ -1130,7 +1170,7 @@ app.get('/gifts/available', (req, res) => {
 // Send a gift
 app.post('/gifts/send', async (req, res) => {
   const { fromId, toId, giftType } = req.body;
-  
+
   // Gift prices
   const giftPrices = {
     rose: 100,
@@ -1149,7 +1189,7 @@ app.post('/gifts/send', async (req, res) => {
       User.findOne({ telegramId: fromId }),
       User.findOne({ telegramId: toId })
     ]);
-    
+
     if (!sender || !receiver) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -1157,13 +1197,13 @@ app.post('/gifts/send', async (req, res) => {
     // Check if sender has enough coins
     const giftPrice = giftPrices[giftType];
     if (sender.coins < giftPrice) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Insufficient coins',
         required: giftPrice,
         current: sender.coins
       });
     }
-    
+
     // Deduct coins and send gift
     sender.coins -= giftPrice;
     receiver.gifts.push({
@@ -1171,10 +1211,10 @@ app.post('/gifts/send', async (req, res) => {
       giftType,
       sentAt: new Date()
     });
-    
+
     await Promise.all([sender.save(), receiver.save()]);
 
-    res.json({ 
+    res.json({
       message: 'Gift sent successfully',
       remainingCoins: sender.coins
     });
@@ -1186,13 +1226,13 @@ app.post('/gifts/send', async (req, res) => {
 // Get received gifts for a user
 app.get('/gifts/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     const user = await User.findOne({ telegramId }).populate('gifts.from', 'name username isVip');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Format gifts with sender information
     const formattedGifts = user.gifts.map(gift => ({
       giftType: gift.giftType,
@@ -1201,7 +1241,7 @@ app.get('/gifts/:telegramId', async (req, res) => {
       senderIsVip: gift.from?.isVip || false,
       value: getGiftPrice(gift.giftType)
     }));
-    
+
     res.json({ gifts: formattedGifts });
   } catch (err) {
     console.error('Error fetching gifts:', err);
@@ -1212,13 +1252,13 @@ app.get('/gifts/:telegramId', async (req, res) => {
 // Get sent gifts for a user
 app.get('/gifts/sent/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     // Find all users who have received gifts from this user
     const recipients = await User.find({
       'gifts.from': telegramId
     });
-    
+
     let sentGifts = [];
     recipients.forEach(recipient => {
       const giftsFromUser = recipient.gifts.filter(gift => gift.from.toString() === telegramId);
@@ -1231,7 +1271,7 @@ app.get('/gifts/sent/:telegramId', async (req, res) => {
         });
       });
     });
-    
+
     res.json({ gifts: sentGifts });
   } catch (err) {
     console.error('Error fetching sent gifts:', err);
@@ -1282,7 +1322,7 @@ app.post('/coins/purchase/:telegramId', async (req, res) => {
 app.post('/profile/update/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
   const { field, value } = req.body;
-  
+
   const allowedFields = ['name', 'age', 'location', 'bio'];
   if (!allowedFields.includes(field)) {
     return res.status(400).json({ error: 'Invalid field' });
@@ -1305,17 +1345,12 @@ app.post('/profile/update/:telegramId', async (req, res) => {
 // Post a story
 
 
-// Placeholder for Chat (future)
-app.post('/chat', (req, res) => {
-  res.send({ message: 'Chat feature coming soon!' });
-});
-
 // Stories endpoints
 
 // Get user's stories
 app.get('/stories/user/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
@@ -1324,7 +1359,7 @@ app.get('/stories/user/:telegramId', async (req, res) => {
 
     // Filter out expired stories (older than 24 hours)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const activeStories = user.stories.filter(story => 
+    const activeStories = user.stories.filter(story =>
       new Date(story.createdAt) > twentyFourHoursAgo
     );
 
@@ -1342,7 +1377,7 @@ app.get('/stories/user/:telegramId', async (req, res) => {
 // Get recent stories from other users
 app.get('/stories/recent/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     const currentUser = await User.findOne({ telegramId });
     if (!currentUser) {
@@ -1351,19 +1386,19 @@ app.get('/stories/recent/:telegramId', async (req, res) => {
 
     // Get stories from other users (excluding current user)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     const usersWithStories = await User.find({
       telegramId: { $ne: telegramId },
       'stories.0': { $exists: true }
     }).select('telegramId name isVip stories');
 
     const recentStories = [];
-    
+
     for (const user of usersWithStories) {
-      const activeStories = user.stories.filter(story => 
+      const activeStories = user.stories.filter(story =>
         new Date(story.createdAt) > twentyFourHoursAgo
       );
-      
+
       if (activeStories.length > 0) {
         // Add user info to each story
         activeStories.forEach(story => {
@@ -1390,13 +1425,13 @@ app.get('/stories/recent/:telegramId', async (req, res) => {
 // Send anonymous message to story
 app.post('/stories/message', async (req, res) => {
   const { storyId, storyOwnerId, fromUserId, message, isAnonymous = true } = req.body;
-  
+
   try {
     const storyOwner = await User.findOne({ telegramId: storyOwnerId });
     if (!storyOwner) {
       return res.status(404).json({ error: 'Story owner not found' });
     }
-    
+
     // Add message to story owner's storyMessages
     storyOwner.storyMessages.push({
       storyId,
@@ -1408,7 +1443,7 @@ app.post('/stories/message', async (req, res) => {
       isRead: false,
       isRevealed: false
     });
-    
+
     await storyOwner.save();
     res.json({ message: 'Story message sent successfully' });
   } catch (err) {
@@ -1420,13 +1455,13 @@ app.post('/stories/message', async (req, res) => {
 // Get story messages for a user
 app.get('/stories/messages/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Get sender details for non-anonymous messages
     const messagesWithSenders = await Promise.all(
       user.storyMessages.map(async (msg) => {
@@ -1445,7 +1480,7 @@ app.get('/stories/messages/:telegramId', async (req, res) => {
         return msg.toObject();
       })
     );
-    
+
     res.json({ messages: messagesWithSenders });
   } catch (err) {
     console.error('Error fetching story messages:', err);
@@ -1457,21 +1492,21 @@ app.get('/stories/messages/:telegramId', async (req, res) => {
 app.post('/stories/reveal/:messageId', async (req, res) => {
   const { messageId } = req.params;
   const { telegramId } = req.body;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     const message = user.storyMessages.id(messageId);
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
-    
+
     message.isRevealed = true;
     await user.save();
-    
+
     res.json({ message: 'Identity revealed successfully' });
   } catch (err) {
     console.error('Error revealing identity:', err);
@@ -1482,28 +1517,28 @@ app.post('/stories/reveal/:messageId', async (req, res) => {
 // Add reaction to story
 app.post('/stories/react', async (req, res) => {
   const { storyId, storyOwnerId, fromUserId, reaction } = req.body;
-  
+
   try {
     const storyOwner = await User.findOne({ telegramId: storyOwnerId });
     if (!storyOwner) {
       return res.status(404).json({ error: 'Story owner not found' });
     }
-    
+
     const story = storyOwner.stories.id(storyId);
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
-    
+
     // Remove existing reaction from this user
     story.reactions = story.reactions.filter(r => r.userId !== fromUserId);
-    
+
     // Add new reaction
     story.reactions.push({
       userId: fromUserId,
       reaction,
       createdAt: new Date()
     });
-    
+
     await storyOwner.save();
     res.json({ message: 'Reaction added successfully' });
   } catch (err) {
@@ -1516,25 +1551,25 @@ app.post('/stories/react', async (req, res) => {
 app.post('/stories/view/:storyId', async (req, res) => {
   const { storyId } = req.params;
   const { viewerId } = req.body;
-  
+
   try {
     const storyOwner = await User.findOne({ 'stories._id': storyId });
     if (!storyOwner) {
       return res.status(404).json({ error: 'Story not found' });
     }
-    
+
     const story = storyOwner.stories.id(storyId);
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
-    
+
     // Add viewer if not already viewed
     if (!story.views.includes(viewerId)) {
       story.views.push(viewerId);
       await storyOwner.save();
     }
-    
-    res.json({ 
+
+    res.json({
       message: 'Story viewed successfully',
       story: {
         ...story.toObject(),
@@ -1554,7 +1589,7 @@ app.post('/stories/view/:storyId', async (req, res) => {
 app.post('/stories/post/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
   const { mediaUrl, mediaType, caption, duration } = req.body;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
@@ -1574,7 +1609,7 @@ app.post('/stories/post/:telegramId', async (req, res) => {
 
     // Add story to user's stories array
     user.stories.push(newStory);
-    
+
     // Keep only last 10 stories per user
     if (user.stories.length > 10) {
       user.stories = user.stories.slice(-10);
@@ -1582,7 +1617,7 @@ app.post('/stories/post/:telegramId', async (req, res) => {
 
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Story posted successfully',
       story: newStory
     });
@@ -1601,7 +1636,7 @@ app.get('/stories/:telegramId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     // Filter out expired stories
-    const activeStories = user.stories.filter(story => 
+    const activeStories = user.stories.filter(story =>
       story.expiresAt > new Date()
     );
     res.json(activeStories);
@@ -1617,7 +1652,7 @@ app.get('/stories/:telegramId', async (req, res) => {
 // Get story analytics for a user
 app.get('/stories/analytics/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
@@ -1628,7 +1663,7 @@ app.get('/stories/analytics/:telegramId', async (req, res) => {
     const totalStories = stories.length;
     const totalViews = stories.reduce((sum, story) => sum + (story.views ? story.views.length : 0), 0);
     const avgViews = totalStories > 0 ? Math.round(totalViews / totalStories) : 0;
-    
+
     // Find best performing story
     const bestStory = stories.reduce((best, story) => {
       const views = story.views ? story.views.length : 0;
@@ -1637,7 +1672,7 @@ app.get('/stories/analytics/:telegramId', async (req, res) => {
     }, { views: [] });
 
     const bestStoryViews = bestStory.views ? bestStory.views.length : 0;
-    
+
     // Calculate engagement rate (views per story / average profile views)
     const engagementRate = totalStories > 0 ? Math.round((avgViews / Math.max(user.profileViews || 1, 1)) * 100) : 0;
 
@@ -1661,7 +1696,7 @@ app.get('/stories/analytics/:telegramId', async (req, res) => {
 // Delete a story
 app.delete('/stories/:telegramId/:storyId', async (req, res) => {
   const { telegramId, storyId } = req.params;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
@@ -1707,7 +1742,7 @@ app.get('/search-settings/:telegramId', async (req, res) => {
 app.post('/search-settings/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
   const { ageMin, ageMax, maxDistance, genderPreference, locationPreference } = req.body;
-  
+
   try {
     const user = await User.findOne({ telegramId });
     if (!user) {
@@ -1782,7 +1817,7 @@ app.post('/users/deactivate/:telegramId', async (req, res) => {
     user.deactivatedAt = new Date();
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Profile deactivated successfully',
       deactivatedAt: user.deactivatedAt
     });
@@ -1806,7 +1841,7 @@ app.post('/users/reactivate/:telegramId', async (req, res) => {
     user.reactivatedAt = new Date();
     await user.save();
 
-    res.json({ 
+    res.json({
       message: 'Profile reactivated successfully',
       reactivatedAt: user.reactivatedAt
     });
@@ -1823,8 +1858,8 @@ app.delete('/users/delete/:telegramId', async (req, res) => {
 
   // Require exact confirmation text
   if (confirmationText !== 'DELETE MY PROFILE') {
-    return res.status(400).json({ 
-      error: 'Invalid confirmation text. Please type exactly: DELETE MY PROFILE' 
+    return res.status(400).json({
+      error: 'Invalid confirmation text. Please type exactly: DELETE MY PROFILE'
     });
   }
 
@@ -1846,7 +1881,7 @@ app.delete('/users/delete/:telegramId', async (req, res) => {
     // Permanently delete user
     await User.deleteOne({ telegramId });
 
-    res.json({ 
+    res.json({
       message: 'Profile deleted permanently',
       deletionInfo
     });
@@ -1876,9 +1911,9 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ 
-      message: 'Photo uploaded successfully', 
-      imageUrl, 
+    res.json({
+      message: 'Photo uploaded successfully',
+      imageUrl,
       user: {
         telegramId: user.telegramId,
         name: user.name,

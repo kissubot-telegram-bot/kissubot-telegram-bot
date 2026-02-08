@@ -1,18 +1,15 @@
-const axios = require('axios');
-
-const API_BASE = process.env.API_BASE || 'http://localhost:3002';
-
-// Cache for user profiles
 const userProfileCache = new Map();
 
-async function getCachedUserProfile(telegramId) {
+async function getCachedUserProfile(telegramId, User) {
   if (userProfileCache.has(telegramId)) {
     return userProfileCache.get(telegramId);
   }
   
-  const res = await axios.get(`${API_BASE}/users/${telegramId}`);
-  userProfileCache.set(telegramId, res.data);
-  return res.data;
+  const user = await User.findOne({ telegramId });
+  if (user) {
+    userProfileCache.set(telegramId, user);
+  }
+  return user;
 }
 
 // Function to invalidate cache after profile updates
@@ -22,7 +19,7 @@ function invalidateUserCache(telegramId) {
 
 const userRegistrationData = {};
 
-function setupAuthCommands(bot) {
+function setupAuthCommands(bot, userStates, User) {
   // START command - Simple welcome message
   bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
@@ -36,7 +33,7 @@ function setupAuthCommands(bot) {
 
   // REGISTER command - Create new profile
   bot.onText(/\/register/, (msg) => {
-    handleRegister(bot, msg);
+    handleRegister(bot, msg, User);
   });
 
   bot.on('message', async (msg) => {
@@ -53,12 +50,13 @@ function setupAuthCommands(bot) {
       const { telegramId, username, name } = userRegistrationData[userId];
 
       try {
-        await axios.post(`${API_BASE}/register`, {
+        const newUser = new User({
           telegramId,
           username,
           name,
           location,
         });
+        await newUser.save();
 
         const welcomeMsg = `🎉 Registration successful!
 
@@ -74,7 +72,6 @@ After setting up your profile, you can:
         bot.sendMessage(chatId, welcomeMsg);
       } catch (err) {
         console.error('[/register] Full Error:', err);
-        console.error('[/register] Error:', err.response?.data || err.message);
         bot.sendMessage(
           chatId,
           '❌ Registration failed. Please try again later.\n' +
@@ -92,10 +89,10 @@ After setting up your profile, you can:
     const telegramId = msg.from.id;
 
     try {
-      await axios.post(`${API_BASE}/users/deactivate/${telegramId}`);
+      await User.findOneAndUpdate({ telegramId }, { isActive: false, deactivatedAt: new Date() });
       bot.sendMessage(chatId, '⏸️ Your profile has been deactivated. You can reactivate it anytime by using /start.');
     } catch (err) {
-      console.error('Deactivate error:', err.response?.data || err.message);
+      console.error('Deactivate error:', err);
       bot.sendMessage(chatId, '❌ Failed to deactivate profile. Please try again.');
     }
   });
@@ -103,7 +100,6 @@ After setting up your profile, you can:
   // DELETE command - Delete user profile
   bot.onText(/\/delete/, (msg) => {
     const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
 
     const deleteWarningMsg = '🚨 **ARE YOU SURE?** 🚨\n\n' +
       'This will permanently delete your profile, including all matches and data.\n\n' +
@@ -131,11 +127,11 @@ After setting up your profile, you can:
 
     if (data === 'confirm_delete') {
       try {
-        await axios.delete(`${API_BASE}/users/delete/${telegramId}`);
+        await User.findOneAndDelete({ telegramId });
         invalidateUserCache(telegramId);
         bot.sendMessage(chatId, '💔 Your profile has been permanently deleted. We\'re sorry to see you go.');
       } catch (err) {
-        console.error('Delete profile error:', err.response?.data || err.message);
+        console.error('Delete profile error:', err);
         bot.sendMessage(chatId, '❌ Failed to delete profile. Please try again or contact support.');
       }
     } else if (data === 'cancel_delete') {
@@ -146,30 +142,23 @@ After setting up your profile, you can:
 
 module.exports = { setupAuthCommands, invalidateUserCache, handleRegister, getCachedUserProfile };
 
-async function handleRegister(bot, msg) {
+async function handleRegister(bot, msg, User) {
   const chatId = msg.chat.id;
   const telegramId = msg.from.id;
 
   try {
     // Check if user is already registered
-    try {
-      const existingUser = await getCachedUserProfile(telegramId);
-      if (existingUser) {
-        return bot.sendMessage(
-          chatId,
-          `✅ You're already registered!
+    const existingUser = await getCachedUserProfile(telegramId, User);
+    if (existingUser) {
+      return bot.sendMessage(
+        chatId,
+        `✅ You're already registered!
 
 You can:
 • Use /profile to view your profile
 • Use /browse to find people
 • Use /matches to see your matches`
-        );
-      }
-    } catch (err) {
-      // User not found, continue with registration
-      if (err.response?.status !== 404) {
-        throw err;
-      }
+      );
     }
 
     // Start the registration conversation
@@ -183,7 +172,6 @@ You can:
     bot.sendMessage(chatId, 'Please enter your location to complete registration:');
   } catch (err) {
     console.error('[/register] Full Error:', err);
-    console.error('[/register] Error:', err.response?.data || err.message);
     bot.sendMessage(
       chatId,
       '❌ Registration failed. Please try again later.\\n' +

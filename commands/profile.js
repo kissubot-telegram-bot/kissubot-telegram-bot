@@ -1,14 +1,8 @@
-const axios = require('axios');
-
-
-const API_BASE = process.env.API_BASE || 'http://localhost:3000';
-
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+const axios = require('axios');
+const { API_BASE } = require('../config');
 
-function setupProfileCommands(bot) {
-  // User states for editing
-  const userStates = {};
-
+function setupProfileCommands(bot, userStates, User) {
   // Callback query handlers
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
@@ -20,9 +14,11 @@ function setupProfileCommands(bot) {
         case 'edit_profile':
         case 'settings_profile':
           try {
-            const profileRes = await axios.get(`${API_BASE}/profile/${telegramId}`);
-            const user = profileRes.data;
-  
+            const user = await getCachedUserProfile(telegramId, User);
+            if (!user) {
+              return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
+            }
+
             const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
               `📝 **Current Information:**\n` +
               `• Name: ${user.name || 'Not set'}\n` +
@@ -30,7 +26,7 @@ function setupProfileCommands(bot) {
               `• Location: ${user.location || 'Not set'}\n` +
               `• Bio: ${user.bio || 'Not set'}\n\n` +
               `✏️ **What would you like to edit?**`;
-  
+
             const buttons = [
               [
                 { text: '📝 Edit Name', callback_data: 'edit_name' },
@@ -47,7 +43,7 @@ function setupProfileCommands(bot) {
                 { text: '🔙 Back to Settings', callback_data: 'main_settings' }
               ]
             ];
-  
+
             bot.sendMessage(chatId, profileMsg, {
               reply_markup: {
                 inline_keyboard: buttons
@@ -57,31 +53,38 @@ function setupProfileCommands(bot) {
             bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
           }
           break;
-  
+
         case 'edit_name':
-          userStates[telegramId] = { editing: 'name' };
+          userStates.set(telegramId, { editing: 'name' });
           bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:');
           break;
-  
+
         case 'edit_age':
-          userStates[telegramId] = { editing: 'age' };
-          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-99):');
+          userStates.set(telegramId, { editing: 'age' });
+          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-100):');
           break;
 
         case 'edit_location':
-          userStates[telegramId] = { editing: 'location' };
+          userStates.set(telegramId, { editing: 'location' });
           bot.sendMessage(chatId, '📍 **Edit Location**\n\nPlease enter your location:');
           break;
-  
+
         case 'edit_bio':
-          userStates[telegramId] = { editing: 'bio' };
+          userStates.set(telegramId, { editing: 'bio' });
           bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
           break;
 
         case 'manage_photos':
+          userStates.set(telegramId, { action: 'uploading_photo' });
           bot.sendMessage(chatId, '📸 **Upload Photos** 📸\n\nJust send me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• Use high-quality, clear photos\n• Show your face clearly\n• Maximum 6 photos allowed\n• Recent photos appear first\n\n📤 Ready to upload?');
           break;
+
+        default:
+          // Not a profile callback, let other handlers process it
+          return;
       }
+      // Profile callback was handled, don't let other handlers process it
+      return;
     } catch (err) {
       console.error('Profile callback error:', err);
       bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
@@ -95,20 +98,20 @@ function setupProfileCommands(bot) {
     const text = msg.text;
 
     // Skip if it's a command or callback
-    if (!text || text.startsWith('/') || !userStates[telegramId]) return;
+    if (!text || text.startsWith('/') || !userStates.get(telegramId)) return;
 
-    const userState = userStates[telegramId];
-    
+    const userState = userStates.get(telegramId);
+
     if (userState.editing) {
       try {
         const field = userState.editing;
         let value = text.trim();
-        
+
         // Validate input based on field
         if (field === 'age') {
           const age = parseInt(value);
-          if (isNaN(age) || age < 18 || age > 99) {
-            return bot.sendMessage(chatId, '❌ Please enter a valid age between 18 and 99.');
+          if (isNaN(age) || age < 18 || age > 100) {
+            return bot.sendMessage(chatId, '❌ Please enter a valid age between 18 and 100.');
           }
           value = age;
         } else if (field === 'bio' && value.length > 500) {
@@ -118,25 +121,22 @@ function setupProfileCommands(bot) {
         }
 
         // Update profile
-        await axios.post(`${API_BASE}/profile/update/${telegramId}`, {
-          field,
-          value
-        });
+        await User.findOneAndUpdate({ telegramId }, { [field]: value });
 
         // Clear user state
-        delete userStates[telegramId];
-        
+        userStates.delete(telegramId);
+
         // Invalidate cache
         invalidateUserCache(telegramId);
-        
+
         // Send success message
         const fieldNames = {
           name: 'Name',
-          age: 'Age', 
+          age: 'Age',
           location: 'Location',
           bio: 'Bio'
         };
-        
+
         bot.sendMessage(chatId, `✅ **${fieldNames[field]} Updated!**\n\n` +
           `Your ${field} has been updated successfully.\n\n` +
           `Use /profile to view your complete profile.`, {
@@ -149,7 +149,7 @@ function setupProfileCommands(bot) {
         });
       } catch (err) {
         console.error('Profile update error:', err);
-        delete userStates[telegramId];
+        userStates.delete(telegramId);
         bot.sendMessage(chatId, '❌ Failed to update profile. Please try again.');
       }
     }
@@ -160,14 +160,14 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
-      
+      const user = await getCachedUserProfile(telegramId, User);
+
       const profileMsg = `👤 **YOUR PROFILE** 👤\n\n` +
         `📝 **Name:** ${user.name || 'Not set'}\n` +
         `🎂 **Age:** ${user.age || 'Not set'}\n` +
         `📍 **Location:** ${user.location || 'Not set'}\n` +
         `💬 **Bio:** ${user.bio || 'Not set'}\n\n` +
-        `📸 **Photos:** ${user.photos?.length || 0} uploaded\n\n` +
+        `📸 **Photos:** ${user.profilePhoto ? '1' : '0'} uploaded\n\n` +
         `✨ Choose what to edit:`;
 
       const opts = {
@@ -203,10 +203,13 @@ function setupProfileCommands(bot) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
-      
+      const user = await getCachedUserProfile(telegramId, User);
+
+      // Set state so photo handler will process the next photo
+      userStates.set(telegramId, { action: 'uploading_photo' });
+
       const photoMsg = `📸 **Photo Upload** 📸\n\n` +
-        `You currently have **${user.photos?.length || 0} photos** on your profile.\n\n` +
+        `You currently have **${user.profilePhoto ? '1' : '0'} photo** on your profile.\n\n` +
         `✨ **Add a New Photo:**\n` +
         `Just send me a photo and I'll add it to your profile!\n\n` +
         `📋 **Tips:**\n` +
@@ -244,7 +247,7 @@ function setupProfileCommands(bot) {
       `• Can include letters, numbers, spaces, and basic symbols\n` +
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Just type \`/setname\` followed by a space and your desired name!`;
-    
+
     bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
@@ -285,7 +288,7 @@ function setupProfileCommands(bot) {
       `• Must be a valid number\n` +
       `• No letters or special characters\n\n` +
       `💡 **Tip:** Just type \`/setage\` followed by your age in numbers!`;
-    
+
     bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
@@ -330,7 +333,7 @@ function setupProfileCommands(bot) {
       `• Can include letters, numbers, spaces, and commas\n` +
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Be specific! Include city and country for better matches.`;
-    
+
     bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
@@ -371,7 +374,7 @@ function setupProfileCommands(bot) {
       `• Can include any text, emojis, and symbols\n` +
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Make it interesting! Tell others about your hobbies and interests.`;
-    
+
     bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
   });
 
@@ -406,7 +409,10 @@ function setupProfileCommands(bot) {
   bot.onText(/\/photo/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-    
+
+    // Set state so photo handler will process the next photo
+    userStates.set(telegramId, { action: 'uploading_photo' });
+
     bot.sendMessage(chatId, '📸 **PHOTO UPLOAD** 📸\n\n' +
       'Send me a photo to add to your profile!\n\n' +
       '📋 **Tips:**\n' +
