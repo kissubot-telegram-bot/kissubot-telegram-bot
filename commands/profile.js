@@ -61,7 +61,7 @@ function setupProfileCommands(bot, userStates, User) {
 
         case 'edit_age':
           userStates.set(telegramId, { editing: 'age' });
-          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-80):');
+          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-100):');
           break;
 
         case 'edit_location':
