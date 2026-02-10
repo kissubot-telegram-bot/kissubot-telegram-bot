@@ -317,6 +317,36 @@ const Like = undefined;
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
+setupBrowsingCommands(bot, User, Match, Like);
+setupHelpCommands(bot);
+setupSettingsCommands(bot, userStates, User);
+setupPremiumCommands(bot, User);
+setupGiftCommands(bot, User);
+setupSocialDebugCommands(bot, User, Match, Like, userStates);
+setupSocialCommands(bot, User);
+setupSearchCommands(bot, User);
+setupLikesCommands(bot, User, Like);
+setupMatchesCommands(bot, User, Match);
+
+// Register bot commands with Telegram (visible in command menu)
+bot.setMyCommands([
+  { command: 'store', description: '💎 Browse VIP, Boosts & Coins' },
+  { command: 'start', description: '🚀 Start or restart the bot' },
+  { command: 'profile', description: '👤 View and edit your profile' },
+  { command: 'browse', description: '🔍 Browse potential matches' },
+  { command: 'matches', description: '💕 View your matches' },
+  { command: 'settings', description: '⚙️ Adjust your preferences' },
+  { command: 'help', description: '❓ Get help and support' }
+]).then(() => {
+  console.log('✅ Bot commands registered with Telegram');
+}).catch(err => {
+  console.error('❌ Failed to register bot commands:', err);
+});
+
+// Export bot and userStates so bot.js can import them
+module.exports = { bot, userStates };
+
+// Load bot.js to register event handlers for webhook
 require('./bot');
 
 // Register User
