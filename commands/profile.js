@@ -188,6 +188,19 @@ function setupProfileCommands(bot, userStates, User) {
           });
           break;
 
+        case 'cancel_edit':
+          // Cancel editing and clear user state
+          userStates.delete(telegramId);
+          bot.sendMessage(chatId, '❌ **Edit Cancelled**\n\nNo changes were made.', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+          break;
+
         case 'manage_photos':
           userStates.set(telegramId, { action: 'uploading_photo' });
           bot.sendMessage(chatId, '📸 **Upload Photos** 📸\n\nJust send me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• Use high-quality, clear photos\n• Show your face clearly\n• Maximum 6 photos allowed\n• Recent photos appear first\n\n📤 Ready to upload?');
