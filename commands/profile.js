@@ -91,6 +91,22 @@ function setupProfileCommands(bot, userStates, User) {
           });
           break;
 
+        case 'start_registration':
+          // Redirect to /start for registration
+          bot.sendMessage(chatId,
+            '🚀 **Welcome to KissuBot!** 🚀\n\n' +
+            'Let\'s get you registered and ready to find your perfect match!\n\n' +
+            'Click the button below or type /start to begin:',
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '✨ Start Registration', url: `https://t.me/${bot.options.username}?start=register` }]
+                ]
+              }
+            }
+          );
+          break;
+
         case 'edit_location':
           // Show US state selection
           const stateButtons = [];
