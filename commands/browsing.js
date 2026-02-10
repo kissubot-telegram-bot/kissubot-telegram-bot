@@ -47,7 +47,31 @@ function setupBrowsingCommands(bot, User, Match, Like) {
             user2Id: toUser._id,
           });
           await match.save();
-          bot.sendMessage(chatId, `🎉 **IT'S A MATCH!** 🎉\n\nYou and ${toUser.name} liked each other!\n\n💬 Start chatting now or use /matches to see all your matches.`);
+
+          // Send celebration message with conversation starters
+          const conversationStarters = [
+            `Ask about their favorite travel destination 🌍`,
+            `Comment on something from their bio 💬`,
+            `Ask what they're looking for 💕`,
+            `Share a fun fact about yourself ✨`,
+            `Ask about their weekend plans 🎉`
+          ];
+          const randomStarter = conversationStarters[Math.floor(Math.random() * conversationStarters.length)];
+
+          bot.sendMessage(chatId,
+            `🎉💖 **IT'S A MATCH!** 💖🎉\n\n` +
+            `You and **${toUser.name}** liked each other!\n\n` +
+            `💡 **Conversation Starter:**\n${randomStarter}\n\n` +
+            `💬 Start chatting now or use /matches to see all your matches.`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '💬 Start Chat', url: `tg://user?id=${targetId}` }],
+                  [{ text: '💌 View All Matches', callback_data: 'view_matches' }]
+                ]
+              }
+            }
+          );
         } else {
           bot.sendMessage(chatId, '❤️ You liked this profile! Use /browse to see more.');
         }
