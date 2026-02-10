@@ -117,7 +117,7 @@ function setupPremiumCommands(bot) {
           // Redirect to VIP command functionality
           try {
             const user = await getCachedUserProfile(telegramId);
-            
+
             if (user.isVip) {
               const vipMsg = `⭐ **VIP STATUS ACTIVE** ⭐\n\n` +
                 `🎉 You're already a VIP member!\n\n` +
@@ -157,22 +157,22 @@ function setupPremiumCommands(bot) {
                 `🚀 **Ready to upgrade?**`;
 
               bot.sendMessage(chatId, vipMsg, {
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        { text: '📅 1 Week VIP', callback_data: 'vip_purchase_weekly' },
-                        { text: '1️⃣ 1 Month VIP', callback_data: 'buy_vip_1' }
-                      ],
-                      [
-                        { text: '3️⃣ 3 Months VIP', callback_data: 'buy_vip_3' },
-                        { text: '6️⃣ 6 Months VIP', callback_data: 'buy_vip_6' }
-                      ],
-                      [
-                        { text: '🔙 Back', callback_data: 'main_menu' }
-                      ]
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: '📅 1 Week VIP', callback_data: 'vip_purchase_weekly' },
+                      { text: '1️⃣ 1 Month VIP', callback_data: 'buy_vip_1' }
+                    ],
+                    [
+                      { text: '3️⃣ 3 Months VIP', callback_data: 'buy_vip_3' },
+                      { text: '6️⃣ 6 Months VIP', callback_data: 'buy_vip_6' }
+                    ],
+                    [
+                      { text: '🔙 Back', callback_data: 'main_menu' }
                     ]
-                  }
-                });
+                  ]
+                }
+              });
             }
           } catch (err) {
             console.error('Manage VIP error:', err.response?.data || err.message);
@@ -209,12 +209,12 @@ function setupPremiumCommands(bot) {
             'gift_vip_6': { type: 'biannual', name: '6 Months VIP' }
           };
           const giftPlan = giftPlanMap[data];
-          
+
           bot.sendMessage(chatId, `🎁 **GIFT ${giftPlan.name.toUpperCase()}** 🎁\n\n` +
             'Please send the Telegram username or ID of the person you want to gift VIP to:\n\n' +
             '📝 Example: @username or 123456789\n\n' +
             '⚠️ Make sure the person has started the bot before gifting!');
-          
+
           // Store gift plan type for next message
           // This would need a proper state management system in production
           break;
@@ -227,7 +227,7 @@ function setupPremiumCommands(bot) {
         case 'vip_purchase_yearly':
         case 'vip_purchase_lifetime':
           let planType;
-          
+
           // Map buy_vip callbacks to plan types
           if (data === 'buy_vip_1') {
             planType = 'monthly';
@@ -238,12 +238,12 @@ function setupPremiumCommands(bot) {
           } else {
             planType = data.split('_')[2]; // monthly, yearly, or lifetime
           }
-          
+
           try {
             const res = await axios.post(`${API_BASE}/vip/purchase/${telegramId}`, {
               planType
             });
-            
+
             const planNames = {
               weekly: '1 Week',
               monthly: '1 Month',
@@ -252,17 +252,17 @@ function setupPremiumCommands(bot) {
               yearly: 'Yearly',
               lifetime: 'Lifetime'
             };
-            
+
             const successMessage = `🎉 Congratulations! Your ${planNames[planType]} VIP subscription is now active!\n\n` +
               `Remaining coins: ${res.data.remainingCoins} 🪙\n` +
               'Use /vip to see your benefits and status.';
-            
+
             bot.sendMessage(chatId, successMessage);
           } catch (err) {
             if (err.response?.data?.error === 'Insufficient coins') {
               const required = err.response.data.required;
               const current = err.response.data.current;
-              bot.sendMessage(chatId, 
+              bot.sendMessage(chatId,
                 `You need ${required} coins for this plan, but you only have ${current} coins.\n` +
                 'Use /coins to purchase more coins!'
               );
@@ -278,7 +278,7 @@ function setupPremiumCommands(bot) {
         case 'boost_smart':
           const boostType = data.split('_')[1];
           let boostCost, boostDuration, boostDescription;
-          
+
           switch (boostType) {
             case 'profile':
               boostCost = 20;
@@ -301,26 +301,26 @@ function setupPremiumCommands(bot) {
               boostDescription = 'Profile shown to most compatible users for 1 hour';
               break;
           }
-          
+
           try {
             const res = await axios.post(`${API_BASE}/boost/purchase/${telegramId}`, {
               boostType,
               cost: boostCost,
               duration: boostDuration
             });
-            
+
             const expiryDate = new Date(res.data.expiresAt).toLocaleString();
             const successMsg = `🚀 ${boostType.charAt(0).toUpperCase() + boostType.slice(1)} Boost Activated!\n\n` +
               `${boostDescription}\n` +
               `Active until: ${expiryDate}\n` +
               `Remaining coins: ${res.data.remainingCoins} 🪙`;
-            
+
             bot.sendMessage(chatId, successMsg);
           } catch (err) {
             if (err.response?.data?.error === 'Insufficient coins') {
               const required = err.response.data.required;
               const current = err.response.data.current;
-              bot.sendMessage(chatId, 
+              bot.sendMessage(chatId,
                 `You need ${required} coins for this boost, but you only have ${current} coins.\n` +
                 'Use /coins to get more coins!'
               );
@@ -352,7 +352,7 @@ function setupPremiumCommands(bot) {
               return rows;
             }, []);
 
-            const packagesMsg = Object.values(packages).map(pack => 
+            const packagesMsg = Object.values(packages).map(pack =>
               `\n\n${pack.name}:` +
               `\n• ${pack.coins} coins` +
               (pack.bonus ? `\n• +${pack.bonus} bonus coins` : '') +
@@ -385,9 +385,9 @@ function setupPremiumCommands(bot) {
             const res = await axios.post(`${API_BASE}/coins/purchase/${telegramId}`, {
               packageId
             });
-            
+
             const { coinsAdded, newBalance } = res.data;
-            
+
             // Get package details for confirmation message
             const packageDetails = {
               starter: { name: 'Starter Pack', coins: 1000, bonus: 0, price: 4.99 },
@@ -395,7 +395,7 @@ function setupPremiumCommands(bot) {
               premium: { name: 'Premium Pack', coins: 12000, bonus: 2000, price: 39.99 },
               ultimate: { name: 'Ultimate Pack', coins: 30000, bonus: 8000, price: 79.99 }
             };
-            
+
             const pack = packageDetails[packageId];
             const successMsg = `🎉 **PURCHASE SUCCESSFUL!** 🎉\n\n` +
               `📦 **${pack.name}** purchased!\n` +
@@ -407,7 +407,7 @@ function setupPremiumCommands(bot) {
               `• ⚡️ Boost your profile priority\n` +
               `• 🌟 Unlock special features\n\n` +
               `Thank you for your purchase! 💙`;
-            
+
             await bot.sendMessage(chatId, successMsg, {
               reply_markup: {
                 inline_keyboard: [
@@ -423,7 +423,7 @@ function setupPremiumCommands(bot) {
               },
               parse_mode: 'Markdown'
             });
-            
+
           } catch (err) {
             console.error('Coin purchase error:', err);
             if (err.response?.status === 400) {
@@ -435,6 +435,131 @@ function setupPremiumCommands(bot) {
             }
           }
           break;
+
+        case 'store_vip':
+          // VIP Membership section
+          const vipStoreMsg = `👑 **VIP Membership** 👑\n\n` +
+            `Get unlimited likes, advanced filters, and more!\n\n` +
+            `✨ **VIP Benefits:**\n` +
+            `• 👀 See who liked you\n` +
+            `• ♾️ Unlimited daily likes\n` +
+            `• 🔍 Advanced search filters\n` +
+            `• 🚀 Priority profile visibility\n` +
+            `• 🚫 No advertisements\n` +
+            `• ↩️ Rewind last swipe\n` +
+            `• ⭐ VIP badge on profile\n\n` +
+            `💰 **Pricing:**`;
+
+          bot.sendMessage(chatId, vipStoreMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '📆 1 Month - $15 (749 ⭐)', callback_data: 'vip_purchase_monthly' }
+                ],
+                [
+                  { text: '📅 6 Months - $50 (2490 ⭐)', callback_data: 'vip_purchase_6months' }
+                ],
+                [
+                  { text: '🎯 1 Year - $70 (3490 ⭐)', callback_data: 'vip_purchase_yearly' }
+                ],
+                [
+                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
+                ]
+              ]
+            }
+          });
+          break;
+
+        case 'store_boosts':
+          // Boosts section
+          const boostsStoreMsg = `⚡ **Profile Boosts** ⚡\n\n` +
+            `Get 10x more profile views for 30 minutes!\n\n` +
+            `💫 **What you get:**\n` +
+            `• 10x profile visibility\n` +
+            `• Appear first in browse\n` +
+            `• 30 minutes duration\n` +
+            `• Instant activation\n\n` +
+            `💰 **Pricing:**`;
+
+          bot.sendMessage(chatId, boostsStoreMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '🚀 1 Boost - $2.99', callback_data: 'buy_boost_1' }
+                ],
+                [
+                  { text: '⚡ 5 Boosts - $9.99', callback_data: 'buy_boost_5' }
+                ],
+                [
+                  { text: '💥 10 Boosts - $14.99', callback_data: 'buy_boost_10' }
+                ],
+                [
+                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
+                ]
+              ]
+            }
+          });
+          break;
+
+        case 'store_coins':
+          // Coins section
+          const coinsStoreMsg = `💰 **Kissu Coins** 💰\n\n` +
+            `Use coins for Super Likes, Rewinds, and more!\n\n` +
+            `🪙 **Coin Uses:**\n` +
+            `• Super Like - 5 coins\n` +
+            `• Rewind - 3 coins\n` +
+            `• Boost - 10 coins\n` +
+            `• Gift VIP - 50 coins\n\n` +
+            `💰 **Pricing:**`;
+
+          bot.sendMessage(chatId, coinsStoreMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '💵 100 Coins - $0.99', callback_data: 'buy_coins_100' }
+                ],
+                [
+                  { text: '💵 500 Coins - $3.99', callback_data: 'buy_coins_500' }
+                ],
+                [
+                  { text: '💵 1000 Coins - $6.99', callback_data: 'buy_coins_1000' }
+                ],
+                [
+                  { text: '💵 5000 Coins - $24.99', callback_data: 'buy_coins_5000' }
+                ],
+                [
+                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
+                ]
+              ]
+            }
+          });
+          break;
+
+        case 'back_to_store':
+          // Return to main store menu
+          const backStoreMsg = `💎 **Kissu Store** 💎\n\n` +
+            `Unlock premium features and boost your dating experience!\n\n` +
+            `Choose a category to explore:`;
+
+          bot.sendMessage(chatId, backStoreMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '👑 VIP Membership', callback_data: 'store_vip' }
+                ],
+                [
+                  { text: '⚡ Boosts', callback_data: 'store_boosts' }
+                ],
+                [
+                  { text: '💰 Coins', callback_data: 'store_coins' }
+                ],
+                [
+                  { text: '🔙 Main Menu', callback_data: 'main_menu' }
+                ]
+              ]
+            }
+          });
+          break;
       }
     } catch (err) {
       console.error('Premium callback error:', err);
@@ -445,10 +570,10 @@ function setupPremiumCommands(bot) {
   bot.onText(/\/vip/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-    
+
     try {
       const user = await getCachedUserProfile(telegramId);
-      
+
       if (user.isVip) {
         const vipMsg = `⭐ **VIP STATUS ACTIVE** ⭐\n\n` +
           `🎉 You're already a VIP member!\n\n` +
@@ -629,6 +754,34 @@ function setupPremiumCommands(bot) {
           ],
           [
             { text: '🔙 Back', callback_data: 'main_menu' }
+          ]
+        ]
+      }
+    });
+  });
+
+  // STORE command (main premium store - accessible before registration)
+  bot.onText(/\/(store|shop|premium|buy)$/, async (msg) => {
+    const chatId = msg.chat.id;
+
+    const storeMsg = `💎 **Kissu Store** 💎\n\n` +
+      `Unlock premium features and boost your dating experience!\n\n` +
+      `Choose a category to explore:`;
+
+    bot.sendMessage(chatId, storeMsg, {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '👑 VIP Membership', callback_data: 'store_vip' }
+          ],
+          [
+            { text: '⚡ Boosts', callback_data: 'store_boosts' }
+          ],
+          [
+            { text: '💰 Coins', callback_data: 'store_coins' }
+          ],
+          [
+            { text: '🔙 Main Menu', callback_data: 'main_menu' }
           ]
         ]
       }
