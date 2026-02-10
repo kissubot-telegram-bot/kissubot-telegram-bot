@@ -30,6 +30,7 @@ const bot = new TelegramBot(token);
 
 // Import and setup command modules
 const { setupAuthCommands } = require('./commands/auth');
+const { setupTermsCommands } = require('./commands/terms');
 const { setupProfileCommands } = require('./commands/profile');
 const { setupBrowsingCommands } = require('./commands/browsing');
 const { setupHelpCommands } = require('./commands/help');
@@ -209,6 +210,16 @@ const userSchema = new mongoose.Schema({
   photos: [String], // Array of photo URLs (max 6)
   profilePhoto: String, // First photo for backward compatibility
 
+  // Terms & Onboarding
+  termsAccepted: { type: Boolean, default: false },
+  termsAcceptedAt: Date,
+  profileCompleted: { type: Boolean, default: false },
+  onboardingStep: {
+    type: String,
+    enum: ['terms', 'registration', 'photo_upload', 'completed'],
+    default: 'terms'
+  },
+
   // Currency
   coins: { type: Number, default: 0 },
 
@@ -304,6 +315,7 @@ const Match = undefined;
 const Like = undefined;
 
 setupAuthCommands(bot, userStates, User);
+setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
 setupBrowsingCommands(bot, User, Match, Like);
 setupHelpCommands(bot);

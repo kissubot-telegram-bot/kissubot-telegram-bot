@@ -4,7 +4,7 @@ async function getCachedUserProfile(telegramId, User) {
   if (userProfileCache.has(telegramId)) {
     return userProfileCache.get(telegramId);
   }
-  
+
   const user = await User.findOne({ telegramId });
   if (user) {
     userProfileCache.set(telegramId, user);
@@ -20,15 +20,73 @@ function invalidateUserCache(telegramId) {
 const userRegistrationData = {};
 
 function setupAuthCommands(bot, userStates, User) {
-  // START command - Simple welcome message
-  bot.onText(/\/start/, (msg) => {
+  // START command - Check terms acceptance and profile completion
+  bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, '🎉 Welcome to Kisu1bot! 🎉\n\n' +
-      '💕 Your journey to find love starts here!\n\n' +
-      '🚀 **Get Started:**\n' +
-      '• Use /register to create your dating profile\n' +
-      '• Use /help for guidance and support\n\n' +
-      'Ready to meet someone special? Let\'s begin! 💖');
+    const telegramId = msg.from.id;
+
+    try {
+      const user = await User.findOne({ telegramId });
+
+      // New user or terms not accepted
+      if (!user || !user.termsAccepted) {
+        const termsMsg = `🎉 **Welcome to KissuBot!** 🎉\n\n` +
+          `💕 Your journey to find love starts here!\n\n` +
+          `**Before we begin, please review:**\n\n` +
+          `📜 Terms of Service - /terms\n` +
+          `🔒 Privacy Policy - /privacy\n\n` +
+          `By clicking "Accept", you agree to our Terms of Service and Privacy Policy.`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Accept & Continue', callback_data: 'accept_terms' },
+                { text: '❌ Decline', callback_data: 'decline_terms' }
+              ],
+              [
+                { text: '📜 Read Terms', callback_data: 'view_terms_inline' },
+                { text: '🔒 Read Privacy', callback_data: 'view_privacy_inline' }
+              ]
+            ]
+          }
+        };
+
+        return bot.sendMessage(chatId, termsMsg, opts);
+      }
+
+      // Terms accepted but profile incomplete
+      if (!user.profileCompleted) {
+        const missing = [];
+        if (!user.name) missing.push('• Name - Use /setname');
+        if (!user.age) missing.push('• Age - Use /setage');
+        if (!user.location) missing.push('• Location - Use /setlocation');
+        if (!user.bio) missing.push('• Bio - Use /setbio');
+        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+
+        const incompleteMsg = `⚠️ **Complete Your Profile** ⚠️\n\n` +
+          `You're almost there! Complete these steps:\n\n` +
+          `${missing.join('\n')}\n\n` +
+          `Once complete, you can start browsing! 💕`;
+
+        return bot.sendMessage(chatId, incompleteMsg);
+      }
+
+      // Profile complete - show main menu
+      bot.sendMessage(chatId,
+        `🎉 **Welcome Back!** 🎉\n\n` +
+        `💕 Ready to find love?\n\n` +
+        `🚀 **Quick Actions:**\n` +
+        `• /browse - Discover new people\n` +
+        `• /matches - See your matches\n` +
+        `• /profile - View your profile\n` +
+        `• /help - Get help\n\n` +
+        `Let's find your perfect match! 💖`
+      );
+    } catch (err) {
+      console.error('Start command error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+    }
   });
 
   // REGISTER command - Create new profile

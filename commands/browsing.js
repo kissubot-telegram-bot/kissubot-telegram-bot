@@ -18,7 +18,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       // Like/Pass/SuperLike handlers
       if (data.startsWith('like_')) {
         const targetId = data.split('_')[1];
-        
+
         const fromUser = await User.findOne({ telegramId });
         const toUser = await User.findOne({ telegramId: targetId });
 
@@ -51,19 +51,19 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         } else {
           bot.sendMessage(chatId, '❤️ You liked this profile! Use /browse to see more.');
         }
-        
+
       } else if (data.startsWith('pass_')) {
         const targetId = data.split('_')[1];
         // In a direct DB model, a "pass" might not need to be stored.
         // If you want to prevent seeing the same profile again, you would add logic here.
-        
+
         bot.editMessageReplyMarkup({}, {
           chat_id: chatId,
           message_id: message.message_id
         });
-        
+
         bot.sendMessage(chatId, '👎 You passed on this profile. Use /browse to see more.');
-        
+
       } else if (data.startsWith('superlike_')) {
         const targetId = data.split('_')[1];
         const fromUser = await User.findOne({ telegramId });
@@ -74,20 +74,20 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
         fromUser.coins -= 10;
         await fromUser.save();
-        
+
         // Logic to notify the other user and boost profile would go here.
-        
+
         bot.editMessageReplyMarkup({}, {
           chat_id: chatId,
           message_id: message.message_id
         });
-        
+
         bot.sendMessage(chatId, '⭐ You super liked this profile! They\'ll be notified and you\'ll appear at the top of their queue.');
-        
+
       } else if (data.startsWith('chat_')) {
         const targetId = data.split('_')[1];
         bot.sendMessage(chatId, '💬 **Chat Feature Coming Soon!**\n\nFor now, you can:\n• Continue browsing with /browse\n• View your matches with /matches\n• Send gifts to show interest');
-        
+
       } else if (data.startsWith('unmatch_')) {
         const targetId = data.split('_')[1];
         const fromUser = await User.findOne({ telegramId });
@@ -104,7 +104,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         } else {
           bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again later.');
         }
-        
+
       } else {
         switch (data) {
           case 'view_matches':
@@ -114,9 +114,9 @@ function setupBrowsingCommands(bot, User, Match, Like) {
                 return bot.sendMessage(chatId, 'User not found.');
               }
               const matches = await Match.find({ $or: [{ user1Id: user._id }, { user2Id: user._id }] }).populate('user1Id').populate('user2Id');
-        
+
               if (!matches || matches.length === 0) {
-                return bot.sendMessage(chatId, 
+                return bot.sendMessage(chatId,
                   '💞 **No Matches Yet** 💞\n\n' +
                   'Keep browsing to find your perfect match!\n\n' +
                   '💡 **Tips:**\n' +
@@ -126,9 +126,9 @@ function setupBrowsingCommands(bot, User, Match, Like) {
                   'Your special someone is out there! 💕'
                 );
               }
-        
+
               let matchMsg = `💕 **YOUR MATCHES (${matches.length})** 💕\n\n`;
-              
+
               matches.slice(0, 10).forEach((match, index) => {
                 const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
                 matchMsg += `${index + 1}. **${otherUser.name}**, ${otherUser.age}\n`;
@@ -138,20 +138,20 @@ function setupBrowsingCommands(bot, User, Match, Like) {
                 }
                 matchMsg += `\n`;
               });
-        
+
               if (matches.length > 10) {
                 matchMsg += `\n... and ${matches.length - 10} more matches!`;
               }
-        
+
               const matchButtons = matches.slice(0, 5).map(match => {
                 const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
                 return ([
                   { text: `💬 Chat with ${otherUser.name}`, callback_data: `chat_${otherUser.telegramId}` }
                 ])
               });
-        
+
               matchButtons.push([{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]);
-        
+
               bot.sendMessage(chatId, matchMsg, {
                 reply_markup: {
                   inline_keyboard: matchButtons
@@ -175,10 +175,40 @@ function setupBrowsingCommands(bot, User, Match, Like) {
     const telegramId = msg.from.id;
 
     try {
-      // Check if user has a complete profile
+      // Check profile completion
       const user = await getCachedUserProfile(telegramId, User);
+
+      if (!user) {
+        return bot.sendMessage(chatId, '❌ User not found. Please use /start to begin.');
+      }
+
+      if (!user.termsAccepted) {
+        return bot.sendMessage(chatId,
+          '⚠️ **Terms Required** ⚠️\n\n' +
+          'You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n' +
+          'Use /start to begin.'
+        );
+      }
+
+      if (!user.profileCompleted) {
+        const missing = [];
+        if (!user.name) missing.push('• Name - Use /setname');
+        if (!user.age) missing.push('• Age - Use /setage');
+        if (!user.location) missing.push('• Location - Use /setlocation');
+        if (!user.bio) missing.push('• Bio - Use /setbio');
+        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+
+        return bot.sendMessage(chatId,
+          '⚠️ **Complete Your Profile** ⚠️\n\n' +
+          'Please complete your profile to access browsing:\n\n' +
+          `${missing.join('\n')}\n\n` +
+          'Once complete, you can start browsing! 💕'
+        );
+      }
+
+      // Check if user has a complete profile
       if (!user.name || !user.age || !user.location) {
-        return bot.sendMessage(chatId, 
+        return bot.sendMessage(chatId,
           '⚠️ **Complete Your Profile First** ⚠️\n\n' +
           'Please complete your profile before browsing:\n' +
           '• Use /setname to set your name\n' +
@@ -202,7 +232,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const profiles = await query;
 
       if (!profiles || profiles.length === 0) {
-        return bot.sendMessage(chatId, 
+        return bot.sendMessage(chatId,
           '😔 **No More Profiles** 😔\n\n' +
           'You\'ve seen all available profiles in your area!\n\n' +
           '💡 **Try:**\n' +
@@ -215,7 +245,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       // Show first profile
       const profile = profiles[0];
       const profileId = profile.telegramId || profile._id || profile.id || profile.userId;
-      
+
       const profileMsg = `💕 **${profile.name}, ${profile.age}** 💕\n\n` +
         `📍 ${profile.location}\n\n` +
         `💬 ${profile.bio || 'No bio available'}\n\n` +
@@ -261,14 +291,44 @@ function setupBrowsingCommands(bot, User, Match, Like) {
     const telegramId = msg.from.id;
 
     try {
+      // Check profile completion
       const user = await User.findOne({ telegramId });
+
+      if (!user) {
+        return bot.sendMessage(chatId, '❌ User not found. Please use /start to begin.');
+      }
+
+      if (!user.termsAccepted) {
+        return bot.sendMessage(chatId,
+          '⚠️ **Terms Required** ⚠️\n\n' +
+          'You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n' +
+          'Use /start to begin.'
+        );
+      }
+
+      if (!user.profileCompleted) {
+        const missing = [];
+        if (!user.name) missing.push('• Name - Use /setname');
+        if (!user.age) missing.push('• Age - Use /setage');
+        if (!user.location) missing.push('• Location - Use /setlocation');
+        if (!user.bio) missing.push('• Bio - Use /setbio');
+        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+
+        return bot.sendMessage(chatId,
+          '⚠️ **Complete Your Profile** ⚠️\n\n' +
+          'Please complete your profile to view matches:\n\n' +
+          `${missing.join('\n')}\n\n` +
+          'Once complete, you can see your matches! 💕'
+        );
+      }
+
       if (!user) {
         return bot.sendMessage(chatId, 'User not found.');
       }
       const matches = await Match.find({ $or: [{ user1Id: user._id }, { user2Id: user._id }] }).populate('user1Id').populate('user2Id');
 
       if (!matches || matches.length === 0) {
-        return bot.sendMessage(chatId, 
+        return bot.sendMessage(chatId,
           '💞 **No Matches Yet** 💞\n\n' +
           'Keep browsing to find your perfect match!\n\n' +
           '💡 **Tips:**\n' +
@@ -280,7 +340,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       }
 
       let matchMsg = `💞 **YOUR MATCHES (${matches.length})** 💞\n\n`;
-      
+
       matches.forEach((match, index) => {
         const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
         matchMsg += `${index + 1}. **${otherUser.name}, ${otherUser.age}**\n`;
@@ -317,7 +377,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
     try {
       const user = await getCachedUserProfile(telegramId, User);
-      
+
       if (!user.isVip) {
         return bot.sendMessage(chatId,
           '⭐ **VIP FEATURE** ⭐\n\n' +
@@ -343,7 +403,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const likes = await Like.find({ toUserId: currentUser._id }).populate('fromUserId');
 
       if (!likes || likes.length === 0) {
-        return bot.sendMessage(chatId, 
+        return bot.sendMessage(chatId,
           '👀 **WHO LIKES YOU** 👀\n\n' +
           'No one has liked your profile yet.\n\n' +
           '💡 **Tips to get more likes:**\n' +
@@ -355,7 +415,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       }
 
       let likesMsg = `👀 **${likes.length} PEOPLE LIKE YOU** 👀\n\n`;
-      
+
       likes.forEach((like, index) => {
         const otherUser = like.fromUserId;
         likesMsg += `${index + 1}. **${otherUser.name}, ${otherUser.age}**\n`;
