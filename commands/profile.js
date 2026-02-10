@@ -104,6 +104,72 @@ function setupProfileCommands(bot, userStates, User) {
           bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
           break;
 
+        case 'view_my_profile':
+          // Show full detailed profile
+          try {
+            const user = await getCachedUserProfile(telegramId, User);
+            if (!user) {
+              return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
+            }
+
+            let profileMsg = `💖 **Your Dating Profile** 💖\n\n`;
+            profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
+            profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
+            profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
+            profileMsg += `💭 **Bio:** ${user.bio || 'Not set'}\n`;
+            profileMsg += `📸 **Photos:** ${user.photos?.length || 0}/6\n\n`;
+
+            if (user.photos && user.photos.length > 0) {
+              profileMsg += `👀 Use /myphotos to view your photos\n\n`;
+            }
+
+            profileMsg += `✨ **Profile Completion:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
+
+            const buttons = [
+              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }],
+              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+            ];
+
+            bot.sendMessage(chatId, profileMsg, {
+              reply_markup: {
+                inline_keyboard: buttons
+              }
+            });
+          } catch (err) {
+            console.error('View profile error:', err);
+            bot.sendMessage(chatId, '❌ Failed to load profile.');
+          }
+          break;
+
+        case 'start_browse':
+          // Redirect to browse command
+          bot.sendMessage(chatId, '💕 **Let\'s find your match!**\n\nUse /browse to start discovering people.');
+          break;
+
+        case 'main_menu':
+          // Show main menu
+          const menuMsg = `🏠 **Main Menu** 🏠\n\n` +
+            `What would you like to do?`;
+
+          const menuButtons = [
+            [
+              { text: '💕 Browse', callback_data: 'start_browse' },
+              { text: '💌 Matches', callback_data: 'view_matches' }
+            ],
+            [
+              { text: '👤 My Profile', callback_data: 'view_my_profile' },
+              { text: '⚙️ Settings', callback_data: 'main_settings' }
+            ]
+          ];
+
+          bot.sendMessage(chatId, menuMsg, {
+            reply_markup: {
+              inline_keyboard: menuButtons
+            }
+          });
+          break;
+
         case 'manage_photos':
           userStates.set(telegramId, { action: 'uploading_photo' });
           bot.sendMessage(chatId, '📸 **Upload Photos** 📸\n\nJust send me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• Use high-quality, clear photos\n• Show your face clearly\n• Maximum 6 photos allowed\n• Recent photos appear first\n\n📤 Ready to upload?');
@@ -124,7 +190,33 @@ function setupProfileCommands(bot, userStates, User) {
               await user.save();
               invalidateUserCache(telegramId);
 
-              bot.sendMessage(chatId, `✅ **Location Updated!**\n\nYour location is now set to: **${state}**`);
+              // Auto-show updated profile
+              const updatedUser = await User.findOne({ telegramId });
+              const profileMsg = `✅ **Location Updated!**\n\n` +
+                `👤 **Your Profile**\n\n` +
+                `📝 Name: ${updatedUser.name || 'Not set'}\n` +
+                `🎂 Age: ${updatedUser.age || 'Not set'}\n` +
+                `📍 Location: ${updatedUser.location || 'Not set'}\n` +
+                `💭 Bio: ${updatedUser.bio || 'Not set'}\n` +
+                `📸 Photos: ${updatedUser.photos?.length || 0}/6\n\n` +
+                `What would you like to do next?`;
+
+              const buttons = [
+                [
+                  { text: '✏️ Edit Again', callback_data: 'edit_profile' },
+                  { text: '👀 View Full Profile', callback_data: 'view_my_profile' }
+                ],
+                [
+                  { text: '💕 Start Browsing', callback_data: 'start_browse' },
+                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                ]
+              ];
+
+              bot.sendMessage(chatId, profileMsg, {
+                reply_markup: {
+                  inline_keyboard: buttons
+                }
+              });
             } catch (err) {
               console.error('Update location error:', err);
               bot.sendMessage(chatId, '❌ Failed to update location. Please try again.');
