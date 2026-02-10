@@ -80,8 +80,23 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         case 'edit_location':
-          userStates.set(telegramId, { editing: 'location' });
-          bot.sendMessage(chatId, '📍 **Edit Location**\n\nPlease enter your location:');
+          // Show US state selection
+          const stateButtons = [];
+          for (let i = 0; i < US_STATES.length; i += 3) {
+            stateButtons.push(
+              US_STATES.slice(i, i + 3).map(state => ({
+                text: state,
+                callback_data: `select_state_${state}`
+              }))
+            );
+          }
+          stateButtons.push([{ text: '🔙 Cancel', callback_data: 'edit_profile' }]);
+
+          bot.sendMessage(chatId, '📍 **Select Your State** 📍\n\nKissuBot is currently available in the USA only.\n\nPlease select your state:', {
+            reply_markup: {
+              inline_keyboard: stateButtons
+            }
+          });
           break;
 
         case 'edit_bio':
