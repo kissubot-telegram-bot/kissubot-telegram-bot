@@ -317,21 +317,6 @@ const Like = undefined;
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
-setupBrowsingCommands(bot, User, Match, Like);
-setupHelpCommands(bot);
-setupSettingsCommands(bot, userStates, User);
-setupPremiumCommands(bot, User);
-setupGiftCommands(bot, User);
-setupSocialDebugCommands(bot, User, Match, Like, userStates);
-setupSocialCommands(bot, User);
-setupSearchCommands(bot, User);
-setupLikesCommands(bot, User, Like);
-setupMatchesCommands(bot, User, Match);
-
-// Export bot and userStates so bot.js can import them
-module.exports = { bot, userStates };
-
-// Load bot.js to register event handlers for webhook
 require('./bot');
 
 // Register User
