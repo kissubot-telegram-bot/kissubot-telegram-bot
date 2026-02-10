@@ -32,6 +32,7 @@ function setupAuthCommands(bot, userStates, User) {
       if (!user || !user.termsAccepted) {
         const termsMsg = `🎉 **Welcome to KissuBot!** 🎉\n\n` +
           `💕 Your journey to find love starts here!\n\n` +
+          `🇺🇸 **Available in USA only** 🇺🇸\n\n` +
           `**Before we begin, please review:**\n\n` +
           `📜 Terms of Service - /terms\n` +
           `🔒 Privacy Policy - /privacy\n\n` +

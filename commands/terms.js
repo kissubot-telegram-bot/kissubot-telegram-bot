@@ -8,8 +8,10 @@ function setupTermsCommands(bot, User) {
         const termsMsg = `📜 **KISSUBOT TERMS OF SERVICE** 📜\n\n` +
             `**Effective Date:** February 2026\n\n` +
             `KissuBot is a Telegram-based dating platform that helps users meet and connect.\n\n` +
+            `🇺🇸 **Available in USA only** 🇺🇸\n\n` +
             `**By using KissuBot, you agree to the following:**\n\n` +
             `• You must be 18 years or older\n` +
+            `• You must be located in the United States\n` +
             `• You are responsible for your interactions with other users\n` +
             `• Harassment, scams, impersonation, or illegal activity are prohibited\n` +
             `• KissuBot may suspend accounts that violate rules\n` +

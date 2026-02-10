@@ -2,6 +2,21 @@ const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 const axios = require('axios');
 const { API_BASE } = require('../config');
 
+// US States for location selection (USA only)
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+  'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+];
+
+
 function setupProfileCommands(bot, userStates, User) {
   // Callback query handlers
   bot.on('callback_query', async (query) => {
@@ -80,6 +95,28 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         default:
+          // Check if it's a state selection callback
+          if (data.startsWith('select_state_')) {
+            const state = data.replace('select_state_', '');
+
+            try {
+              const user = await User.findOne({ telegramId });
+              if (!user) {
+                return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
+              }
+
+              user.location = state;
+              await user.save();
+              invalidateUserCache(telegramId);
+
+              bot.sendMessage(chatId, `✅ **Location Updated!**\n\nYour location is now set to: **${state}**`);
+            } catch (err) {
+              console.error('Update location error:', err);
+              bot.sendMessage(chatId, '❌ Failed to update location. Please try again.');
+            }
+            return;
+          }
+
           // Check if it's a delete_photo callback
           if (data.startsWith('delete_photo_')) {
             const photoIndex = parseInt(data.replace('delete_photo_', ''));
