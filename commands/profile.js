@@ -71,12 +71,24 @@ function setupProfileCommands(bot, userStates, User) {
 
         case 'edit_name':
           userStates.set(telegramId, { editing: 'name' });
-          bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:');
+          bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:', {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
+              ]]
+            }
+          });
           break;
 
         case 'edit_age':
           userStates.set(telegramId, { editing: 'age' });
-          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-100):');
+          bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-100):', {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
+              ]]
+            }
+          });
           break;
 
         case 'edit_location':
@@ -101,7 +113,13 @@ function setupProfileCommands(bot, userStates, User) {
 
         case 'edit_bio':
           userStates.set(telegramId, { editing: 'bio' });
-          bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):');
+          bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):', {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
+              ]]
+            }
+          });
           break;
 
         case 'view_my_profile':
