@@ -229,10 +229,10 @@ function setupPremiumCommands(bot) {
           // Check if user is registered
           try {
             const checkUser = await getCachedUserProfile(telegramId);
-            if (!checkUser || !checkUser.termsAccepted) {
+            if (!checkUser || !checkUser.profileCompleted) {
               return bot.sendMessage(chatId,
                 '⚠️ **Registration Required** ⚠️\n\n' +
-                'You need to register before purchasing VIP.\n\n' +
+                'You need to complete your profile before purchasing VIP.\n\n' +
                 'Use /start to create your account!',
                 {
                   reply_markup: {
