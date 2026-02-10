@@ -568,11 +568,7 @@ bot.on('callback_query', async (query) => {
             bot.sendMessage(chatId, '/browse');
           }, 500);
         } else if (data === 'edit_profile') {
-          // Redirect to profile command
-          bot.sendMessage(chatId, '👤 Opening profile editor...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/profile');
-          }, 500);
+          // edit_profile is now handled in profile.js
         } else if (data === 'main_settings') {
           // Redirect to settings command
           bot.sendMessage(chatId, '⚙️ Opening settings...');

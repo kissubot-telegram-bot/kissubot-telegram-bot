@@ -311,8 +311,7 @@ function setupProfileCommands(bot, userStates, User) {
         };
 
         bot.sendMessage(chatId, `✅ **${fieldNames[field]} Updated!**\n\n` +
-          `Your ${field} has been updated successfully.\n\n` +
-          `Use /profile to view your complete profile.`, {
+          `Your ${field} has been updated successfully.`, {
           reply_markup: {
             inline_keyboard: [[
               { text: '👤 View Profile', callback_data: 'edit_profile' },
