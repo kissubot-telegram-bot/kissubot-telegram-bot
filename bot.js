@@ -1027,7 +1027,7 @@ bot.on('callback_query', async (query) => {
             'edit_profile', 'edit_name', 'edit_age', 'edit_location', 'edit_bio', 'manage_photos',
             'view_my_profile', 'start_browse', 'main_menu', 'cancel_edit', 'ignore',
             'view_matches', 'start_browsing', 'view_profile', 'accept_terms', 'decline_terms',
-            'store_vip', 'store_boosts', 'store_coins', 'back_to_store',
+            'store_vip', 'store_boosts', 'store_coins', 'back_to_store', 'start_registration',
             'buy_boost_1', 'buy_boost_5', 'buy_boost_10', 'vip_purchase_6months',
             'buy_coins_100', 'buy_coins_500', 'buy_coins_1000', 'buy_coins_5000',
             // Search callbacks handled in bot-new.js

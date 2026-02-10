@@ -226,6 +226,40 @@ function setupPremiumCommands(bot) {
         case 'vip_purchase_monthly':
         case 'vip_purchase_yearly':
         case 'vip_purchase_lifetime':
+          // Check if user is registered
+          try {
+            const checkUser = await getCachedUserProfile(telegramId);
+            if (!checkUser || !checkUser.termsAccepted) {
+              return bot.sendMessage(chatId,
+                '⚠️ **Registration Required** ⚠️\n\n' +
+                'You need to register before purchasing VIP.\n\n' +
+                'Use /start to create your account!',
+                {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: '🚀 Register Now', callback_data: 'start_registration' }],
+                      [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
+                    ]
+                  }
+                }
+              );
+            }
+          } catch (err) {
+            return bot.sendMessage(chatId,
+              '⚠️ **Registration Required** ⚠️\n\n' +
+              'You need to register before purchasing VIP.\n\n' +
+              'Use /start to create your account!',
+              {
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '🚀 Register Now', callback_data: 'start_registration' }],
+                    [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
+                  ]
+                }
+              }
+            );
+          }
+
           let planType;
 
           // Map buy_vip callbacks to plan types
