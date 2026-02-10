@@ -224,6 +224,7 @@ function setupPremiumCommands(bot) {
         case 'buy_vip_6':
         case 'vip_purchase_weekly':
         case 'vip_purchase_monthly':
+        case 'vip_purchase_6months':
         case 'vip_purchase_yearly':
         case 'vip_purchase_lifetime':
           // Check if user is registered
@@ -267,7 +268,7 @@ function setupPremiumCommands(bot) {
             planType = 'monthly';
           } else if (data === 'buy_vip_3') {
             planType = 'quarterly'; // 3 months
-          } else if (data === 'buy_vip_6') {
+          } else if (data === 'buy_vip_6' || data === 'vip_purchase_6months') {
             planType = 'biannual'; // 6 months
           } else {
             planType = data.split('_')[2]; // monthly, yearly, or lifetime
