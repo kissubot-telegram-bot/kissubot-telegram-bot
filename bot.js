@@ -1030,6 +1030,7 @@ bot.on('callback_query', async (query) => {
             'store_vip', 'store_boosts', 'store_coins', 'back_to_store', 'start_registration',
             'buy_boost_1', 'buy_boost_5', 'buy_boost_10', 'vip_purchase_6months',
             'buy_coins_100', 'buy_coins_500', 'buy_coins_1000', 'buy_coins_5000',
+            'gift_shop', 'sent_gifts', 'received_gifts', 'send_gift', 'buy_coins_menu', 'browse_profiles',
             // Search callbacks handled in bot-new.js
             'search_age_range', 'search_distance', 'search_gender', 'search_location',
             'vip_filters', 'search_vip_filters', 'start_advanced_search',
