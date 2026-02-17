@@ -126,7 +126,7 @@ function setupHelpCommands(bot) {
     bot.sendMessage(chatId, helpText, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📧 Email Support (spprtksbt@gmail.com)', callback_data: 'email_support' }],
+          [{ text: '📧 Email Support', callback_data: 'email_support' }],
           [{ text: '📞 Contact Support', callback_data: 'contact_support' }],
           [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
         ]

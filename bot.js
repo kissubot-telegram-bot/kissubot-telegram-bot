@@ -438,9 +438,9 @@ bot.on('callback_query', async (query) => {
         break;
 
       // Main menu and navigation callbacks
-      case 'main_menu':
-        showMainMenu(chatId);
-        break;
+      // case 'main_menu': // Removed - handled by profile module
+      //   showMainMenu(chatId);
+      //   break;
 
       // Photo upload callbacks
       case 'add_another_photo':
