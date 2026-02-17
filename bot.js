@@ -448,17 +448,17 @@ bot.on('callback_query', async (query) => {
         bot.sendMessage(chatId, '📸 **Upload Photo** 📸\n\nSend me a photo and I\'ll add it to your profile!\n\n💡 **Tips:**\n• High-quality, clear photos work best\n• Show your face clearly\n• Maximum 6 photos allowed\n\n📤 Ready? Just send the photo!');
         break;
 
-      // Navigation shortcuts
-      case 'show_help':
+      // Navigation shortcuts - Removed to allow proper handlers to execute
+      // case 'show_help':
       // case 'view_profile': // Removed - should be handled by profile module
-      case 'browse_profiles':
-      case 'view_matches':
-      case 'main_settings':
-      case 'manage_vip':
+      // case 'browse_profiles':
+      // case 'view_matches':
+      // case 'main_settings':
+      // case 'manage_vip':
       // case 'contact_support': // Removed - should be handled by help module
-      case 'report_menu':
-        handleNavigation(chatId, data);
-        break;
+      // case 'report_menu':
+      //   handleNavigation(chatId, data);
+      //   break;
 
       case 'user_guide':
         bot.sendMessage(chatId, '📚 **USER GUIDE** 📚\n\n' +
