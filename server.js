@@ -191,7 +191,7 @@ connectWithRetry();
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'kisu1bot_profiles',
+    folder: 'kissubot_profiles',
     allowed_formats: ['jpg', 'png', 'jpeg'],
   },
 });

@@ -14,7 +14,7 @@ function setupSettingsCommands(bot) {
       switch (data) {
         case 'main_settings':
           const settingsMsg = `⚙️ **SETTINGS MENU** ⚙️\n\n` +
-            `Customize your Kisu1bot experience!\n\n` +
+            `Customize your Kissubot experience!\n\n` +
             `👤 **Profile Settings**\n` +
             `• Edit your profile information\n` +
             `• Manage your photos\n` +
@@ -352,7 +352,7 @@ function setupSettingsCommands(bot) {
   bot.onText(/\/settings/, (msg) => {
     const chatId = msg.chat.id;
     const settingsMsg = `⚙️ **SETTINGS MENU** ⚙️\n\n` +
-      `Customize your Kisu1bot experience!\n\n` +
+      `Customize your Kissubot experience!\n\n` +
       `👤 **Profile Settings**\n` +
       `• Edit your profile information\n` +
       `• Manage your photos\n` +

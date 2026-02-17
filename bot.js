@@ -44,7 +44,7 @@ function handleReportFlow(chatId, telegramId, reportType) {
       title: '💡 **Feature Request** 💡',
       prompt: 'Please describe your feature idea:',
       details: ['What feature you\'d like to see', 'How it would help you', 'Any specific details'],
-      footer: '🚀 **Great ideas help improve Kisu1bot**'
+      footer: '🚀 **Great ideas help improve Kissubot**'
     }
   };
 
@@ -57,7 +57,7 @@ function handleReportFlow(chatId, telegramId, reportType) {
 
 function showMainMenu(chatId) {
   const mainMenuMsg = `🏠 **MAIN MENU** 🏠\n\n` +
-    `Welcome to Kisu1bot! Choose what you'd like to do:\n\n` +
+    `Welcome to Kissubot! Choose what you'd like to do:\n\n` +
     `👤 **Profile & Dating**\n` +
     `• View and edit your profile\n` +
     `• Browse and match with people\n` +
@@ -368,7 +368,7 @@ bot.on('message', async (msg) => {
         `Thank you for reporting this ${reportType} issue. Our team will review it shortly.\n\n` +
         `📋 **Report ID:** ${Date.now()}\n` +
         `⏰ **Submitted:** ${new Date().toLocaleString()}\n\n` +
-        `🔒 **All reports are confidential and help keep Kisu1bot safe for everyone.**`);
+        `🔒 **All reports are confidential and help keep Kissubot safe for everyone.**`);
       return;
     }
   }
@@ -414,27 +414,27 @@ bot.on('callback_query', async (query) => {
       case 'email_support':
         bot.sendMessage(chatId, '📧 **CONTACT SUPPORT** 📧\n\n' +
           'Get help from our support team:\n' +
-          '📮 **support@kisu1bot.com**\n\n' +
+          '📮 **support@kissubot.com**\n\n' +
           '📋 **When emailing, please include:**\n' +
           '• Your username: @' + (query.from.username || 'N/A') + '\n' +
           '• Detailed description of your issue\n' +
           '• Screenshots if applicable\n' +
           '• Steps you\'ve already tried\n\n' +
           '⏰ **Response time:** Usually within 24 hours\n\n' +
-          '🙏 **Thank you for using Kisu1bot!**');
+          '🙏 **Thank you for using Kissubot!**');
         break;
 
       case 'email_feedback':
         bot.sendMessage(chatId, '📧 **SEND FEEDBACK** 📧\n\n' +
           'Share your thoughts with us:\n' +
-          '📮 **feedback@kisu1bot.com**\n\n' +
+          '📮 **feedback@kissubot.com**\n\n' +
           '📋 **We\'d love to hear about:**\n' +
           '• Feature suggestions\n' +
           '• User experience improvements\n' +
           '• What you like about the app\n' +
           '• What could be better\n\n' +
           '📝 **Include your username:** @' + (query.from.username || 'N/A') + '\n\n' +
-          '🙏 **Thank you for helping us improve Kisu1bot!**');
+          '🙏 **Thank you for helping us improve Kissubot!**');
         break;
 
       // Main menu and navigation callbacks
@@ -455,7 +455,7 @@ bot.on('callback_query', async (query) => {
       case 'view_matches':
       case 'main_settings':
       case 'manage_vip':
-      case 'contact_support':
+      // case 'contact_support': // Removed - should be handled by help module
       case 'report_menu':
         handleNavigation(chatId, data);
         break;
@@ -597,7 +597,7 @@ bot.on('callback_query', async (query) => {
           // Support options
           bot.sendMessage(chatId, '📞 **SUPPORT CONTACT** 📞\n\n' +
             'Thank you for reaching out! Here are your support options:\n\n' +
-            '📧 **Email:** support@kisu1bot.com\n' +
+            '📧 **Email:** support@kissubot.com\n' +
             '💬 **Live Chat:** Available 9 AM - 6 PM EST\n' +
             '📱 **Response Time:** Usually within 24 hours\n\n' +
             '🔒 **All communications are confidential and secure.**');
@@ -1092,7 +1092,7 @@ bot.on('webhook_error', (error) => {
 });
 
 
-console.log('✅ Kisu1bot is running successfully!');
+console.log('✅ Kissubot is running successfully!');
 console.log('🔗 API Base:', API_BASE);
 console.log('📱 Bot ready to receive messages...');
 

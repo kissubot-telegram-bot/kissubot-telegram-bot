@@ -262,7 +262,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           '💡 **Try:**\n' +
           '• Expanding your search radius in /settings\n' +
           '• Checking back later for new users\n' +
-          '• Inviting friends to join Kisu1bot!'
+          '• Inviting friends to join Kissubot!'
         );
       }
 

@@ -61,7 +61,7 @@ function setupHelpCommands(bot) {
 
         case 'show_help':
         case 'help_menu':
-          const helpText = `🤖 **KISU1BOT HELP** 🤖\n\n` +
+          const helpText = `🤖 **KISSUBOT HELP** 🤖\n\n` +
             `📋 **Available Commands:**\n\n` +
             `🏠 /start - Start the bot and access main menu\n` +
             `👤 /profile - View and edit your profile\n` +
@@ -71,7 +71,7 @@ function setupHelpCommands(bot) {
             `📱 /stories - View and post stories\n` +
             `💰 /coins - Check coin balance and buy coins\n` +
             `👑 /vip - Manage VIP membership\n` +
-            `❓ /help - Show this help message\n\n` +
+            `❓ /help - View commands and access help center\n\n` +
             `💡 **Tips:**\n` +
             `• Complete your profile to get more matches\n` +
             `• Upload multiple photos for better visibility\n` +
@@ -105,7 +105,7 @@ function setupHelpCommands(bot) {
   // HELP command
   bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
-    const helpText = `🤖 **KISU1BOT HELP** 🤖\n\n` +
+    const helpText = `🤖 **KISSUBOT HELP** 🤖\n\n` +
       `📋 **Available Commands:**\n\n` +
       `🏠 /start - Start the bot and access main menu\n` +
       `👤 /profile - View and edit your profile\n` +
@@ -115,24 +115,31 @@ function setupHelpCommands(bot) {
       `📱 /stories - View and post stories\n` +
       `💰 /coins - Check coin balance and buy coins\n` +
       `👑 /vip - Manage VIP membership\n` +
-      `❓ /help - Show this help message\n\n` +
+      `❓ /help - View commands and access help center\n\n` +
       `💡 **Tips:**\n` +
       `• Complete your profile to get more matches\n` +
       `• Upload multiple photos for better visibility\n` +
       `• Use VIP features to boost your profile\n` +
       `• Post stories to increase engagement\n\n` +
-      `📞 **Need Support?**\n` +
-      `Contact us at: spprtksbt@gmail.com\n\n` +
       `Happy matching! 💙`;
 
-    bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, helpText, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📧 Email Support (spprtksbt@gmail.com)', callback_data: 'email_support' }],
+          [{ text: '📞 Contact Support', callback_data: 'contact_support' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      },
+      parse_mode: 'Markdown'
+    });
   });
 
   // REPORT command
   bot.onText(/\/report/, (msg) => {
     const chatId = msg.chat.id;
     const reportMsg = `🚨 **REPORT CENTER** 🚨\n\n` +
-      `Help us keep Kisu1bot safe for everyone!\n\n` +
+      `Help us keep Kissubot safe for everyone!\n\n` +
       `📋 **What would you like to report?**\n\n` +
       `• **User Report** - Inappropriate behavior\n` +
       `• **Content Report** - Inappropriate photos/messages\n` +
@@ -205,7 +212,7 @@ function setupHelpCommands(bot) {
     const contactMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
       `Our support team is here to help!\n\n` +
       `📧 **Email Support:**\n` +
-      `support@kisu1bot.com\n\n` +
+      `support@kissubot.com\n\n` +
       `💬 **Live Chat:**\n` +
       `Available 9 AM - 6 PM EST\n\n` +
       `📋 **When contacting us, please include:**\n` +
@@ -213,7 +220,7 @@ function setupHelpCommands(bot) {
       `• Description of the issue\n` +
       `• Screenshots if applicable\n\n` +
       `⏱️ **Response Time:** Usually within 24 hours\n\n` +
-      `🙏 **Thank you for using Kisu1bot!**`;
+      `🙏 **Thank you for using Kissubot!**`;
 
     const opts = {
       reply_markup: {
