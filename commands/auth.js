@@ -58,18 +58,26 @@ function setupAuthCommands(bot, userStates, User) {
       // Terms accepted but profile incomplete
       if (!user.profileCompleted) {
         const missing = [];
-        if (!user.name) missing.push('• Name - Use /setname');
-        if (!user.age) missing.push('• Age - Use /setage');
-        if (!user.location) missing.push('• Location - Use /setlocation');
-        if (!user.bio) missing.push('• Bio - Use /setbio');
-        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+        if (!user.name) missing.push('📝 Add your name');
+        if (!user.age) missing.push('🎂 Add your age');
+        if (!user.location) missing.push('📍 Add your location');
+        if (!user.bio) missing.push('💭 Write a bio');
+        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
 
-        const incompleteMsg = `⚠️ **Complete Your Profile** ⚠️\n\n` +
-          `You're almost there! Complete these steps:\n\n` +
+        const incompleteMsg = `✨ **Almost Ready!** ✨\n\n` +
+          `You're just one step away from finding your perfect match!\n\n` +
+          `📋 **What's Missing:**\n` +
           `${missing.join('\n')}\n\n` +
-          `Once complete, you can start browsing! 💕`;
+          `💡 Complete your profile to start browsing and matching! 💕`;
 
-        return bot.sendMessage(chatId, incompleteMsg);
+        return bot.sendMessage(chatId, incompleteMsg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
+              [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+            ]
+          }
+        });
       }
 
       // Profile complete - show main menu
