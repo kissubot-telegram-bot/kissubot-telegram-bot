@@ -450,7 +450,7 @@ bot.on('callback_query', async (query) => {
 
       // Navigation shortcuts
       case 'show_help':
-      case 'view_profile':
+      // case 'view_profile': // Removed - should be handled by profile module
       case 'browse_profiles':
       case 'view_matches':
       case 'main_settings':

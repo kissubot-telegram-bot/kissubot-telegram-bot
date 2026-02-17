@@ -78,8 +78,17 @@ function setupTermsCommands(bot, User) {
 
                 bot.sendMessage(chatId,
                     `✅ **Terms Accepted!**\n\n` +
-                    `Welcome to KissuBot! Let's set up your profile.\n\n` +
-                    `Use /register to start creating your profile.`
+                    `🎉 Welcome to KissuBot! You're all set to begin your journey.\n\n` +
+                    `Let's create your profile and start connecting with amazing people!\n\n` +
+                    `👇 Click the button below to get started:`,
+                    {
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🚀 Create My Profile', callback_data: 'start_registration' }],
+                                [{ text: '❓ How It Works', callback_data: 'show_help' }]
+                            ]
+                        }
+                    }
                 );
             } catch (err) {
                 console.error('Accept terms error:', err);

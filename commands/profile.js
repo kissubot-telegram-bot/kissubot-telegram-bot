@@ -138,6 +138,7 @@ function setupProfileCommands(bot, userStates, User) {
           });
           break;
 
+        case 'view_profile':
         case 'view_my_profile':
           // Show full detailed profile
           try {
