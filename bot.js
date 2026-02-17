@@ -1049,7 +1049,7 @@ bot.on('callback_query', async (query) => {
 
           if (!handledCallbacks.includes(data) && !isDynamicCallback) {
             console.log('Unhandled callback data:', data);
-            bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
+            // bot.sendMessage(chatId, '❓ This feature is not yet implemented. Please use the corresponding command instead.');
           }
           // These callbacks are handled by other modules - do nothing here
         }
