@@ -174,14 +174,10 @@ bot.on('photo', async (msg) => {
       const opts = {
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: '📸 Add Another Photo', callback_data: 'add_another_photo' },
-              { text: '👤 View Profile', callback_data: 'view_profile' }
-            ],
-            [
-              { text: '🔍 Start Browsing', callback_data: 'browse_profiles' },
-              { text: '🔙 Back', callback_data: 'main_menu' }
-            ]
+            [{ text: '📸 Add Another Photo', callback_data: 'add_another_photo' }],
+            [{ text: '👤 View Profile', callback_data: 'view_profile' }],
+            [{ text: '🔍 Start Browsing', callback_data: 'browse_profiles' }],
+            [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
           ]
         }
       };
@@ -556,11 +552,8 @@ bot.on('callback_query', async (query) => {
             bot.sendMessage(chatId, '/matches');
           }, 500);
         } else if (data === 'browse_profiles') {
-          // Redirect to browse command
-          bot.sendMessage(chatId, '🔍 Starting profile browsing...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/browse');
-          }, 500);
+          // Trigger browse directly via the browsing module
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
         } else if (data === 'edit_profile') {
           // edit_profile is now handled in profile.js
         } else if (data === 'main_settings') {
