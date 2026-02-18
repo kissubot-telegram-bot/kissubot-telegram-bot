@@ -171,10 +171,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
                   '💞 **No Matches Yet** 💞\n\n' +
                   'Keep browsing to find your perfect match!\n\n' +
                   '💡 **Tips:**\n' +
-                  '• Use /browse to see more profiles\n' +
+                  '• Browse more profiles to get matches\n' +
                   '• Complete your profile to attract more likes\n' +
                   '• Add more photos to stand out\n\n' +
-                  'Your special someone is out there! 💕'
+                  'Your special someone is out there! 💕',
+                  {
+                    reply_markup: {
+                      inline_keyboard: [
+                        [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                        [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+                      ]
+                    }
+                  }
                 );
               }
 
@@ -399,10 +407,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           '💞 **No Matches Yet** 💞\n\n' +
           'Keep browsing to find your perfect match!\n\n' +
           '💡 **Tips:**\n' +
-          '• Use /browse to see more profiles\n' +
+          '• Browse more profiles to get matches\n' +
           '• Complete your profile to attract more likes\n' +
           '• Add more photos to stand out\n\n' +
-          'Your special someone is out there! 💕'
+          'Your special someone is out there! 💕',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+              ]
+            }
+          }
         );
       }
 
