@@ -546,22 +546,16 @@ bot.on('callback_query', async (query) => {
         // Search Settings callbacks are handled in commands/settings.js
         // Gift handlers are now in commands/gifts.js
         if (data === 'view_matches') {
-          // Redirect to matches command
-          bot.sendMessage(chatId, '💕 Loading your matches...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/matches');
-          }, 500);
+          // Trigger matches directly
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/matches' });
         } else if (data === 'browse_profiles') {
           // Trigger browse directly via the browsing module
           bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
         } else if (data === 'edit_profile') {
           // edit_profile is now handled in profile.js
         } else if (data === 'main_settings') {
-          // Redirect to settings command
-          bot.sendMessage(chatId, '⚙️ Opening settings...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/settings');
-          }, 500);
+          // Trigger settings directly
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/settings' });
         } else if (data === 'main_menu') {
           // Show main menu directly
           showMainMenu(chatId);

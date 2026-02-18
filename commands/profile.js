@@ -152,16 +152,18 @@ function setupProfileCommands(bot, userStates, User) {
             profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
             profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
             profileMsg += `💭 **Bio:** ${user.bio || 'Not set'}\n`;
-            profileMsg += `📸 **Photos:** ${user.photos?.length || 0}/6\n\n`;
 
             if (user.photos && user.photos.length > 0) {
-              profileMsg += `👀 Use /myphotos to view your photos\n\n`;
+              profileMsg += `📸 **Photos:** ${user.photos?.length || 0}/6\n\n`;
+            } else {
+              profileMsg += `📸 **Photos:** 0/6 — Add photos to get more matches!\n\n`;
             }
 
             profileMsg += `✨ **Profile Completion:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
 
             const buttons = [
               [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+              [{ text: '📸 View My Photos', callback_data: 'manage_photos' }],
               [{ text: '💕 Start Browsing', callback_data: 'start_browse' }],
               [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
             ];
@@ -279,7 +281,14 @@ function setupProfileCommands(bot, userStates, User) {
               await user.save();
               invalidateUserCache(telegramId);
 
-              bot.sendMessage(chatId, `✅ **Photo Deleted!**\n\nYou now have ${user.photos.length} photo${user.photos.length === 1 ? '' : 's'}.\n\n💡 Use /myphotos to view your remaining photos.`);
+              bot.sendMessage(chatId, `✅ **Photo Deleted!**\n\nYou now have ${user.photos.length} photo${user.photos.length === 1 ? '' : 's'}.`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '📸 View My Photos', callback_data: 'manage_photos' }],
+                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                  ]
+                }
+              });
             } catch (err) {
               console.error('Delete photo error:', err);
               bot.sendMessage(chatId, '❌ Failed to delete photo. Please try again.');
