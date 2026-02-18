@@ -321,16 +321,10 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const opts = {
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: '💚 LIKE', callback_data: `like_${profileId}` },
-              { text: '💔 PASS', callback_data: `pass_${profileId}` }
-            ],
-            [
-              { text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }
-            ],
-            [
-              { text: '🔙 Back to Menu', callback_data: 'main_menu' }
-            ]
+            [{ text: '💚 LIKE', callback_data: `like_${profileId}` }],
+            [{ text: '💔 PASS', callback_data: `pass_${profileId}` }],
+            [{ text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }],
+            [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
           ]
         }
       };
