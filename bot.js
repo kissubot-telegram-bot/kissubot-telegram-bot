@@ -570,10 +570,8 @@ bot.on('callback_query', async (query) => {
             bot.sendMessage(chatId, '/settings');
           }, 500);
         } else if (data === 'main_menu') {
-          // Redirect to start command
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/start');
-          }, 500);
+          // Show main menu directly
+          showMainMenu(chatId);
         } else if (data === 'priority_boost') {
           // Redirect to priority command
           bot.sendMessage(chatId, '🚀 Opening priority boost...');
