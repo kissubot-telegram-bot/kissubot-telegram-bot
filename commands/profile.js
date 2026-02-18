@@ -189,28 +189,7 @@ function setupProfileCommands(bot, userStates, User) {
           });
           break;
 
-        case 'main_menu':
-          // Show main menu
-          const menuMsg = `🏠 **Main Menu** 🏠\n\n` +
-            `What would you like to do?`;
-
-          const menuButtons = [
-            [
-              { text: '💕 Browse', callback_data: 'start_browse' },
-              { text: '💌 Matches', callback_data: 'view_matches' }
-            ],
-            [
-              { text: '👤 My Profile', callback_data: 'view_my_profile' },
-              { text: '⚙️ Settings', callback_data: 'main_settings' }
-            ]
-          ];
-
-          bot.sendMessage(chatId, menuMsg, {
-            reply_markup: {
-              inline_keyboard: menuButtons
-            }
-          });
-          break;
+        // main_menu is handled by bot.js showMainMenu()
 
         case 'cancel_edit':
           // Cancel editing and clear user state
