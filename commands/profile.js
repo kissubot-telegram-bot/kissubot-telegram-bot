@@ -162,10 +162,8 @@ function setupProfileCommands(bot, userStates, User) {
             profileMsg += `✨ **Profile Completion:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
 
             const buttons = [
-              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-              [{ text: '📸 View My Photos', callback_data: 'manage_photos' }],
-              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }],
-              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 View Photos', callback_data: 'manage_photos' }],
+              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
             ];
 
             bot.sendMessage(chatId, profileMsg, {

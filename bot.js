@@ -70,12 +70,9 @@ function showMainMenu(chatId) {
   bot.sendMessage(chatId, mainMenuMsg, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '👤 My Profile', callback_data: 'view_profile' }],
-        [{ text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }],
-        [{ text: '💕 My Matches', callback_data: 'view_matches' }],
-        [{ text: '⚙️ Settings', callback_data: 'main_settings' }],
-        [{ text: '💎 Get VIP', callback_data: 'manage_vip' }],
-        [{ text: '❓ Help', callback_data: 'show_help' }]
+        [{ text: '👤 My Profile', callback_data: 'view_profile' }, { text: '🔍 Browse', callback_data: 'browse_profiles' }],
+        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '❤️ Likes You', callback_data: 'manage_vip' }],
+        [{ text: '⚙️ Settings', callback_data: 'main_settings' }, { text: '❓ Help', callback_data: 'show_help' }]
       ]
     }
   });

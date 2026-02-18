@@ -1,49 +1,46 @@
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+const path = require('path');
+
+const TERMS_PDF = path.join(__dirname, '..', 'docs', 'terms-of-service.pdf');
+const PRIVACY_PDF = path.join(__dirname, '..', 'docs', 'privacy-policy.pdf');
 
 function setupTermsCommands(bot, User) {
-    // TERMS command - Display Terms of Service
+    // TERMS command - Send Terms of Service PDF
     bot.onText(/\/terms/, async (msg) => {
         const chatId = msg.chat.id;
-
-        const termsMsg = `📜 **KISSUBOT TERMS OF SERVICE** 📜\n\n` +
-            `**Effective Date:** February 2026\n\n` +
-            `KissuBot is a Telegram-based dating platform that helps users meet and connect.\n\n` +
-            `🇺🇸 **Available in USA only** 🇺🇸\n\n` +
-            `**By using KissuBot, you agree to the following:**\n\n` +
-            `• You must be 18 years or older\n` +
-            `• You must be located in the United States\n` +
-            `• You are responsible for your interactions with other users\n` +
-            `• Harassment, scams, impersonation, or illegal activity are prohibited\n` +
-            `• KissuBot may suspend accounts that violate rules\n` +
-            `• KissuBot does not guarantee matches or relationships\n` +
-            `• The service is provided "as is"\n\n` +
-            `**For support:**\n` +
-            `Telegram: @Kissu03bot`;
-
-        bot.sendMessage(chatId, termsMsg);
+        try {
+            await bot.sendDocument(chatId, TERMS_PDF, {
+                caption: '📜 **KissuBot Terms of Service**\n\nPlease read before using the platform.',
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🔒 Privacy Policy', callback_data: 'view_privacy_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                    ]
+                }
+            });
+        } catch (err) {
+            console.error('Terms PDF error:', err);
+            bot.sendMessage(chatId, '❌ Could not load Terms of Service. Please try again later.');
+        }
     });
 
-    // PRIVACY command - Display Privacy Policy
+    // PRIVACY command - Send Privacy Policy PDF
     bot.onText(/\/privacy/, async (msg) => {
         const chatId = msg.chat.id;
-
-        const privacyMsg = `🔒 **KISSUBOT PRIVACY POLICY** 🔒\n\n` +
-            `**Effective Date:** February 2026\n\n` +
-            `KissuBot collects limited information to operate the service, including:\n\n` +
-            `• Telegram ID\n` +
-            `• Username\n` +
-            `• Profile information\n` +
-            `• Matching activity\n\n` +
-            `**We use this information to:**\n\n` +
-            `• Provide matching services\n` +
-            `• Improve the platform\n` +
-            `• Maintain safety\n\n` +
-            `**We do not sell user data.**\n\n` +
-            `Users can delete their account at any time.\n\n` +
-            `**For support:**\n` +
-            `Telegram: @Kissu03bot`;
-
-        bot.sendMessage(chatId, privacyMsg);
+        try {
+            await bot.sendDocument(chatId, PRIVACY_PDF, {
+                caption: '🔒 **KissuBot Privacy Policy**\n\nYour data is safe with us.',
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '📜 Terms of Service', callback_data: 'view_terms_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                    ]
+                }
+            });
+        } catch (err) {
+            console.error('Privacy PDF error:', err);
+            bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
+        }
     });
 
     // Accept Terms callback
@@ -57,7 +54,6 @@ function setupTermsCommands(bot, User) {
                 const user = await User.findOne({ telegramId });
 
                 if (!user) {
-                    // Create new user with terms accepted
                     const newUser = new User({
                         telegramId,
                         username: query.from.username,
@@ -67,7 +63,6 @@ function setupTermsCommands(bot, User) {
                     });
                     await newUser.save();
                 } else {
-                    // Update existing user
                     user.termsAccepted = true;
                     user.termsAcceptedAt = new Date();
                     user.onboardingStep = 'registration';
@@ -84,8 +79,7 @@ function setupTermsCommands(bot, User) {
                     {
                         reply_markup: {
                             inline_keyboard: [
-                                [{ text: '🚀 Create My Profile', callback_data: 'start_registration' }],
-                                [{ text: '❓ How It Works', callback_data: 'show_help' }]
+                                [{ text: '🚀 Create My Profile', callback_data: 'start_registration' }, { text: '❓ How It Works', callback_data: 'show_help' }]
                             ]
                         }
                     }
@@ -95,44 +89,38 @@ function setupTermsCommands(bot, User) {
                 bot.sendMessage(chatId, '❌ Something went wrong. Please try /start again.');
             }
         } else if (data === 'view_terms_inline') {
-            const termsMsg = `📜 **KISSUBOT TERMS OF SERVICE** 📜\n\n` +
-                `**Effective Date:** February 2026\n\n` +
-                `KissuBot is a Telegram-based dating platform that helps users meet and connect.\n\n` +
-                `**By using KissuBot, you agree to the following:**\n\n` +
-                `• You must be 18 years or older\n` +
-                `• You are responsible for your interactions with other users\n` +
-                `• Harassment, scams, impersonation, or illegal activity are prohibited\n` +
-                `• KissuBot may suspend accounts that violate rules\n` +
-                `• KissuBot does not guarantee matches or relationships\n` +
-                `• The service is provided "as is"\n\n` +
-                `**For support:**\n` +
-                `Telegram: @Kissu03bot`;
-
-            bot.sendMessage(chatId, termsMsg);
+            try {
+                await bot.sendDocument(chatId, TERMS_PDF, {
+                    caption: '📜 **KissuBot Terms of Service**',
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '🔒 Privacy Policy', callback_data: 'view_privacy_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                        ]
+                    }
+                });
+            } catch (err) {
+                bot.sendMessage(chatId, '❌ Could not load Terms of Service. Please try again later.');
+            }
         } else if (data === 'view_privacy_inline') {
-            const privacyMsg = `🔒 **KISSUBOT PRIVACY POLICY** 🔒\n\n` +
-                `**Effective Date:** February 2026\n\n` +
-                `KissuBot collects limited information to operate the service, including:\n\n` +
-                `• Telegram ID\n` +
-                `• Username\n` +
-                `• Profile information\n` +
-                `• Matching activity\n\n` +
-                `**We use this information to:**\n\n` +
-                `• Provide matching services\n` +
-                `• Improve the platform\n` +
-                `• Maintain safety\n\n` +
-                `**We do not sell user data.**\n\n` +
-                `Users can delete their account at any time.\n\n` +
-                `**For support:**\n` +
-                `Telegram: @Kissu03bot`;
-
-            bot.sendMessage(chatId, privacyMsg);
+            try {
+                await bot.sendDocument(chatId, PRIVACY_PDF, {
+                    caption: '🔒 **KissuBot Privacy Policy**',
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '📜 Terms of Service', callback_data: 'view_terms_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                        ]
+                    }
+                });
+            } catch (err) {
+                bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
+            }
         } else if (data === 'decline_terms') {
             bot.sendMessage(chatId,
                 `❌ **Terms Declined**\n\n` +
                 `You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n` +
-                `If you change your mind, use /start to try again.\n\n` +
-                `Goodbye! 👋`
+                `If you change your mind, use /start to try again.\n\nGoodbye! 👋`
             );
         }
     });
