@@ -1091,6 +1091,22 @@ bot.on('webhook_error', (error) => {
   console.error('❌ Webhook error:', error.message);
 });
 
+// Set up bot commands menu
+bot.setMyCommands([
+  { command: 'start', description: '🏠 Start the bot' },
+  { command: 'profile', description: '👤 View your profile' },
+  { command: 'browse', description: '🔍 Browse profiles' },
+  { command: 'matches', description: '💕 View your matches' },
+  { command: 'likesyou', description: '👀 See who likes you (VIP)' },
+  { command: 'settings', description: '⚙️ Settings' },
+  { command: 'vip', description: '👑 VIP membership' },
+  { command: 'coins', description: '💰 Buy coins' },
+  { command: 'help', description: '❓ Get help' }
+]).then(() => {
+  console.log('✅ Bot commands menu set up successfully!');
+}).catch((err) => {
+  console.error('❌ Failed to set up bot commands menu:', err);
+});
 
 console.log('✅ Kissubot is running successfully!');
 console.log('🔗 API Base:', API_BASE);

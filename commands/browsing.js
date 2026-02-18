@@ -73,7 +73,14 @@ function setupBrowsingCommands(bot, User, Match, Like) {
             }
           );
         } else {
-          bot.sendMessage(chatId, '❤️ You liked this profile! Use /browse to see more.');
+          bot.sendMessage(chatId, '❤️ **You liked this profile!**\n\nKeep browsing to find more matches!', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Browse More', callback_data: 'start_browse' }],
+                [{ text: '💕 View Matches', callback_data: 'view_matches' }]
+              ]
+            }
+          });
         }
 
       } else if (data.startsWith('pass_')) {
@@ -86,14 +93,27 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           message_id: message.message_id
         });
 
-        bot.sendMessage(chatId, '👎 You passed on this profile. Use /browse to see more.');
+        bot.sendMessage(chatId, '👎 **You passed on this profile.**\n\nLet\'s find someone better!', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔍 Browse More', callback_data: 'start_browse' }]
+            ]
+          }
+        });
 
       } else if (data.startsWith('superlike_')) {
         const targetId = data.split('_')[1];
         const fromUser = await User.findOne({ telegramId });
 
         if (fromUser.coins < 10) {
-          return bot.sendMessage(chatId, '❌ You need 10 coins to send a super like. Use /coins to buy more!');
+          return bot.sendMessage(chatId, '❌ **Not Enough Coins**\n\nYou need 10 coins to send a super like.', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💰 Buy Coins', callback_data: 'buy_coins' }],
+                [{ text: '🔙 Back to Browse', callback_data: 'start_browse' }]
+              ]
+            }
+          });
         }
 
         fromUser.coins -= 10;
@@ -124,7 +144,14 @@ function setupBrowsingCommands(bot, User, Match, Like) {
               { user1Id: toUser._id, user2Id: fromUser._id },
             ],
           });
-          bot.sendMessage(chatId, '💔 Successfully unmatched. Use /browse to find new matches!');
+          bot.sendMessage(chatId, '💔 **Successfully Unmatched**\n\nYou can find new matches anytime!', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          });
         } else {
           bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again later.');
         }
@@ -216,17 +243,25 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       if (!user.profileCompleted) {
         const missing = [];
-        if (!user.name) missing.push('• Name - Use /setname');
-        if (!user.age) missing.push('• Age - Use /setage');
-        if (!user.location) missing.push('• Location - Use /setlocation');
-        if (!user.bio) missing.push('• Bio - Use /setbio');
-        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+        if (!user.name) missing.push('📝 Add your name');
+        if (!user.age) missing.push('🎂 Add your age');
+        if (!user.location) missing.push('📍 Add your location');
+        if (!user.bio) missing.push('💭 Write a bio');
+        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
 
         return bot.sendMessage(chatId,
-          '⚠️ **Complete Your Profile** ⚠️\n\n' +
-          'Please complete your profile to access browsing:\n\n' +
-          `${missing.join('\n')}\n\n` +
-          'Once complete, you can start browsing! 💕'
+          '✨ **Almost Ready!** ✨\n\n' +
+          'Complete your profile to start browsing:\n\n' +
+          `📋 **What\'s Missing:**\n${missing.join('\n')}\n\n` +
+          '💡 Complete your profile to find your perfect match! 💕',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
+                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+              ]
+            }
+          }
         );
       }
 
@@ -332,17 +367,25 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       if (!user.profileCompleted) {
         const missing = [];
-        if (!user.name) missing.push('• Name - Use /setname');
-        if (!user.age) missing.push('• Age - Use /setage');
-        if (!user.location) missing.push('• Location - Use /setlocation');
-        if (!user.bio) missing.push('• Bio - Use /setbio');
-        if (!user.photos || user.photos.length === 0) missing.push('• Photo - Use /photos');
+        if (!user.name) missing.push('📝 Add your name');
+        if (!user.age) missing.push('🎂 Add your age');
+        if (!user.location) missing.push('📍 Add your location');
+        if (!user.bio) missing.push('💭 Write a bio');
+        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
 
         return bot.sendMessage(chatId,
-          '⚠️ **Complete Your Profile** ⚠️\n\n' +
-          'Please complete your profile to view matches:\n\n' +
-          `${missing.join('\n')}\n\n` +
-          'Once complete, you can see your matches! 💕'
+          '✨ **Almost Ready!** ✨\n\n' +
+          'Complete your profile to view your matches:\n\n' +
+          `📋 **What\'s Missing:**\n${missing.join('\n')}\n\n` +
+          '💡 Complete your profile to start matching! 💕',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
+                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+              ]
+            }
+          }
         );
       }
 

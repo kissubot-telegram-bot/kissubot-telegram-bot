@@ -179,7 +179,14 @@ function setupProfileCommands(bot, userStates, User) {
 
         case 'start_browse':
           // Redirect to browse command
-          bot.sendMessage(chatId, '💕 **Let\'s find your match!**\n\nUse /browse to start discovering people.');
+          bot.sendMessage(chatId, '💕 **Let\'s find your match!**\n\nYour profile is complete and ready!', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+              ]
+            }
+          });
           break;
 
         case 'main_menu':
@@ -483,7 +490,14 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setname] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Name Updated Successfully!**\n\n👤 Your name is now: **${name}**\n\n💡 Tip: Use /profile to see your complete profile`);
+      bot.sendMessage(chatId, `✅ **Name Updated Successfully!**\n\n👤 Your name is now: **${name}**`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
+            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
+          ]
+        }
+      });
     } catch (err) {
       console.error(`[/setname] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -528,7 +542,14 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setage] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Age Updated Successfully!**\n\n🎂 Your age is now: **${age}**\n\n💡 Tip: Use /profile to see your complete profile`);
+      bot.sendMessage(chatId, `✅ **Age Updated Successfully!**\n\n🎂 Your age is now: **${age}**`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
+            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
+          ]
+        }
+      });
     } catch (err) {
       console.error(`[/setage] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -569,7 +590,14 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setlocation] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Location Updated Successfully!**\n\n📍 Your location is now: **${location}**\n\n💡 Tip: Use /profile to see your complete profile`);
+      bot.sendMessage(chatId, `✅ **Location Updated Successfully!**\n\n📍 Your location is now: **${location}**`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
+            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
+          ]
+        }
+      });
     } catch (err) {
       console.error(`[/setlocation] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
@@ -614,7 +642,14 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setbio] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Bio Updated Successfully!**\n\n💬 Your bio has been updated with your new description.\n\n💡 Tip: Use /profile to see your complete profile`);
+      bot.sendMessage(chatId, `✅ **Bio Updated Successfully!**\n\n💬 Your bio has been updated with your new description.`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
+            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
+          ]
+        }
+      });
     } catch (err) {
       console.error(`[/setbio] Error for user ${telegramId}:`, err.response?.data || err.message);
       if (err.code === 'ECONNREFUSED' || err.response?.status >= 500) {
