@@ -475,7 +475,15 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Just type \`/setname\` followed by a space and your desired name!`;
 
-    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, helpMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    });
   });
 
   bot.onText(/\/setname (.+)/, async (msg, match) => {
@@ -523,7 +531,15 @@ function setupProfileCommands(bot, userStates, User) {
       `• No letters or special characters\n\n` +
       `💡 **Tip:** Just type \`/setage\` followed by your age in numbers!`;
 
-    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, helpMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    });
   });
 
   bot.onText(/\/setage (.+)/, async (msg, match) => {
@@ -575,7 +591,15 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Be specific! Include city and country for better matches.`;
 
-    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, helpMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    });
   });
 
   bot.onText(/\/setlocation (.+)/, async (msg, match) => {
@@ -623,7 +647,15 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Make it interesting! Tell others about your hobbies and interests.`;
 
-    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, helpMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    });
   });
 
   bot.onText(/\/setbio (.+)/, async (msg, match) => {
@@ -721,7 +753,14 @@ function setupProfileCommands(bot, userStates, User) {
       '• Use high-quality photos\n' +
       '• Show your face clearly\n' +
       '• Maximum 6 photos allowed\n\n' +
-      '📤 Just send the photo as your next message!');
+      '📤 Just send the photo as your next message!', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancel', callback_data: 'cancel_edit' }],
+          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+        ]
+      }
+    });
   });
 }
 
