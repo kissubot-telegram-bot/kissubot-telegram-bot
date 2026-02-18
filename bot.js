@@ -571,7 +571,6 @@ bot.on('callback_query', async (query) => {
           }, 500);
         } else if (data === 'main_menu') {
           // Redirect to start command
-          bot.sendMessage(chatId, '🏠 Returning to main menu...');
           setTimeout(() => {
             bot.sendMessage(chatId, '/start');
           }, 500);
