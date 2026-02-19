@@ -178,15 +178,8 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         case 'start_browse':
-          // Redirect to browse command
-          bot.sendMessage(chatId, '💕 **Let\'s find your match!**\n\nYour profile is complete and ready!', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-              ]
-            }
-          });
+          // Trigger browse directly
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
           break;
 
         // main_menu is handled by bot.js showMainMenu()
