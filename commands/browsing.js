@@ -1,281 +1,37 @@
 const { getCachedUserProfile } = require('./auth');
 
 function setupBrowsingCommands(bot, User, Match, Like) {
-  // Callback query handlers
-  bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const telegramId = query.from.id;
-    const data = query.data;
-    const message = query.message;
 
-    // Check if data exists
-    if (!data) {
-      console.log('No callback data found');
-      return;
-    }
+  // ─────────────────────────────────────────
+  // Shared helper: check if user profile is ready to browse
+  // ─────────────────────────────────────────
+  function getProfileMissing(user) {
+    const missing = [];
+    if (!user.name) missing.push('📝 Add your name (/setname)');
+    if (!user.age) missing.push('🎂 Add your age (/setage)');
+    if (!user.location) missing.push('📍 Add your location (/setlocation)');
+    if (!user.bio) missing.push('💬 Write a bio (/setbio)');
+    if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
+    return missing;
+  }
 
-    try {
-      // Like/Pass/SuperLike handlers
-      if (data.startsWith('like_')) {
-        const targetId = data.split('_')[1];
-
-        const fromUser = await User.findOne({ telegramId });
-        const toUser = await User.findOne({ telegramId: targetId });
-
-        if (!fromUser || !toUser) {
-          return bot.sendMessage(chatId, 'User not found.');
-        }
-
-        // Create a new like
-        const like = new Like({
-          fromUserId: fromUser._id,
-          toUserId: toUser._id,
-        });
-        await like.save();
-
-        bot.editMessageReplyMarkup({}, {
-          chat_id: chatId,
-          message_id: message.message_id
-        });
-
-        // Check for a match
-        const existingLike = await Like.findOne({ fromUserId: toUser._id, toUserId: fromUser._id });
-        if (existingLike) {
-          // Create a match
-          const match = new Match({
-            user1Id: fromUser._id,
-            user2Id: toUser._id,
-          });
-          await match.save();
-
-          // Send celebration message with conversation starters
-          const conversationStarters = [
-            `Ask about their favorite travel destination 🌍`,
-            `Comment on something from their bio 💬`,
-            `Ask what they're looking for 💕`,
-            `Share a fun fact about yourself ✨`,
-            `Ask about their weekend plans 🎉`
-          ];
-          const randomStarter = conversationStarters[Math.floor(Math.random() * conversationStarters.length)];
-
-          bot.sendMessage(chatId,
-            `🎉💖 **IT'S A MATCH!** 💖🎉\n\n` +
-            `You and **${toUser.name}** liked each other!\n\n` +
-            `💡 **Conversation Starter:**\n${randomStarter}\n\n` +
-            `💬 Start chatting now or use /matches to see all your matches.`,
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '💬 Start Chat', url: `tg://user?id=${targetId}` }],
-                  [{ text: '💌 View All Matches', callback_data: 'view_matches' }]
-                ]
-              }
-            }
-          );
-        } else {
-          bot.sendMessage(chatId, '❤️ **You liked this profile!**\n\nKeep browsing to find more matches!', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Browse More', callback_data: 'start_browse' }],
-                [{ text: '💕 View Matches', callback_data: 'view_matches' }]
-              ]
-            }
-          });
-        }
-
-      } else if (data.startsWith('pass_')) {
-        const targetId = data.split('_')[1];
-        // In a direct DB model, a "pass" might not need to be stored.
-        // If you want to prevent seeing the same profile again, you would add logic here.
-
-        bot.editMessageReplyMarkup({}, {
-          chat_id: chatId,
-          message_id: message.message_id
-        });
-
-        bot.sendMessage(chatId, '👎 **You passed on this profile.**\n\nLet\'s find someone better!', {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔍 Browse More', callback_data: 'start_browse' }]
-            ]
-          }
-        });
-
-      } else if (data.startsWith('superlike_')) {
-        const targetId = data.split('_')[1];
-        const fromUser = await User.findOne({ telegramId });
-
-        if (fromUser.coins < 10) {
-          return bot.sendMessage(chatId, '❌ **Not Enough Coins**\n\nYou need 10 coins to send a super like.', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💰 Buy Coins', callback_data: 'buy_coins' }],
-                [{ text: '🔙 Back to Browse', callback_data: 'start_browse' }]
-              ]
-            }
-          });
-        }
-
-        fromUser.coins -= 10;
-        await fromUser.save();
-
-        // Logic to notify the other user and boost profile would go here.
-
-        bot.editMessageReplyMarkup({}, {
-          chat_id: chatId,
-          message_id: message.message_id
-        });
-
-        bot.sendMessage(chatId, '⭐ You super liked this profile! They\'ll be notified and you\'ll appear at the top of their queue.');
-
-      } else if (data.startsWith('chat_')) {
-        const targetId = data.split('_')[1];
-        bot.sendMessage(chatId, '💬 **Chat Feature Coming Soon!**\n\nFor now, you can:\n• Continue browsing with /browse\n• View your matches with /matches\n• Send gifts to show interest');
-
-      } else if (data.startsWith('unmatch_')) {
-        const targetId = data.split('_')[1];
-        const fromUser = await User.findOne({ telegramId });
-        const toUser = await User.findOne({ telegramId: targetId });
-
-        if (fromUser && toUser) {
-          await Match.deleteOne({
-            $or: [
-              { user1Id: fromUser._id, user2Id: toUser._id },
-              { user1Id: toUser._id, user2Id: fromUser._id },
-            ],
-          });
-          bot.sendMessage(chatId, '💔 **Successfully Unmatched**\n\nYou can find new matches anytime!', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
-          });
-        } else {
-          bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again later.');
-        }
-
-      } else {
-        switch (data) {
-          case 'view_matches':
-            try {
-              const user = await User.findOne({ telegramId });
-              if (!user) {
-                return bot.sendMessage(chatId, 'User not found.');
-              }
-              const matches = await Match.find({ $or: [{ user1Id: user._id }, { user2Id: user._id }] }).populate('user1Id').populate('user2Id');
-
-              if (!matches || matches.length === 0) {
-                return bot.sendMessage(chatId,
-                  '💞 **No Matches Yet** 💞\n\n' +
-                  'Keep browsing to find your perfect match!\n\n' +
-                  '💡 **Tips:**\n' +
-                  '• Browse more profiles to get matches\n' +
-                  '• Complete your profile to attract more likes\n' +
-                  '• Add more photos to stand out\n\n' +
-                  'Your special someone is out there! 💕',
-                  {
-                    reply_markup: {
-                      inline_keyboard: [
-                        [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                        [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
-                      ]
-                    }
-                  }
-                );
-              }
-
-              let matchMsg = `💕 **YOUR MATCHES (${matches.length})** 💕\n\n`;
-
-              matches.slice(0, 10).forEach((match, index) => {
-                const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
-                matchMsg += `${index + 1}. **${otherUser.name}**, ${otherUser.age}\n`;
-                matchMsg += `   📍 ${otherUser.location}\n`;
-                if (otherUser.bio) {
-                  matchMsg += `   💬 ${otherUser.bio.substring(0, 50)}${otherUser.bio.length > 50 ? '...' : ''}\n`;
-                }
-                matchMsg += `\n`;
-              });
-
-              if (matches.length > 10) {
-                matchMsg += `\n... and ${matches.length - 10} more matches!`;
-              }
-
-              const matchButtons = matches.slice(0, 5).map(match => {
-                const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
-                return ([
-                  { text: `💬 Chat with ${otherUser.name}`, callback_data: `chat_${otherUser.telegramId}` }
-                ])
-              });
-
-              matchButtons.push([{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]);
-
-              bot.sendMessage(chatId, matchMsg, {
-                reply_markup: {
-                  inline_keyboard: matchButtons
-                }
-              });
-            } catch (err) {
-              console.error('Matches error:', err);
-              bot.sendMessage(chatId, '❌ Failed to load matches. Please try again later.');
-            }
-            break;
-        }
-      }
-    } catch (err) {
-      console.error('Browsing callback error:', err);
-      return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
-    }
-  });
-  // Shared browse function - callable from both onText and callback handlers
+  // ─────────────────────────────────────────
+  // Core browse function — shows next profile
+  // ─────────────────────────────────────────
   async function browseProfiles(chatId, telegramId) {
     try {
       const user = await getCachedUserProfile(telegramId, User);
 
       if (!user) {
-        return bot.sendMessage(chatId, '❌ User not found. Please use /start to begin.');
+        return bot.sendMessage(chatId, '❌ User not found. Use /start to begin.');
       }
 
       if (!user.termsAccepted) {
         return bot.sendMessage(chatId,
-          '⚠️ **Terms Required** ⚠️\n\n' +
-          'You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n' +
-          'Use /start to begin.'
-        );
-      }
-
-      if (!user.profileCompleted) {
-        const missing = [];
-        if (!user.name) missing.push('📝 Add your name');
-        if (!user.age) missing.push('🎂 Add your age');
-        if (!user.location) missing.push('📍 Add your location');
-        if (!user.bio) missing.push('� Write a bio');
-        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
-
-        return bot.sendMessage(chatId,
-          '✨ **Almost Ready!** ✨\n\n' +
-          'Complete your profile to start browsing:\n\n' +
-          `📋 **What\'s Missing:**\n${missing.join('\n')}\n\n` +
-          '💡 Complete your profile to find your perfect match! 💕',
+          '⚠️ **Terms Required**\n\nAccept our Terms of Service to use KissuBot.',
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }, { text: '👤 Edit Profile', callback_data: 'edit_profile' }]
-              ]
-            }
-          }
-        );
-      }
-
-      if (!user.name || !user.age || !user.location) {
-        return bot.sendMessage(chatId,
-          '⚠️ **Complete Your Profile First** ⚠️\n\n' +
-          'Please complete your profile before browsing.',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
                 [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
               ]
             }
@@ -283,244 +39,385 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         );
       }
 
-      const currentUser = await User.findOne({ telegramId });
-      if (!currentUser) {
-        return bot.sendMessage(chatId, 'User not found.');
-      }
-
-      let query = User.find({ telegramId: { $ne: telegramId } });
-      if (!currentUser.isVip) {
-        query = query.limit(5);
-      }
-
-      const profiles = await query;
-
-      if (!profiles || profiles.length === 0) {
+      // Check completeness directly — don't trust the profileCompleted flag
+      const missing = getProfileMissing(user);
+      if (missing.length > 0) {
         return bot.sendMessage(chatId,
-          '😔 **No More Profiles** 😔\n\n' +
-          'You\'ve seen all available profiles!\n\n' +
-          '💡 Check back later for new users or invite friends to join Kissubot!',
+          '✨ **Almost Ready!**\n\n' +
+          'Complete your profile to start browsing:\n\n' +
+          `📋 **Missing:**\n${missing.join('\n')}`,
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '⚙️ Settings', callback_data: 'main_settings' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }, { text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
               ]
             }
           }
         );
       }
 
-      const profile = profiles[0];
-      const profileId = profile.telegramId || profile._id || profile.id || profile.userId;
+      // Get already liked/passed profile IDs to skip them
+      const currentUser = await User.findOne({ telegramId });
+      if (!currentUser) return bot.sendMessage(chatId, '❌ User not found.');
 
-      const profileMsg = `💕 **${profile.name}, ${profile.age}** 💕\n\n` +
+      const likedIds = await Like.find({ fromUserId: currentUser._id }).distinct('toUserId');
+
+      // Build query: exclude self, already liked/passed, filter active users
+      let profileQuery = User.find({
+        telegramId: { $ne: telegramId },
+        _id: { $nin: likedIds },
+        name: { $exists: true, $ne: null },
+        age: { $exists: true, $ne: null },
+        photos: { $exists: true, $not: { $size: 0 } }
+      });
+
+      if (!currentUser.isVip) {
+        profileQuery = profileQuery.limit(10);
+      }
+
+      const profiles = await profileQuery;
+
+      if (!profiles || profiles.length === 0) {
+        return bot.sendMessage(chatId,
+          '😔 **No More Profiles**\n\n' +
+          "You've seen everyone available right now!\n\n" +
+          '💡 Check back later as new users join Kissubot.',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💕 View Matches', callback_data: 'view_matches' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          }
+        );
+      }
+
+      // Pick a random profile for variety
+      const profile = profiles[Math.floor(Math.random() * profiles.length)];
+      const profileId = profile.telegramId;
+
+      const profileMsg =
+        `💕 **${profile.name}, ${profile.age}**\n` +
         `📍 ${profile.location}\n\n` +
-        `💬 ${profile.bio || 'No bio available'}\n\n` +
-        `What do you think?`;
+        `💬 ${profile.bio || 'No bio yet'}`;
 
-      const opts = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💚 LIKE', callback_data: `like_${profileId}` }, { text: '💔 PASS', callback_data: `pass_${profileId}` }],
-            [{ text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }, { text: '🔙 Menu', callback_data: 'main_menu' }]
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '💚 LIKE', callback_data: `like_${profileId}` },
+            { text: '💔 PASS', callback_data: `pass_${profileId}` }
+          ],
+          [
+            { text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` },
+            { text: '🏠 Menu', callback_data: 'main_menu' }
           ]
-        }
+        ]
       };
 
       if (profile.photos && profile.photos.length > 0) {
-        bot.sendPhoto(chatId, profile.photos[0], {
+        await bot.sendPhoto(chatId, profile.photos[0], {
           caption: profileMsg,
-          reply_markup: opts.reply_markup
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
         });
       } else {
-        bot.sendMessage(chatId, profileMsg, opts);
+        await bot.sendMessage(chatId, profileMsg, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
       }
 
     } catch (err) {
-      console.error('Browse error:', err);
-      return bot.sendMessage(chatId, '❌ Failed to load profiles. Please try again later.');
+      console.error('[Browse] Error:', err);
+      return bot.sendMessage(chatId, '❌ Failed to load profiles. Please try again.');
     }
   }
 
-  // BROWSE command
+  // ─────────────────────────────────────────
+  // /browse command
+  // ─────────────────────────────────────────
   bot.onText(/\/browse/, async (msg) => {
     await browseProfiles(msg.chat.id, msg.from.id);
   });
 
-  // Export browseProfiles for use by other modules (e.g. profile.js callbacks)
-  module.exports.browseProfiles = browseProfiles;
-
-  // MATCHES command - View matches
+  // ─────────────────────────────────────────
+  // /matches command
+  // ─────────────────────────────────────────
   bot.onText(/\/matches/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
+    await showMatches(msg.chat.id, msg.from.id);
+  });
 
+  async function showMatches(chatId, telegramId) {
     try {
-      // Check profile completion
       const user = await User.findOne({ telegramId });
+      if (!user) return bot.sendMessage(chatId, '❌ User not found.');
 
-      if (!user) {
-        return bot.sendMessage(chatId, '❌ User not found. Please use /start to begin.');
-      }
-
-      if (!user.termsAccepted) {
-        return bot.sendMessage(chatId,
-          '⚠️ **Terms Required** ⚠️\n\n' +
-          'You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n' +
-          'Use /start to begin.'
-        );
-      }
-
-      if (!user.profileCompleted) {
-        const missing = [];
-        if (!user.name) missing.push('📝 Add your name');
-        if (!user.age) missing.push('🎂 Add your age');
-        if (!user.location) missing.push('📍 Add your location');
-        if (!user.bio) missing.push('💭 Write a bio');
-        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
-
-        return bot.sendMessage(chatId,
-          '✨ **Almost Ready!** ✨\n\n' +
-          'Complete your profile to view your matches:\n\n' +
-          `📋 **What\'s Missing:**\n${missing.join('\n')}\n\n` +
-          '💡 Complete your profile to start matching! 💕',
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
-                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
-              ]
-            }
-          }
-        );
-      }
-
-      if (!user) {
-        return bot.sendMessage(chatId, 'User not found.');
-      }
-      const matches = await Match.find({ $or: [{ user1Id: user._id }, { user2Id: user._id }] }).populate('user1Id').populate('user2Id');
+      const matches = await Match.find({
+        $or: [{ user1Id: user._id }, { user2Id: user._id }]
+      }).populate('user1Id').populate('user2Id');
 
       if (!matches || matches.length === 0) {
         return bot.sendMessage(chatId,
-          '💞 **No Matches Yet** 💞\n\n' +
-          'Keep browsing to find your perfect match!\n\n' +
-          '💡 **Tips:**\n' +
-          '• Browse more profiles to get matches\n' +
-          '• Complete your profile to attract more likes\n' +
-          '• Add more photos to stand out\n\n' +
-          'Your special someone is out there! 💕',
+          '💞 **No Matches Yet**\n\nKeep browsing to find your perfect match! 💕',
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
               ]
             }
           }
         );
       }
 
-      let matchMsg = `💞 **YOUR MATCHES (${matches.length})** 💞\n\n`;
-
-      matches.forEach((match, index) => {
-        const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
-        matchMsg += `${index + 1}. **${otherUser.name}, ${otherUser.age}**\n`;
-        matchMsg += `   📍 ${otherUser.location}\n`;
-        matchMsg += `   💬 Matched on ${new Date(match.createdAt).toLocaleDateString()}\n\n`;
+      let matchMsg = `💕 **YOUR MATCHES (${matches.length})** 💕\n\n`;
+      matches.slice(0, 10).forEach((match, index) => {
+        const other = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
+        matchMsg += `${index + 1}. **${other.name}**, ${other.age} · 📍 ${other.location}\n`;
+        if (other.bio) matchMsg += `   💬 ${other.bio.substring(0, 60)}${other.bio.length > 60 ? '...' : ''}\n`;
+        matchMsg += '\n';
       });
 
-      matchMsg += `💕 **Start chatting with your matches!**\n`;
-      matchMsg += `Use the buttons below to connect:`;
+      if (matches.length > 10) matchMsg += `_...and ${matches.length - 10} more matches!_`;
 
-      const keyboard = matches.slice(0, 5).map(match => {
-        const otherUser = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
-        return ([
-          { text: `💬 Chat with ${otherUser.name}`, callback_data: `chat_${otherUser.telegramId}` }
-        ])
+      const matchButtons = matches.slice(0, 5).map(match => {
+        const other = match.user1Id.telegramId === telegramId ? match.user2Id : match.user1Id;
+        return [{ text: `💬 Chat with ${other.name}`, url: `tg://user?id=${other.telegramId}` }];
       });
-
-      keyboard.push([{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]);
+      matchButtons.push([{ text: '🔍 Browse More', callback_data: 'start_browse' }, { text: '🏠 Menu', callback_data: 'main_menu' }]);
 
       bot.sendMessage(chatId, matchMsg, {
-        reply_markup: { inline_keyboard: keyboard }
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: matchButtons }
       });
 
     } catch (err) {
-      console.error('Matches error:', err);
-      return bot.sendMessage(chatId, '❌ Failed to load matches. Please try again later.');
+      console.error('[Matches] Error:', err);
+      bot.sendMessage(chatId, '❌ Failed to load matches. Please try again later.');
     }
-  });
+  }
 
-  // LIKESYOU command - VIP feature
-  bot.onText(/\/likesyou/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
+  // ─────────────────────────────────────────
+  // Callback query handler
+  // ─────────────────────────────────────────
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const telegramId = query.from.id;
+    const data = query.data;
+    const messageId = query.message.message_id;
+
+    if (!data) return;
 
     try {
-      const user = await getCachedUserProfile(telegramId, User);
+      // ── LIKE ──
+      if (data.startsWith('like_')) {
+        const targetTelegramId = data.replace('like_', '');
 
-      if (!user.isVip) {
-        return bot.sendMessage(chatId,
-          '⭐ **VIP FEATURE** ⭐\n\n' +
-          '👀 **See Who Likes You** is a VIP feature!\n\n' +
-          '💎 **With VIP you get:**\n' +
-          '• See who liked your profile\n' +
-          '• Unlimited likes\n' +
-          '• Priority in browse queue\n' +
-          '• Advanced search filters\n\n' +
-          '🚀 **Upgrade to VIP now!**',
+        const fromUser = await User.findOne({ telegramId });
+        const toUser = await User.findOne({ telegramId: targetTelegramId });
+
+        if (!fromUser || !toUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+        // Remove buttons from the liked profile card
+        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+
+        // Save the like
+        await Like.findOneAndUpdate(
+          { fromUserId: fromUser._id, toUserId: toUser._id },
+          { fromUserId: fromUser._id, toUserId: toUser._id },
+          { upsert: true }
+        );
+
+        // Check for mutual like → match
+        const mutualLike = await Like.findOne({ fromUserId: toUser._id, toUserId: fromUser._id });
+
+        if (mutualLike) {
+          // Create match (if not already exists)
+          const existingMatch = await Match.findOne({
+            $or: [
+              { user1Id: fromUser._id, user2Id: toUser._id },
+              { user1Id: toUser._id, user2Id: fromUser._id }
+            ]
+          });
+
+          if (!existingMatch) {
+            await Match.create({ user1Id: fromUser._id, user2Id: toUser._id });
+          }
+
+          const starters = [
+            "Ask about their favourite travel destination 🌍",
+            "Comment on something from their bio 💬",
+            "Ask what they're looking for 💕",
+            "Share a fun fact about yourself ✨",
+            "Ask about their weekend plans 🎉"
+          ];
+          const starter = starters[Math.floor(Math.random() * starters.length)];
+
+          await bot.sendMessage(chatId,
+            `🎉💖 **IT'S A MATCH!** 💖🎉\n\n` +
+            `You and **${toUser.name}** liked each other!\n\n` +
+            `💡 **Conversation Starter:**\n${starter}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '💬 Open Chat', url: `tg://user?id=${targetTelegramId}` },
+                    { text: '💌 All Matches', callback_data: 'view_matches' }
+                  ],
+                  [{ text: '🔍 Keep Browsing', callback_data: 'start_browse' }]
+                ]
+              }
+            }
+          );
+        } else {
+          // No match yet — show brief message then auto-load next profile
+          await bot.sendMessage(chatId,
+            `❤️ Liked! Keep swiping...`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '➡️ Next Profile', callback_data: 'start_browse' }, { text: '💌 Matches', callback_data: 'view_matches' }]
+                ]
+              }
+            }
+          );
+        }
+
+        // ── PASS ──
+      } else if (data.startsWith('pass_')) {
+        // Remove buttons
+        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+
+        const targetTelegramId = data.replace('pass_', '');
+        const fromUser = await User.findOne({ telegramId });
+        const toUser = await User.findOne({ telegramId: targetTelegramId });
+
+        // Store pass so we don't show this profile again
+        if (fromUser && toUser) {
+          await Like.findOneAndUpdate(
+            { fromUserId: fromUser._id, toUserId: toUser._id },
+            { fromUserId: fromUser._id, toUserId: toUser._id, passed: true },
+            { upsert: true }
+          );
+        }
+
+        // Auto-show next profile immediately
+        await browseProfiles(chatId, telegramId);
+
+        // ── SUPER LIKE ──
+      } else if (data.startsWith('superlike_')) {
+        const targetTelegramId = data.replace('superlike_', '');
+        const fromUser = await User.findOne({ telegramId });
+
+        if (!fromUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+        if (fromUser.coins < 10) {
+          return bot.sendMessage(chatId,
+            '❌ **Not Enough Coins**\n\nYou need 10 coins to send a Super Like.',
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '💰 Buy Coins', callback_data: 'buy_coins' }, { text: '🔍 Browse', callback_data: 'start_browse' }]
+                ]
+              }
+            }
+          );
+        }
+
+        const toUser = await User.findOne({ telegramId: targetTelegramId });
+        if (!toUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+        fromUser.coins -= 10;
+        await fromUser.save();
+
+        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+
+        // Save super like
+        await Like.findOneAndUpdate(
+          { fromUserId: fromUser._id, toUserId: toUser._id },
+          { fromUserId: fromUser._id, toUserId: toUser._id, superLike: true },
+          { upsert: true }
+        );
+
+        // Notify the target user
+        try {
+          await bot.sendMessage(targetTelegramId,
+            `⭐ **Someone Super Liked You!**\n\n` +
+            `**${fromUser.name}** thinks you're special!\n\n` +
+            `Browse their profile to see if you're interested! 💕`,
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }]
+                ]
+              }
+            }
+          );
+        } catch (e) { /* user may have blocked bot */ }
+
+        await bot.sendMessage(chatId, `⭐ Super Like sent to **${toUser.name}**! They've been notified.`, { parse_mode: 'Markdown' });
+
+        // Auto-load next profile
+        await browseProfiles(chatId, telegramId);
+
+        // ── CHAT ──
+      } else if (data.startsWith('chat_')) {
+        const targetTelegramId = data.replace('chat_', '');
+        bot.sendMessage(chatId,
+          '💬 **Open a direct chat:**',
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '⭐ Get VIP', callback_data: 'manage_vip' }],
-                [{ text: '🔙 Back', callback_data: 'main_menu' }]
+                [{ text: '💬 Open Chat', url: `tg://user?id=${targetTelegramId}` }],
+                [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
               ]
             }
           }
         );
-      }
 
-      const currentUser = await User.findOne({ telegramId });
-      const likes = await Like.find({ toUserId: currentUser._id }).populate('fromUserId');
+        // ── UNMATCH ──
+      } else if (data.startsWith('unmatch_')) {
+        const targetTelegramId = data.replace('unmatch_', '');
+        const fromUser = await User.findOne({ telegramId });
+        const toUser = await User.findOne({ telegramId: targetTelegramId });
 
-      if (!likes || likes.length === 0) {
-        return bot.sendMessage(chatId,
-          '👀 **WHO LIKES YOU** 👀\n\n' +
-          'No one has liked your profile yet.\n\n' +
-          '💡 **Tips to get more likes:**\n' +
-          '• Add more photos\n' +
-          '• Write an interesting bio\n' +
-          '• Stay active on the app\n\n' +
-          'Keep browsing and your likes will come! 💕'
-        );
-      }
-
-      let likesMsg = `👀 **${likes.length} PEOPLE LIKE YOU** 👀\n\n`;
-
-      likes.forEach((like, index) => {
-        const otherUser = like.fromUserId;
-        likesMsg += `${index + 1}. **${otherUser.name}, ${otherUser.age}**\n`;
-        likesMsg += `   📍 ${otherUser.location}\n`;
-        likesMsg += `   💕 Liked on ${new Date(like.createdAt).toLocaleDateString()}\n\n`;
-      });
-
-      likesMsg += `💚 **Like them back to match!**`;
-
-      bot.sendMessage(chatId, likesMsg, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💚 Browse & Like Back', callback_data: 'browse' }],
-            [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-          ]
+        if (fromUser && toUser) {
+          await Match.deleteOne({
+            $or: [
+              { user1Id: fromUser._id, user2Id: toUser._id },
+              { user1Id: toUser._id, user2Id: fromUser._id }
+            ]
+          });
+          bot.sendMessage(chatId, '💔 **Unmatched.**\n\nYou can always find new matches!', {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          });
+        } else {
+          bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again.');
         }
-      });
+
+        // ── VIEW MATCHES (in-callback) ──
+      } else if (data === 'view_matches') {
+        await showMatches(chatId, telegramId);
+
+        // ── START BROWSE (in-callback) ──
+      } else if (data === 'start_browse') {
+        await browseProfiles(chatId, telegramId);
+      }
 
     } catch (err) {
-      console.error('Likes You error:', err);
-      return bot.sendMessage(chatId, '❌ Failed to load likes. Please try again later.');
+      console.error('[Browsing callback] Error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
     }
   });
+
+  // Export browseProfiles so profile.js can call it directly
+  module.exports.browseProfiles = browseProfiles;
 }
 
 module.exports = { setupBrowsingCommands };
-
