@@ -1,6 +1,7 @@
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 const axios = require('axios');
 const { API_BASE } = require('../config');
+const browsingModule = require('./browsing');
 
 // US States for location selection (USA only)
 const US_STATES = [
@@ -178,8 +179,12 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         case 'start_browse':
-          // Trigger browse directly
-          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
+          // Call browseProfiles directly (set on module.exports after setupBrowsingCommands runs)
+          if (browsingModule.browseProfiles) {
+            await browsingModule.browseProfiles(chatId, telegramId);
+          } else {
+            bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
+          }
           break;
 
         // main_menu is handled by bot.js showMainMenu()

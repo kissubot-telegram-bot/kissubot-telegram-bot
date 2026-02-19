@@ -228,13 +228,9 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       return bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
     }
   });
-  // BROWSE command - Browse and like profiles
-  bot.onText(/\/browse/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-
+  // Shared browse function - callable from both onText and callback handlers
+  async function browseProfiles(chatId, telegramId) {
     try {
-      // Check profile completion
       const user = await getCachedUserProfile(telegramId, User);
 
       if (!user) {
@@ -254,7 +250,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         if (!user.name) missing.push('📝 Add your name');
         if (!user.age) missing.push('🎂 Add your age');
         if (!user.location) missing.push('📍 Add your location');
-        if (!user.bio) missing.push('💭 Write a bio');
+        if (!user.bio) missing.push('� Write a bio');
         if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
 
         return bot.sendMessage(chatId,
@@ -265,27 +261,28 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           {
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
-                [{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]
+                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }, { text: '👤 Edit Profile', callback_data: 'edit_profile' }]
               ]
             }
           }
         );
       }
 
-      // Check if user has a complete profile
       if (!user.name || !user.age || !user.location) {
         return bot.sendMessage(chatId,
           '⚠️ **Complete Your Profile First** ⚠️\n\n' +
-          'Please complete your profile before browsing:\n' +
-          '• Use /setname to set your name\n' +
-          '• Use /setage to set your age\n' +
-          '• Use /setlocation to set your location\n\n' +
-          'Then come back and start browsing! 💕'
+          'Please complete your profile before browsing.',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          }
         );
       }
 
-      // Get potential matches
       const currentUser = await User.findOne({ telegramId });
       if (!currentUser) {
         return bot.sendMessage(chatId, 'User not found.');
@@ -301,15 +298,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       if (!profiles || profiles.length === 0) {
         return bot.sendMessage(chatId,
           '😔 **No More Profiles** 😔\n\n' +
-          'You\'ve seen all available profiles in your area!\n\n' +
-          '💡 **Try:**\n' +
-          '• Expanding your search radius in /settings\n' +
-          '• Checking back later for new users\n' +
-          '• Inviting friends to join Kissubot!'
+          'You\'ve seen all available profiles!\n\n' +
+          '💡 Check back later for new users or invite friends to join Kissubot!',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '⚙️ Settings', callback_data: 'main_settings' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]
+            }
+          }
         );
       }
 
-      // Show first profile
       const profile = profiles[0];
       const profileId = profile.telegramId || profile._id || profile.id || profile.userId;
 
@@ -321,22 +321,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const opts = {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💚 LIKE', callback_data: `like_${profileId}` }],
-            [{ text: '💔 PASS', callback_data: `pass_${profileId}` }],
-            [{ text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }],
-            [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+            [{ text: '💚 LIKE', callback_data: `like_${profileId}` }, { text: '💔 PASS', callback_data: `pass_${profileId}` }],
+            [{ text: '⭐ SUPER LIKE', callback_data: `superlike_${profileId}` }, { text: '🔙 Menu', callback_data: 'main_menu' }]
           ]
         }
       };
 
       if (profile.photos && profile.photos.length > 0) {
-        // Send photo with caption
         bot.sendPhoto(chatId, profile.photos[0], {
           caption: profileMsg,
           reply_markup: opts.reply_markup
         });
       } else {
-        // Send text message
         bot.sendMessage(chatId, profileMsg, opts);
       }
 
@@ -344,7 +340,15 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       console.error('Browse error:', err);
       return bot.sendMessage(chatId, '❌ Failed to load profiles. Please try again later.');
     }
+  }
+
+  // BROWSE command
+  bot.onText(/\/browse/, async (msg) => {
+    await browseProfiles(msg.chat.id, msg.from.id);
   });
+
+  // Export browseProfiles for use by other modules (e.g. profile.js callbacks)
+  module.exports.browseProfiles = browseProfiles;
 
   // MATCHES command - View matches
   bot.onText(/\/matches/, async (msg) => {
@@ -519,3 +523,4 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 }
 
 module.exports = { setupBrowsingCommands };
+
