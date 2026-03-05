@@ -33,6 +33,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
     if (!user.name) missing.push('📝 Add your name');
     if (!user.age) missing.push('🎂 Add your age');
     if (!user.location) missing.push('📍 Add your location');
+    if (!user.phone) missing.push('📞 Add your phone number');
     if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
     return missing;
   }

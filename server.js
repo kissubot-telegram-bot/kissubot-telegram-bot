@@ -207,6 +207,7 @@ const userSchema = new mongoose.Schema({
   age: Number,
   location: { type: String, required: true },
   bio: String,
+  phone: { type: String, default: null }, // Collected via Telegram contact share
   photos: [String], // Array of photo URLs (max 6)
   profilePhoto: String, // First photo for backward compatibility
 

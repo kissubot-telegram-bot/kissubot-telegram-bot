@@ -153,18 +153,34 @@ function setupProfileCommands(bot, userStates, User) {
             profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
             profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
             profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
-            profileMsg += `💭 **Bio:** ${user.bio || 'Not set'}\n`;
+            profileMsg += `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added'}\n`;
+            profileMsg += `💭 **Bio:** ${user.bio || '(optional — not set)'}\n`;
             profileMsg += `📸 **Photos:** ${photoCount}/6\n`;
             profileMsg += `✨ **Status:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
 
-            bot.sendMessage(chatId, profileMsg, {
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }],
-                  [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
-                ]
-              }
+            const profileButtons = [
+              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }],
+              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+            ];
+
+            await bot.sendMessage(chatId, profileMsg, {
+              reply_markup: { inline_keyboard: profileButtons }
             });
+
+            // If phone not added, prompt with contact-share button
+            if (!user.phone) {
+              await bot.sendMessage(chatId,
+                '📞 **Phone number required to complete your profile.**\n\nTap the button below to share your number instantly — it\'s auto-filled from your Telegram account.',
+                {
+                  reply_markup: {
+                    keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+                    one_time_keyboard: true,
+                    resize_keyboard: true
+                  }
+                }
+              );
+            }
+
           } catch (err) {
             console.error('View profile error:', err);
             bot.sendMessage(chatId, '❌ Failed to load profile.');
@@ -427,11 +443,12 @@ function setupProfileCommands(bot, userStates, User) {
         `📝 **Name:** ${user.name || 'Not set'}\n` +
         `🎂 **Age:** ${user.age || 'Not set'}\n` +
         `📍 **Location:** ${user.location || 'Not set'}\n` +
-        `💬 **Bio:** ${user.bio || 'Not set'}\n` +
+        `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required!'}\n` +
+        `💭 **Bio:** ${user.bio || '(optional)'}\n` +
         `📸 **Photos:** ${photoCount}/6\n\n` +
         `✨ Choose what to edit:`;
 
-      bot.sendMessage(chatId, profileMsg, {
+      await bot.sendMessage(chatId, profileMsg, {
         reply_markup: {
           inline_keyboard: [
             [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
@@ -441,8 +458,73 @@ function setupProfileCommands(bot, userStates, User) {
           ]
         }
       });
+
+      // Prompt phone share if not set
+      if (!user.phone) {
+        await bot.sendMessage(chatId,
+          '📞 **Phone number required!**\n\nTap below to share your number instantly from your Telegram account.',
+          {
+            reply_markup: {
+              keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+              one_time_keyboard: true,
+              resize_keyboard: true
+            }
+          }
+        );
+      }
+
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
+    }
+  });
+
+  // Handle Telegram contact share (phone number)
+  bot.on('contact', async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const contact = msg.contact;
+
+    // Only accept if the contact is the user themselves
+    if (String(contact.user_id) !== String(telegramId)) {
+      return bot.sendMessage(chatId, '❌ Please share your own phone number, not someone else\'s.');
+    }
+
+    try {
+      const phone = contact.phone_number;
+      await User.findOneAndUpdate({ telegramId: String(telegramId) }, { phone });
+      invalidateUserCache(telegramId);
+
+      await bot.sendMessage(chatId,
+        `✅ **Phone number saved!**\n\nYour number has been added to your profile.`,
+        {
+          reply_markup: { remove_keyboard: true }
+        }
+      );
+
+      // Check if profile is now complete
+      const updatedUser = await getCachedUserProfile(telegramId, User);
+      const missing = [];
+      if (!updatedUser.name) missing.push('name');
+      if (!updatedUser.age) missing.push('age');
+      if (!updatedUser.location) missing.push('location');
+      if (!updatedUser.photos || updatedUser.photos.length === 0) missing.push('photo');
+
+      if (missing.length === 0) {
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
+        invalidateUserCache(telegramId);
+        bot.sendMessage(chatId,
+          '🎉 **Profile Complete!** You can now browse and match with others.\n\nUse /browse to start!',
+          { reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
+        );
+      } else {
+        bot.sendMessage(chatId,
+          `📋 Still missing: ${missing.join(', ')}. Use /profile to complete your profile.`,
+          { reply_markup: { inline_keyboard: [[{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]] } }
+        );
+      }
+    } catch (err) {
+      console.error('Contact handler error:', err);
+      bot.sendMessage(chatId, '❌ Failed to save phone number. Please try again.');
     }
   });
 
