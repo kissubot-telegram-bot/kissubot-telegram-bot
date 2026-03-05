@@ -454,9 +454,14 @@ function setupProfileCommands(bot, userStates, User) {
         `📸 **Photos:** ${photoCount}/6\n\n` +
         `✨ Choose what to edit:`;
 
+      const phoneButtons = !user.phone
+        ? [[{ text: '📞 Add Phone Number ⭐ Required', callback_data: 'add_phone_number' }]]
+        : [];
+
       await bot.sendMessage(chatId, profileMsg, {
         reply_markup: {
           inline_keyboard: [
+            ...phoneButtons,
             [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
             [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
             [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
@@ -464,20 +469,6 @@ function setupProfileCommands(bot, userStates, User) {
           ]
         }
       });
-
-      // Prompt phone share if not set
-      if (!user.phone) {
-        await bot.sendMessage(chatId,
-          '📞 **Phone number required!**\n\nTap below to share your number instantly from your Telegram account.',
-          {
-            reply_markup: {
-              keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
-              one_time_keyboard: true,
-              resize_keyboard: true
-            }
-          }
-        );
-      }
 
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
