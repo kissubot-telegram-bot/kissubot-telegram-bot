@@ -153,38 +153,44 @@ function setupProfileCommands(bot, userStates, User) {
             profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
             profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
             profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
-            profileMsg += `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added'}\n`;
+            profileMsg += `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required'}\n`;
             profileMsg += `💭 **Bio:** ${user.bio || '(optional — not set)'}\n`;
             profileMsg += `📸 **Photos:** ${photoCount}/6\n`;
             profileMsg += `✨ **Status:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
 
             const profileButtons = [
-              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }],
-              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }]
             ];
+
+            // Show Add Phone button prominently if missing
+            if (!user.phone) {
+              profileButtons.unshift([{ text: '📞 Add Phone Number ⭐ Required', callback_data: 'add_phone_number' }]);
+            }
+
+            profileButtons.push([{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]);
 
             await bot.sendMessage(chatId, profileMsg, {
               reply_markup: { inline_keyboard: profileButtons }
             });
 
-            // If phone not added, prompt with contact-share button
-            if (!user.phone) {
-              await bot.sendMessage(chatId,
-                '📞 **Phone number required to complete your profile.**\n\nTap the button below to share your number instantly — it\'s auto-filled from your Telegram account.',
-                {
-                  reply_markup: {
-                    keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
-                    one_time_keyboard: true,
-                    resize_keyboard: true
-                  }
-                }
-              );
-            }
-
           } catch (err) {
             console.error('View profile error:', err);
             bot.sendMessage(chatId, '❌ Failed to load profile.');
           }
+          break;
+
+        case 'add_phone_number':
+          await bot.sendMessage(chatId,
+            '📞 **Share your phone number**\n\n' +
+            'Tap the big button below — Telegram will auto-fill your number for you.',
+            {
+              reply_markup: {
+                keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+                one_time_keyboard: true,
+                resize_keyboard: true
+              }
+            }
+          );
           break;
 
         case 'start_browse':
