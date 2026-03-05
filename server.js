@@ -363,7 +363,24 @@ setupSearchCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
 
-// NOTE: Bot command menu is registered in bot.js (single source of truth)
+// Register bot command menu with Telegram (visible in the "/" list)
+bot.setMyCommands([
+  { command: 'start', description: '🚀 Start or restart the bot' },
+  { command: 'profile', description: '👤 View and edit your profile' },
+  { command: 'browse', description: '🔍 Browse potential matches' },
+  { command: 'matches', description: '💕 View your matches' },
+  { command: 'likesyou', description: '👀 See who likes you (VIP)' },
+  { command: 'store', description: '💎 VIP, Boosts & Coins' },
+  { command: 'vip', description: '👑 Manage VIP membership' },
+  { command: 'coins', description: '🪙 Check balance & buy coins' },
+  { command: 'settings', description: '⚙️ Adjust your preferences' },
+  { command: 'help', description: '❓ Get help and support' },
+  { command: 'delete', description: '🗑️ Delete your account' }
+]).then(() => {
+  console.log('✅ Bot command menu registered with Telegram');
+}).catch(err => {
+  console.error('❌ Failed to register bot command menu:', err.message);
+});
 
 // Export bot and userStates so bot.js can import them
 module.exports = { bot, userStates };

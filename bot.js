@@ -1072,24 +1072,7 @@ bot.on('webhook_error', (error) => {
   console.error('❌ Webhook error:', error.message);
 });
 
-// Set up bot commands menu (single source of truth — server.js no longer sets this)
-bot.setMyCommands([
-  { command: 'start', description: '🚀 Start or restart the bot' },
-  { command: 'profile', description: '👤 View and edit your profile' },
-  { command: 'browse', description: '🔍 Browse potential matches' },
-  { command: 'matches', description: '💕 View your matches' },
-  { command: 'likesyou', description: '👀 See who likes you (VIP)' },
-  { command: 'store', description: '💎 VIP, Boosts & Coins' },
-  { command: 'vip', description: '👑 Manage VIP membership' },
-  { command: 'coins', description: '🪙 Check balance & buy coins' },
-  { command: 'settings', description: '⚙️ Adjust your preferences' },
-  { command: 'help', description: '❓ Get help and support' },
-  { command: 'delete', description: '🗑️ Delete your account' }
-]).then(() => {
-  console.log('✅ Bot commands menu set up successfully!');
-}).catch((err) => {
-  console.error('❌ Failed to set up bot commands menu:', err);
-});
+// NOTE: setMyCommands is registered in server.js at startup
 
 console.log('✅ Kissubot is running successfully!');
 console.log('🔗 API Base:', API_BASE);
