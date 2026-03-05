@@ -5,7 +5,6 @@ function checkAndUpdateProfileCompletion(user) {
         user.name &&
         user.age &&
         user.location &&
-        user.bio &&
         user.photos &&
         user.photos.length > 0
     );

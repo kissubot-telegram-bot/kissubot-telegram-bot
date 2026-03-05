@@ -55,24 +55,20 @@ function handleReportFlow(chatId, telegramId, reportType) {
   }
 }
 
-function showMainMenu(chatId) {
-  const mainMenuMsg = `🏠 **MAIN MENU** 🏠\n\n` +
-    `Welcome to Kissubot! Choose what you'd like to do:\n\n` +
-    `👤 **Profile & Dating**\n` +
-    `• View and edit your profile\n` +
-    `• Browse and match with people\n` +
-    `• See your matches\n\n` +
-    `⚙️ **Settings & Support**\n` +
-    `• Customize your preferences\n` +
-    `• Get help and support\n` +
-    `• Upgrade to VIP`;
+function showMainMenu(chatId, firstName) {
+  const greeting = firstName ? `Hey ${firstName}! 👋` : 'Welcome to Kissubot! 👋';
+  const mainMenuMsg =
+    `💘 **KISSUBOT** 💘\n\n` +
+    `${greeting}\n\n` +
+    `What would you like to do today?`;
 
   bot.sendMessage(chatId, mainMenuMsg, {
+    parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '👤 My Profile', callback_data: 'view_profile' }, { text: '🔍 Browse', callback_data: 'browse_profiles' }],
-        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '❤️ Likes You', callback_data: 'manage_vip' }],
-        [{ text: '⚙️ Settings', callback_data: 'main_settings' }, { text: '❓ Help', callback_data: 'show_help' }]
+        [{ text: '👤 My Profile', callback_data: 'view_profile' }, { text: '🔍 Discover', callback_data: 'browse_profiles' }],
+        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '💬 Chat', callback_data: 'view_matches' }],
+        [{ text: '🆘 Support', callback_data: 'show_support' }, { text: '⚙️ Settings', callback_data: 'main_settings' }]
       ]
     }
   });
@@ -542,32 +538,42 @@ bot.on('callback_query', async (query) => {
         // VIP handlers are now in commands/premium.js
         // Search Settings callbacks are handled in commands/settings.js
         // Gift handlers are now in commands/gifts.js
-        if (data === 'view_matches') {
-          // Trigger matches directly
-          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/matches' });
-        } else if (data === 'browse_profiles') {
-          // Trigger browse directly via the browsing module
-          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
+        if (data === 'browse_profiles') {
+          // Handled by browsing.js callback_query listener
+        } else if (data === 'view_matches') {
+          // Handled by browsing.js callback_query listener
+        } else if (data === 'start_browse') {
+          // Handled by browsing.js callback_query listener
         } else if (data === 'edit_profile') {
-          // edit_profile is now handled in profile.js
+          // Handled by profile.js callback_query listener
         } else if (data === 'main_settings') {
-          // Trigger settings directly
           bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/settings' });
+        } else if (data === 'show_support') {
+          bot.sendMessage(chatId,
+            '🆘 **SUPPORT** 🆘\n\n' +
+            '📧 **Email:** spprtksbt@gmail.com\n' +
+            '💬 **Telegram:** @kissuMatch_bot\n\n' +
+            '⏰ Response time: within 24 hours\n\n' +
+            '📋 When contacting us, please include:\n' +
+            '• Your username: @' + (query.from.username || 'N/A') + '\n' +
+            '• A description of your issue',
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🐛 Report Bug', callback_data: 'report_bug' }, { text: '💡 Feature Request', callback_data: 'feature_request' }],
+                  [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ]
+              }
+            }
+          );
+        } else if (data === 'show_help') {
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/help' });
         } else if (data === 'main_menu') {
-          // Show main menu directly
-          showMainMenu(chatId);
+          showMainMenu(chatId, query.from.first_name);
         } else if (data === 'priority_boost') {
-          // Redirect to priority command
-          bot.sendMessage(chatId, '🚀 Opening priority boost...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/priority');
-          }, 500);
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/priority' });
         } else if (data === 'back_to_search') {
-          // Redirect to search command
-          bot.sendMessage(chatId, '🔍 Returning to search settings...');
-          setTimeout(() => {
-            bot.sendMessage(chatId, '/search');
-          }, 500);
+          bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/search' });
         } else if (data === 'live_chat_support' || data === 'email_support' || data === 'faq_support' || data === 'report_issue') {
           // Support options
           bot.sendMessage(chatId, '📞 **SUPPORT CONTACT** 📞\n\n' +
@@ -1066,17 +1072,19 @@ bot.on('webhook_error', (error) => {
   console.error('❌ Webhook error:', error.message);
 });
 
-// Set up bot commands menu
+// Set up bot commands menu (single source of truth — server.js no longer sets this)
 bot.setMyCommands([
-  { command: 'start', description: '🏠 Start the bot' },
-  { command: 'profile', description: '👤 View your profile' },
-  { command: 'browse', description: '🔍 Browse profiles' },
+  { command: 'start', description: '🚀 Start or restart the bot' },
+  { command: 'profile', description: '👤 View and edit your profile' },
+  { command: 'browse', description: '🔍 Browse potential matches' },
   { command: 'matches', description: '💕 View your matches' },
   { command: 'likesyou', description: '👀 See who likes you (VIP)' },
-  { command: 'settings', description: '⚙️ Settings' },
-  { command: 'vip', description: '👑 VIP membership' },
-  { command: 'coins', description: '💰 Buy coins' },
-  { command: 'help', description: '❓ Get help' }
+  { command: 'store', description: '💎 VIP, Boosts & Coins' },
+  { command: 'vip', description: '👑 Manage VIP membership' },
+  { command: 'coins', description: '🪙 Check balance & buy coins' },
+  { command: 'settings', description: '⚙️ Adjust your preferences' },
+  { command: 'help', description: '❓ Get help and support' },
+  { command: 'delete', description: '🗑️ Delete your account' }
 ]).then(() => {
   console.log('✅ Bot commands menu set up successfully!');
 }).catch((err) => {

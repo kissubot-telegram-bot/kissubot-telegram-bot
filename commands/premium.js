@@ -3,51 +3,16 @@ const { getCachedUserProfile } = require('./auth');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
-function setupPremiumCommands(bot) {
+function setupPremiumCommands(bot, User) {
   const axios = require('axios');
   const API_BASE = process.env.API_BASE || 'http://localhost:3000';
-
-  bot.onText(/\/coins/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-
-    try {
-      const user = await getCachedUserProfile(telegramId);
-      const coinBalance = user.coins || 0;
-
-      const coinMsg = `**Your Coin Balance: ${coinBalance} 🪙**\n\n` +
-        `Coins are used to unlock premium features like VIP subscriptions, gifts, and priority boosts.\n\n` +
-        `**Want to buy more coins?**`;
-
-      bot.sendMessage(chatId, coinMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '💰 Buy 100 Coins', callback_data: 'buy_coins_100' },
-              { text: '💰 Buy 500 Coins', callback_data: 'buy_coins_500' }
-            ],
-            [
-              { text: '💰 Buy 1000 Coins', callback_data: 'buy_coins_1000' },
-              { text: '💰 Buy 5000 Coins', callback_data: 'buy_coins_5000' }
-            ],
-            [
-              { text: '🔙 Back to Main Menu', callback_data: 'main_menu' }
-            ]
-          ]
-        }
-      });
-    } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to fetch your coin balance. Please try again later.');
-    }
-  });
 
   bot.onText(/\/priority/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
+      const user = await getCachedUserProfile(telegramId, User);
 
       if (user.isVip) {
         bot.sendMessage(chatId, '🚀 **As a VIP, you already have priority in the browse queue!** Your profile is shown to more users.');
@@ -116,7 +81,7 @@ function setupPremiumCommands(bot) {
         case 'manage_vip':
           // Redirect to VIP command functionality
           try {
-            const user = await getCachedUserProfile(telegramId);
+            const user = await getCachedUserProfile(telegramId, User);
 
             if (user.isVip) {
               const vipMsg = `⭐ **VIP STATUS ACTIVE** ⭐\n\n` +
@@ -229,12 +194,12 @@ function setupPremiumCommands(bot) {
         case 'vip_purchase_lifetime':
           // Check if user is registered
           try {
-            const checkUser = await getCachedUserProfile(telegramId);
+            const checkUser = await getCachedUserProfile(telegramId, User);
             if (!checkUser || !checkUser.profileCompleted) {
               return bot.sendMessage(chatId,
                 '⚠️ **Registration Required** ⚠️\n\n' +
-                'You need to complete your profile before purchasing VIP.\n\n' +
-                'Use /start to create your account!',
+                'You need to register before purchasing VIP.\n\n' +
+                'Register now to unlock all KissuBot features!',
                 {
                   reply_markup: {
                     inline_keyboard: [
@@ -248,8 +213,7 @@ function setupPremiumCommands(bot) {
           } catch (err) {
             return bot.sendMessage(chatId,
               '⚠️ **Registration Required** ⚠️\n\n' +
-              'You need to register before purchasing VIP.\n\n' +
-              'Use /start to create your account!',
+              'You need to register before purchasing VIP.',
               {
                 reply_markup: {
                   inline_keyboard: [
@@ -288,18 +252,31 @@ function setupPremiumCommands(bot) {
               lifetime: 'Lifetime'
             };
 
-            const successMessage = `🎉 Congratulations! Your ${planNames[planType]} VIP subscription is now active!\n\n` +
-              `Remaining coins: ${res.data.remainingCoins} 🪙\n` +
-              'Use /vip to see your benefits and status.';
+            const successMessage = `🎉 **Congratulations!** 🎉\n\nYour ${planNames[planType] || planType} VIP subscription is now active!\n\n` +
+              `🪙 **Remaining coins:** ${res.data.remainingCoins}`;
 
-            bot.sendMessage(chatId, successMessage);
+            bot.sendMessage(chatId, successMessage, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '🔍 Start Browsing', callback_data: 'browse_profiles' }],
+                  [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ]
+              }
+            });
           } catch (err) {
             if (err.response?.data?.error === 'Insufficient coins') {
               const required = err.response.data.required;
               const current = err.response.data.current;
               bot.sendMessage(chatId,
-                `You need ${required} coins for this plan, but you only have ${current} coins.\n` +
-                'Use /coins to purchase more coins!'
+                `You need ${required} coins for this plan, but you only have ${current} coins.`,
+                {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: '💰 Buy Coins', callback_data: 'buy_coins' }],
+                      [{ text: '🔙 Back', callback_data: 'back_to_store' }]
+                    ]
+                  }
+                }
               );
             } else {
               bot.sendMessage(chatId, 'Failed to purchase VIP subscription. Please try again later.');
@@ -356,8 +333,15 @@ function setupPremiumCommands(bot) {
               const required = err.response.data.required;
               const current = err.response.data.current;
               bot.sendMessage(chatId,
-                `You need ${required} coins for this boost, but you only have ${current} coins.\n` +
-                'Use /coins to get more coins!'
+                `You need ${required} coins for this boost, but you only have ${current} coins.`,
+                {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: '💰 Buy Coins', callback_data: 'buy_coins' }],
+                      [{ text: '🔙 Back', callback_data: 'back_to_store' }]
+                    ]
+                  }
+                }
               );
             } else {
               bot.sendMessage(chatId, 'Failed to activate boost. Please try again later.');
@@ -607,7 +591,7 @@ function setupPremiumCommands(bot) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
+      const user = await getCachedUserProfile(telegramId, User);
 
       if (user.isVip) {
         const vipMsg = `⭐ **VIP STATUS ACTIVE** ⭐\n\n` +
@@ -677,7 +661,7 @@ function setupPremiumCommands(bot) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
+      const user = await getCachedUserProfile(telegramId, User);
       const coins = user.coins || 0;
 
       const coinsMsg = `🪙 **YOUR COINS** 🪙\n\n` +

@@ -34,15 +34,16 @@ function setupSettingsCommands(bot) {
 
           const buttons = [
             [
-              { text: '👤 Profile Settings', callback_data: 'settings_profile' },
-              { text: '🔍 Search Settings', callback_data: 'settings_search' }
+              { text: '👤 Profile Info', callback_data: 'settings_profile' },
+              { text: '🔍 Search Preferences', callback_data: 'settings_search' }
             ],
             [
               { text: '🔔 Notifications', callback_data: 'settings_notifications' },
               { text: '🔒 Privacy', callback_data: 'settings_privacy' }
             ],
             [
-              { text: '❓ Help & Support', callback_data: 'settings_help' }
+              { text: '❓ Help Center', callback_data: 'show_help' },
+              { text: '🏠 Main Menu', callback_data: 'main_menu' }
             ]
           ];
 
@@ -240,15 +241,44 @@ function setupSettingsCommands(bot) {
           break;
 
         case 'settings_notifications':
-          bot.sendMessage(chatId, '🔔 **NOTIFICATION SETTINGS** 🔔\n\nNotification features coming soon!\n\nYou\'ll be able to control:\n• Match notifications\n• Message alerts\n• Like notifications\n• Story updates');
+          const notifMsg = `🔔 **NOTIFICATION SETTINGS** 🔔\n\n` +
+            `Notification features are currently being optimized!\n\n` +
+            `Stay tuned for controls over:\n` +
+            `• Match and message alerts\n` +
+            `• Like and story notifications\n` +
+            `• Marketing updates`;
+
+          bot.sendMessage(chatId, notifMsg, {
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]]
+            }
+          });
           break;
 
         case 'settings_privacy':
-          bot.sendMessage(chatId, '🔒 **PRIVACY SETTINGS** 🔒\n\nPrivacy features coming soon!\n\nYou\'ll be able to control:\n• Profile visibility\n• Last seen status\n• Story privacy\n• Block/unblock users');
+          const privacyMsg = `🔒 **PRIVACY SETTINGS** 🔒\n\n` +
+            `Privacy controls are coming soon!\n\n` +
+            `You will be able to manage:\n` +
+            `• Profile visibility\n` +
+            `• Last seen status\n` +
+            `• Who can see your stories\n` +
+            `• Blocked users list`;
+
+          bot.sendMessage(chatId, privacyMsg, {
+            reply_markup: {
+              inline_keyboard: [[{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]]
+            }
+          });
           break;
 
         case 'settings_help':
-          bot.sendMessage(chatId, '❓ **HELP & SUPPORT** ❓\n\nNeed assistance? Here are your options:\n\n• Use /help for command guide\n• Contact support: @support\n• Report bugs: /report\n• FAQ: /faq\n\nWe\'re here to help! 💙');
+          // Redirect to help menu
+          bot.emit('callback_query', {
+            id: query.id,
+            from: query.from,
+            message: query.message,
+            data: 'show_help'
+          });
           break;
 
         case 'premium_filters':

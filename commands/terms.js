@@ -51,17 +51,18 @@ function setupTermsCommands(bot, User) {
 
         if (data === 'accept_terms') {
             try {
-                const user = await User.findOne({ telegramId });
+                let user = await User.findOne({ telegramId });
 
                 if (!user) {
-                    const newUser = new User({
+                    user = new User({
                         telegramId,
-                        username: query.from.username,
+                        username: query.from.username || '',
+                        location: 'Unknown', // required field, will be updated in onboarding
                         termsAccepted: true,
                         termsAcceptedAt: new Date(),
                         onboardingStep: 'registration'
                     });
-                    await newUser.save();
+                    await user.save();
                 } else {
                     user.termsAccepted = true;
                     user.termsAcceptedAt = new Date();
@@ -70,24 +71,43 @@ function setupTermsCommands(bot, User) {
                 }
 
                 invalidateUserCache(telegramId);
+                await bot.answerCallbackQuery(query.id).catch(() => { });
 
-                bot.sendMessage(chatId,
-                    `✅ **Terms Accepted!**\n\n` +
-                    `🎉 Welcome to KissuBot! You're all set to begin your journey.\n\n` +
-                    `Let's create your profile and start connecting with amazing people!\n\n` +
-                    `👇 Click the button below to get started:`,
-                    {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: '🚀 Create My Profile', callback_data: 'start_registration' }, { text: '❓ How It Works', callback_data: 'show_help' }]
-                            ]
+                // Check if profile is already complete (returning user re-accepted)
+                const profileComplete = user.name && user.age && user.location && user.location !== 'Unknown' && user.photos && user.photos.length > 0;
+
+                if (profileComplete) {
+                    return bot.sendMessage(chatId,
+                        `✅ *Terms Accepted!*\n\nWelcome back to KissuBot! 💕`,
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: { inline_keyboard: [[{ text: '🏠 Main Menu', callback_data: 'main_menu' }]] }
                         }
-                    }
-                );
+                    );
+                }
+
+                // New user or incomplete profile → start guided onboarding
+                const onboardingModule = require('./onboarding');
+                if (onboardingModule.startOnboarding) {
+                    await onboardingModule.startOnboarding(chatId, telegramId);
+                } else {
+                    bot.sendMessage(chatId,
+                        `✅ *Terms Accepted!* 🎉\n\nLet's create your profile to start connecting!`,
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: '🚀 Set Up Profile', callback_data: 'edit_profile' }]
+                                ]
+                            }
+                        }
+                    );
+                }
             } catch (err) {
                 console.error('Accept terms error:', err);
                 bot.sendMessage(chatId, '❌ Something went wrong. Please try /start again.');
             }
+
         } else if (data === 'view_terms_inline') {
             try {
                 await bot.sendDocument(chatId, TERMS_PDF, {
@@ -117,11 +137,14 @@ function setupTermsCommands(bot, User) {
                 bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
             }
         } else if (data === 'decline_terms') {
-            bot.sendMessage(chatId,
-                `❌ **Terms Declined**\n\n` +
+            `❌ **Terms Declined**\n\n` +
                 `You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n` +
-                `If you change your mind, use /start to try again.\n\nGoodbye! 👋`
-            );
+                `If you change your mind, you can click Start again. Goodbye! 👋`,
+            {
+                reply_markup: {
+                    inline_keyboard: [[{ text: '🚀 Trial Again', callback_data: 'main_menu' }]]
+                }
+            }
         }
     });
 }

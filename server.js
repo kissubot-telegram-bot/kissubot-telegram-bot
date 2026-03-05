@@ -300,6 +300,23 @@ const userSchema = new mongoose.Schema({
     locationPreference: { type: String, default: null }
   },
 
+  // Trust & Safety
+  blocked: [{
+    userId: { type: String },
+    blockedAt: { type: Date, default: Date.now }
+  }],
+
+  // Stats Tracking
+  stats: {
+    likesGiven: { type: Number, default: 0 },
+    likesReceived: { type: Number, default: 0 },
+    matchCount: { type: Number, default: 0 },
+    reportCount: { type: Number, default: 0 }
+  },
+
+  // Anti-spam
+  lastLikeAt: { type: Date },
+
   // System Fields
   createdAt: { type: Date, default: Date.now },
   lastActive: { type: Date, default: Date.now },
@@ -309,15 +326,33 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
+// Report Schema
+const reportSchema = new mongoose.Schema({
+  reporterId: { type: String, required: true },
+  reportedId: { type: String, required: true },
+  reason: { type: String, required: true },
+  screenshotFileId: { type: String },
+  status: { type: String, enum: ['pending', 'reviewed', 'resolved'], default: 'pending' },
+  adminNote: { type: String },
+  createdAt: { type: Date, default: Date.now },
+  resolvedAt: { type: Date }
+});
+const Report = mongoose.model('Report', reportSchema);
+
 // Setup command handlers (must be after User model is defined)
 // Note: Match and Like models don't exist in this codebase, passing undefined
 const Match = undefined;
 const Like = undefined;
 
+const { setupOnboardingCommands } = require('./commands/onboarding');
+const { setupReportCommands } = require('./commands/report');
+
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
+setupOnboardingCommands(bot, userStates, User);
 setupBrowsingCommands(bot, User, Match, Like);
+setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot);
 setupSettingsCommands(bot, userStates, User);
 setupPremiumCommands(bot, User);
@@ -328,20 +363,7 @@ setupSearchCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
 
-// Register bot commands with Telegram (visible in command menu)
-bot.setMyCommands([
-  { command: 'store', description: '💎 Browse VIP, Boosts & Coins' },
-  { command: 'start', description: '🚀 Start or restart the bot' },
-  { command: 'profile', description: '👤 View and edit your profile' },
-  { command: 'browse', description: '🔍 Browse potential matches' },
-  { command: 'matches', description: '💕 View your matches' },
-  { command: 'settings', description: '⚙️ Adjust your preferences' },
-  { command: 'help', description: '❓ Get help and support' }
-]).then(() => {
-  console.log('✅ Bot commands registered with Telegram');
-}).catch(err => {
-  console.error('❌ Failed to register bot commands:', err);
-});
+// NOTE: Bot command menu is registered in bot.js (single source of truth)
 
 // Export bot and userStates so bot.js can import them
 module.exports = { bot, userStates };
@@ -577,6 +599,105 @@ app.post('/likes/remove', async (req, res) => {
     res.status(500).json({ error: 'Failed to remove like' });
   }
 });
+
+// ── Trust & Safety: Submit a report ─────────────────────────────────────
+app.post('/report', async (req, res) => {
+  const { reporterId, reportedId, reason, screenshotFileId } = req.body;
+  try {
+    if (!reporterId || !reportedId || !reason) {
+      return res.status(400).json({ error: 'reporterId, reportedId and reason are required' });
+    }
+    const report = await Report.create({ reporterId, reportedId, reason, screenshotFileId: screenshotFileId || null });
+    await User.findOneAndUpdate({ telegramId: reportedId }, { $inc: { 'stats.reportCount': 1 } });
+    res.status(201).json({ message: 'Report submitted', reportId: report._id });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to submit report' });
+  }
+});
+
+// ── Admin: List pending reports ──────────────────────────────────────────
+app.get('/admin/reports', async (req, res) => {
+  try {
+    const reports = await Report.find({ status: 'pending' }).sort({ createdAt: -1 }).limit(50);
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch reports' });
+  }
+});
+
+// ── Admin: Resolve a report ──────────────────────────────────────────────
+app.patch('/admin/reports/:id/resolve', async (req, res) => {
+  try {
+    const report = await Report.findByIdAndUpdate(
+      req.params.id,
+      { status: 'resolved', adminNote: req.body.adminNote || '', resolvedAt: new Date() },
+      { new: true }
+    );
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    res.json({ message: 'Report resolved', report });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resolve report' });
+  }
+});
+
+// ── Stats: Record a like ─────────────────────────────────────────────────
+app.post('/stats/like', async (req, res) => {
+  const { fromId, toId } = req.body;
+  try {
+    await Promise.all([
+      User.findOneAndUpdate({ telegramId: fromId }, { $inc: { 'stats.likesGiven': 1 } }),
+      User.findOneAndUpdate({ telegramId: toId }, { $inc: { 'stats.likesReceived': 1 } })
+    ]);
+    res.json({ message: 'Stats updated' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update stats' });
+  }
+});
+
+// ── Stats: Record a match ────────────────────────────────────────────────
+app.post('/stats/match', async (req, res) => {
+  const { user1Id, user2Id } = req.body;
+  try {
+    await Promise.all([
+      User.findOneAndUpdate({ telegramId: user1Id }, { $inc: { 'stats.matchCount': 1 } }),
+      User.findOneAndUpdate({ telegramId: user2Id }, { $inc: { 'stats.matchCount': 1 } })
+    ]);
+    res.json({ message: 'Match stats updated' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update match stats' });
+  }
+});
+
+// ── Admin: Aggregate stats ───────────────────────────────────────────────
+app.get('/admin/stats', async (req, res) => {
+  try {
+    const [totalUsers, vipUsers, pendingReports, statsAgg] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ isVip: true }),
+      Report.countDocuments({ status: 'pending' }),
+      User.aggregate([{
+        $group: {
+          _id: null,
+          totalLikesGiven: { $sum: '$stats.likesGiven' },
+          totalLikesReceived: { $sum: '$stats.likesReceived' },
+          totalMatches: { $sum: '$stats.matchCount' }
+        }
+      }])
+    ]);
+    const agg = statsAgg[0] || {};
+    res.json({
+      totalUsers,
+      vipUsers,
+      pendingReports,
+      totalLikesGiven: agg.totalLikesGiven || 0,
+      totalLikesReceived: agg.totalLikesReceived || 0,
+      totalMatches: Math.round((agg.totalMatches || 0) / 2) // each match counted twice
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
 
 // Get users who liked you
 app.get('/likes/:telegramId', async (req, res) => {

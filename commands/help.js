@@ -34,13 +34,13 @@ function setupHelpCommands(bot) {
             `• Email: spprtksbt@gmail.com\n` +
             `• Response time: 24-48 hours\n\n` +
             `💬 **Common Issues:**\n` +
-            `• Profile not showing up\n` +
+            `• Profile visibility\n` +
             `• Payment/VIP problems\n` +
             `• Technical difficulties\n` +
             `• Account recovery\n` +
             `• Report violations\n\n` +
             `📋 **Before contacting:**\n` +
-            `• Check /help for common solutions\n` +
+            `• Check our help categories for solutions\n` +
             `• Include your Telegram username\n` +
             `• Describe the issue clearly`;
 
@@ -61,34 +61,27 @@ function setupHelpCommands(bot) {
 
         case 'show_help':
         case 'help_menu':
-          const helpText = `🤖 **KISSUBOT HELP** 🤖\n\n` +
-            `📋 **Available Commands:**\n\n` +
-            `🏠 /start - Start the bot and access main menu\n` +
-            `👤 /profile - View and edit your profile\n` +
-            `🔍 /browse - Browse potential matches\n` +
-            `💕 /matches - View your matches\n` +
-            `⚙️ /settings - Access settings menu\n` +
-            `📱 /stories - View and post stories\n` +
-            `💰 /coins - Check coin balance and buy coins\n` +
-            `👑 /vip - Manage VIP membership\n` +
-            `❓ /help - View commands and access help center\n\n` +
-            `💡 **Tips:**\n` +
-            `• Complete your profile to get more matches\n` +
-            `• Upload multiple photos for better visibility\n` +
-            `• Use VIP features to boost your profile\n` +
-            `• Post stories to increase engagement\n\n` +
-            `📞 **Need Support?**\n` +
-            `Contact us at: spprtksbt@gmail.com\n\n` +
-            `Happy matching! 💙`;
+          const helpText = `🤖 **KISSUBOT HELP CENTER** 🤖\n\n` +
+            `Need help finding your way around KissuBot? Choose a category below for more information:\n\n` +
+            `💡 **Tip:** Complete your profile and add multiple photos to get more matches! 💕`;
 
           bot.sendMessage(chatId, helpText, {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '📞 Contact Support', callback_data: 'contact_support' }
+                  { text: '👤 Profile Help', callback_data: 'help_profile' },
+                  { text: '🔍 Browsing Help', callback_data: 'help_browsing' }
                 ],
                 [
-                  { text: '🔙 Back to Menu', callback_data: 'main_menu' }
+                  { text: '👑 VIP & Coins', callback_data: 'help_premium' },
+                  { text: '📱 Stories Help', callback_data: 'help_stories' }
+                ],
+                [
+                  { text: '📞 Contact Support', callback_data: 'contact_support' },
+                  { text: '🚨 Report Center', callback_data: 'report_menu' }
+                ],
+                [
+                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
                 ]
               ]
             },
@@ -105,30 +98,28 @@ function setupHelpCommands(bot) {
   // HELP command
   bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
-    const helpText = `🤖 **KISSUBOT HELP** 🤖\n\n` +
-      `📋 **Available Commands:**\n\n` +
-      `🏠 /start - Start the bot and access main menu\n` +
-      `👤 /profile - View and edit your profile\n` +
-      `🔍 /browse - Browse potential matches\n` +
-      `💕 /matches - View your matches\n` +
-      `⚙️ /settings - Access settings menu\n` +
-      `📱 /stories - View and post stories\n` +
-      `💰 /coins - Check coin balance and buy coins\n` +
-      `👑 /vip - Manage VIP membership\n` +
-      `❓ /help - View commands and access help center\n\n` +
-      `💡 **Tips:**\n` +
-      `• Complete your profile to get more matches\n` +
-      `• Upload multiple photos for better visibility\n` +
-      `• Use VIP features to boost your profile\n` +
-      `• Post stories to increase engagement\n\n` +
-      `Happy matching! 💙`;
+    const helpText = `🤖 **KISSUBOT HELP CENTER** 🤖\n\n` +
+      `Need help finding your way around KissuBot? Choose a category below for more information:\n\n` +
+      `💡 **Tip:** Complete your profile and add multiple photos to get more matches! 💕`;
 
     bot.sendMessage(chatId, helpText, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📧 Email Support', callback_data: 'email_support' }],
-          [{ text: '📞 Contact Support', callback_data: 'contact_support' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+          [
+            { text: '👤 Profile Help', callback_data: 'help_profile' },
+            { text: '🔍 Browsing Help', callback_data: 'help_browsing' }
+          ],
+          [
+            { text: '👑 VIP & Coins', callback_data: 'help_premium' },
+            { text: '📱 Stories Help', callback_data: 'help_stories' }
+          ],
+          [
+            { text: '📞 Contact Support', callback_data: 'contact_support' },
+            { text: '🚨 Report Center', callback_data: 'report_menu' }
+          ],
+          [
+            { text: '🏠 Main Menu', callback_data: 'main_menu' }
+          ]
         ]
       },
       parse_mode: 'Markdown'

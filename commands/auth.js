@@ -55,15 +55,15 @@ function setupAuthCommands(bot, userStates, User) {
         return bot.sendMessage(chatId, termsMsg, opts);
       }
 
-      // Terms accepted but profile incomplete
-      if (!user.profileCompleted) {
-        const missing = [];
-        if (!user.name) missing.push('📝 Add your name');
-        if (!user.age) missing.push('🎂 Add your age');
-        if (!user.location) missing.push('📍 Add your location');
-        if (!user.bio) missing.push('💭 Write a bio');
-        if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
+      // Compute profile completeness from actual fields (don't trust the flag alone)
+      const missing = [];
+      if (!user.name) missing.push('📝 Add your name');
+      if (!user.age) missing.push('🎂 Add your age');
+      if (!user.location) missing.push('📍 Add your location');
+      if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
 
+      // Profile still incomplete — show what's missing
+      if (missing.length > 0) {
         const incompleteMsg = `✨ **Almost Ready!** ✨\n\n` +
           `You're just one step away from finding your perfect match!\n\n` +
           `📋 **What's Missing:**\n` +
@@ -80,17 +80,14 @@ function setupAuthCommands(bot, userStates, User) {
         });
       }
 
+      // All fields are present → mark profile as complete if flag is stale
+      if (!user.profileCompleted) {
+        User.findOneAndUpdate({ telegramId }, { profileCompleted: true }).catch(() => { });
+      }
+
       // Profile complete - show main menu
-      bot.sendMessage(chatId,
-        `🎉 **Welcome Back!** 🎉\n\n` +
-        `💕 Ready to find love?\n\n` +
-        `🚀 **Quick Actions:**\n` +
-        `• /browse - Discover new people\n` +
-        `• /matches - See your matches\n` +
-        `• /profile - View your profile\n` +
-        `• /help - Get help\n\n` +
-        `Let's find your perfect match! 💖`
-      );
+      showMainMenu(chatId, msg.from.first_name);
+
     } catch (err) {
       console.error('Start command error:', err);
       bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
@@ -124,18 +121,22 @@ function setupAuthCommands(bot, userStates, User) {
         });
         await newUser.save();
 
-        const welcomeMsg = `🎉 Registration successful!
+        const welcomeMsg = `🎉 **Registration Successful!** 🎉\n\n` +
+          `Welcome to KissuBot! Let's set up your profile to help you find the perfect match. 💖\n\n` +
+          `**Steps to complete your profile:**\n` +
+          `1️⃣ Add your name\n` +
+          `2️⃣ Add your age\n` +
+          `3️⃣ Add a bio\n` +
+          `4️⃣ Upload photos`;
 
-Let's set up your profile:
-1️⃣ Use /setname to set your display name
-2️⃣ Use /setage to set your age
-3️⃣ Use /setbio to write about yourself
-
-After setting up your profile, you can:
-• Use /browse to find people
-• Use /matches to see your matches`;
-
-        bot.sendMessage(chatId, welcomeMsg);
+        bot.sendMessage(chatId, welcomeMsg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '✏️ Setup Profile', callback_data: 'edit_profile' }],
+              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+            ]
+          }
+        });
       } catch (err) {
         console.error('[/register] Full Error:', err);
         bot.sendMessage(
@@ -218,12 +219,17 @@ async function handleRegister(bot, msg, User) {
     if (existingUser) {
       return bot.sendMessage(
         chatId,
-        `✅ You're already registered!
-
-You can:
-• Use /profile to view your profile
-• Use /browse to find people
-• Use /matches to see your matches`
+        `✅ **You're already registered!**\n\n` +
+        `Ready to find your match? Choose an action below:`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔍 Start Browsing', callback_data: 'browse_profiles' }],
+              [{ text: '👤 My Profile', callback_data: 'view_profile' }],
+              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+            ]
+          }
+        }
       );
     }
 
