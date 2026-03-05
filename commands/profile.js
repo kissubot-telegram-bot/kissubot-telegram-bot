@@ -141,15 +141,13 @@ function setupProfileCommands(bot, userStates, User) {
 
         case 'view_profile':
         case 'view_my_profile':
-          // Show full detailed profile
           try {
             const user = await getCachedUserProfile(telegramId, User);
             if (!user) {
               return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
             }
 
-            const photos = user.photos || [];
-            const photoCount = photos.length;
+            const photoCount = (user.photos || []).length;
 
             let profileMsg = `💖 **Your Dating Profile** 💖\n\n`;
             profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
@@ -159,33 +157,14 @@ function setupProfileCommands(bot, userStates, User) {
             profileMsg += `📸 **Photos:** ${photoCount}/6\n`;
             profileMsg += `✨ **Status:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
 
-            const buttons = [
-              [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Add Photo', callback_data: 'manage_photos' }],
-              [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
-            ];
-
-            await bot.sendMessage(chatId, profileMsg, {
-              reply_markup: { inline_keyboard: buttons }
+            bot.sendMessage(chatId, profileMsg, {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }],
+                  [{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ]
+              }
             });
-
-            // Send the actual photos after the profile text
-            if (photoCount === 0) {
-              await bot.sendMessage(chatId,
-                '📷 No photos yet! Add one to attract more matches.',
-                { reply_markup: { inline_keyboard: [[{ text: '📸 Upload Photo', callback_data: 'manage_photos' }]] } }
-              );
-            } else if (photoCount === 1) {
-              await bot.sendPhoto(chatId, photos[0], { caption: '📸 Your profile photo' });
-            } else {
-              // Send as media group (max 10)
-              const mediaGroup = photos.slice(0, 10).map((fileId, idx) => ({
-                type: 'photo',
-                media: fileId,
-                ...(idx === 0 ? { caption: `📸 Your ${photoCount} profile photo${photoCount > 1 ? 's' : ''}` } : {})
-              }));
-              await bot.sendMediaGroup(chatId, mediaGroup);
-            }
-
           } catch (err) {
             console.error('View profile error:', err);
             bot.sendMessage(chatId, '❌ Failed to load profile.');
@@ -442,9 +421,7 @@ function setupProfileCommands(bot, userStates, User) {
 
     try {
       const user = await getCachedUserProfile(telegramId, User);
-
-      const photos = user.photos || [];
-      const photoCount = photos.length;
+      const photoCount = (user.photos || []).length;
 
       const profileMsg = `👤 **YOUR PROFILE** 👤\n\n` +
         `📝 **Name:** ${user.name || 'Not set'}\n` +
@@ -454,44 +431,16 @@ function setupProfileCommands(bot, userStates, User) {
         `📸 **Photos:** ${photoCount}/6\n\n` +
         `✨ Choose what to edit:`;
 
-      await bot.sendMessage(chatId, profileMsg, {
+      bot.sendMessage(chatId, profileMsg, {
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: '✏️ Edit Name', callback_data: 'edit_name' },
-              { text: '🎂 Edit Age', callback_data: 'edit_age' }
-            ],
-            [
-              { text: '📍 Edit Location', callback_data: 'edit_location' },
-              { text: '💬 Edit Bio', callback_data: 'edit_bio' }
-            ],
-            [
-              { text: '📸 Manage Photos', callback_data: 'manage_photos' }
-            ],
-            [
-              { text: '🔙 Back to Main Menu', callback_data: 'main_menu' }
-            ]
+            [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
+            [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
+            [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
+            [{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]
           ]
         }
       });
-
-      // Send the actual photos below the profile text
-      if (photoCount === 0) {
-        await bot.sendMessage(chatId,
-          '📷 No photos yet — add one to attract more matches!',
-          { reply_markup: { inline_keyboard: [[{ text: '📸 Upload Photo', callback_data: 'manage_photos' }]] } }
-        );
-      } else if (photoCount === 1) {
-        await bot.sendPhoto(chatId, photos[0], { caption: '📸 Your profile photo' });
-      } else {
-        const mediaGroup = photos.slice(0, 10).map((fileId, idx) => ({
-          type: 'photo',
-          media: fileId,
-          ...(idx === 0 ? { caption: `📸 Your ${photoCount} profile photos` } : {})
-        }));
-        await bot.sendMediaGroup(chatId, mediaGroup);
-      }
-
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
     }
