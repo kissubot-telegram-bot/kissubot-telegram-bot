@@ -61,8 +61,13 @@ function setupProfileCommands(bot, userStates, User) {
               `• Name: ${user.name || 'Not set'}\n` +
               `• Age: ${user.age || 'Not set'}\n` +
               `• Location: ${user.location || 'Not set'}\n` +
-              `• Bio: ${user.bio || 'Not set'}\n\n` +
+              `• Phone: ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
+              `• Bio: ${user.bio || '(optional)'}\n\n` +
               `✏️ **What would you like to edit?**`;
+
+            const phoneRow = !user.phone
+              ? [{ text: '📞 Add Phone Number ⭐', callback_data: 'add_phone_number' }]
+              : [{ text: '📞 Update Phone', callback_data: 'add_phone_number' }];
 
             const buttons = [
               [
@@ -73,6 +78,7 @@ function setupProfileCommands(bot, userStates, User) {
                 { text: '📍 Edit Location', callback_data: 'edit_location' },
                 { text: '💭 Edit Bio', callback_data: 'edit_bio' }
               ],
+              [phoneRow[0]],
               [
                 { text: '📸 Manage Photos', callback_data: 'manage_photos' }
               ],
@@ -82,10 +88,9 @@ function setupProfileCommands(bot, userStates, User) {
             ];
 
             bot.sendMessage(chatId, profileMsg, {
-              reply_markup: {
-                inline_keyboard: buttons
-              }
+              reply_markup: { inline_keyboard: buttons }
             });
+
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
           }
@@ -501,16 +506,16 @@ function setupProfileCommands(bot, userStates, User) {
         `📸 **Photos:** ${photoCount}/6\n\n` +
         `✨ Choose what to edit:`;
 
-      const phoneButtons = !user.phone
-        ? [[{ text: '📞 Add Phone Number ⭐ Required', callback_data: 'add_phone_number' }]]
-        : [];
+      const phoneButtonLabel = user.phone
+        ? '📞 Update Phone'
+        : '📞 Add Phone Number ⭐ Required';
 
       await bot.sendMessage(chatId, profileMsg, {
         reply_markup: {
           inline_keyboard: [
-            ...phoneButtons,
             [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
             [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
+            [{ text: phoneButtonLabel, callback_data: 'add_phone_number' }],
             [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
             [{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]
           ]
@@ -551,6 +556,7 @@ function setupProfileCommands(bot, userStates, User) {
       if (!updatedUser.name) missing.push('name');
       if (!updatedUser.age) missing.push('age');
       if (!updatedUser.location) missing.push('location');
+      if (!updatedUser.phone) missing.push('phone');
       if (!updatedUser.photos || updatedUser.photos.length === 0) missing.push('photo');
 
       if (missing.length === 0) {
@@ -955,6 +961,7 @@ function setupProfileCommands(bot, userStates, User) {
       if (!updatedUser.name) stillMissing.push('name');
       if (!updatedUser.age) stillMissing.push('age');
       if (!updatedUser.location) stillMissing.push('location');
+      if (!updatedUser.phone) stillMissing.push('phone');
       if (!updatedUser.photos || updatedUser.photos.length === 0) stillMissing.push('photo');
 
       if (stillMissing.length === 0) {
