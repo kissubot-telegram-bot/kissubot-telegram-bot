@@ -1,38 +1,36 @@
 /**
  * onboarding.js — Guided step-by-step profile setup
- * 
+ *
  * Flow (triggered after terms accepted):
  *   Step 1: Welcome → ask name
  *   Step 2: Got name → ask age
  *   Step 3: Got age  → ask location
- *   Step 4: Got location → ask bio
- *   Step 5: Got bio → ask for photo
- *   Step 6: Got photo → mark complete, show main menu 🎉
+ *   Step 4: Got location → ask phone number
+ *   Step 5: Got phone → ask bio (optional)
+ *   Step 6: Got bio → ask for photo
+ *   Done: Got photo → mark complete, show main menu 🎉
  */
 
 const { invalidateUserCache } = require('./auth');
 
-const STEPS = ['name', 'age', 'location', 'bio', 'photo'];
-
 const PROMPTS = {
     name: {
-        text: `📝 **Step 1 of 5 — Your Name**\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
-        placeholder: '✏️ Type your name...',
+        text: `📝 *Step 1 of 6 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
     },
     age: {
-        text: `🎂 **Step 2 of 5 — Your Age**\n\nHow old are you?\n_Enter your age (18–99):_`,
+        text: `🎂 *Step 2 of 6 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 **Step 3 of 5 — Your Location**\n\nWhere are you based?\n_Enter your city or state (e.g. New York, Lagos, London):_`,
+        text: `📍 *Step 3 of 6 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. Lagos, London, New York):_`,
+    },
+    phone: {
+        text: `📞 *Step 4 of 6 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+2348012345678\`\n\n🔒 Your number is private and never shown publicly.`,
     },
     bio: {
-        text: `💬 **Step 4 of 5 — Your Bio** _(Optional)_
-
-Tell potential matches a little about yourself!
-_Max 200 characters. Tap \"Skip\" to leave this blank for now._`,
+        text: `💬 *Step 5 of 6 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
     },
     photo: {
-        text: `📸 **Step 5 of 5 — Your Photo**\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
+        text: `📸 *Step 6 of 6 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
     },
 };
 
@@ -46,8 +44,8 @@ function setupOnboardingCommands(bot, userStates, User) {
         userStates.set(telegramId, { onboarding: { step: 'name' } });
 
         await bot.sendMessage(chatId,
-            `🎉 **Welcome to KissuBot!**\n\n` +
-            `Let's set up your profile in just 5 quick steps so you can start meeting people! 💕\n\n` +
+            `🎉 *Welcome to KissuBot!*\n\n` +
+            `Let's set up your profile in 6 quick steps so you can start meeting people! 💕\n\n` +
             `You can always edit this later in your profile settings.`,
             {
                 parse_mode: 'Markdown',
@@ -72,16 +70,33 @@ function setupOnboardingCommands(bot, userStates, User) {
         userStates.set(telegramId, { onboarding: { step } });
         await bot.answerCallbackQuery(query.id).catch(() => { });
 
-        const opts = { parse_mode: 'Markdown' };
-        if (step !== 'photo') {
-            opts.reply_markup = {
-                inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]]
-            };
-        } else {
-            opts.reply_markup = { remove_keyboard: true };
+        // Phone step: show contact-share keyboard
+        if (step === 'phone') {
+            return bot.sendMessage(chatId, PROMPTS.phone.text, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
+                    one_time_keyboard: true,
+                    resize_keyboard: true
+                }
+            });
         }
 
-        await bot.sendMessage(chatId, PROMPTS[step].text, opts);
+        // Photo step: remove keyboard
+        if (step === 'photo') {
+            return bot.sendMessage(chatId, PROMPTS.photo.text, {
+                parse_mode: 'Markdown',
+                reply_markup: { remove_keyboard: true }
+            });
+        }
+
+        // All other text steps
+        return bot.sendMessage(chatId, PROMPTS[step].text, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]]
+            }
+        });
     });
 
     // ── Cancel onboarding ─────────────────────────────────────────────
@@ -96,6 +111,7 @@ function setupOnboardingCommands(bot, userStates, User) {
             `⏭️ Setup paused. You can complete it anytime from your profile settings.`,
             {
                 reply_markup: {
+                    remove_keyboard: true,
                     inline_keyboard: [
                         [{ text: '👤 Complete Profile', callback_data: 'edit_profile' }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
@@ -105,7 +121,7 @@ function setupOnboardingCommands(bot, userStates, User) {
         );
     });
 
-    // ── Handle text input for each onboarding step ────────────────────
+    // ── Handle text + contact input for each onboarding step ──────────
     bot.on('message', async (msg) => {
         const chatId = msg.chat.id;
         const telegramId = msg.from.id;
@@ -116,11 +132,56 @@ function setupOnboardingCommands(bot, userStates, User) {
         const step = state.onboarding.step;
 
         try {
+            // ── PHONE step: accepts contact share (mobile) OR typed number (desktop)
+            if (step === 'phone') {
+                let phoneNumber = null;
+
+                if (msg.contact) {
+                    // Mobile: user tapped "Share My Number"
+                    if (String(msg.contact.user_id) !== String(telegramId)) {
+                        return bot.sendMessage(chatId, '❌ Please share your own number, not someone else\'s.');
+                    }
+                    phoneNumber = msg.contact.phone_number;
+                } else if (msg.text) {
+                    // Desktop: user typed the number
+                    const digits = msg.text.trim().replace(/[\s\-().]/g, '');
+                    if (!/^\+?\d{7,15}$/.test(digits)) {
+                        return bot.sendMessage(chatId,
+                            '❌ Invalid number. Please include your country code, e.g. `+2348012345678`',
+                            { parse_mode: 'Markdown' }
+                        );
+                    }
+                    phoneNumber = digits;
+                } else {
+                    return; // Not a contact or text — ignore
+                }
+
+                if (!phoneNumber.startsWith('+')) phoneNumber = `+${phoneNumber}`;
+
+                await User.findOneAndUpdate({ telegramId }, { phone: phoneNumber });
+                invalidateUserCache(telegramId);
+
+                userStates.set(telegramId, { onboarding: { step: 'bio' } });
+                return bot.sendMessage(chatId,
+                    `✅ Phone saved!\n\n${PROMPTS.bio.text}`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            remove_keyboard: true,
+                            inline_keyboard: [
+                                [{ text: '⏭️ Skip Bio', callback_data: 'onboard_next_photo' }],
+                                [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
+                            ]
+                        }
+                    }
+                );
+            }
+
             // ── PHOTO step ─────────────────────────────────────────────────
             if (step === 'photo') {
                 if (!msg.photo) {
                     return bot.sendMessage(chatId,
-                        '📸 Please send a **photo** (not a file or link).',
+                        '📸 Please send a *photo* (not a file or link).',
                         { parse_mode: 'Markdown' }
                     );
                 }
@@ -139,8 +200,8 @@ function setupOnboardingCommands(bot, userStates, User) {
                 invalidateUserCache(telegramId);
 
                 return bot.sendMessage(chatId,
-                    `🎉 **Profile Complete!** 🎉\n\n` +
-                    `You're all set, **${user.name}**!\n\n` +
+                    `🎉 *Profile Complete!* 🎉\n\n` +
+                    `You're all set, *${user.name}*!\n\n` +
                     `Your profile is live and you can start browsing matches 💕`,
                     {
                         parse_mode: 'Markdown',
@@ -167,7 +228,7 @@ function setupOnboardingCommands(bot, userStates, User) {
 
                 userStates.set(telegramId, { onboarding: { step: 'age' } });
                 return bot.sendMessage(chatId,
-                    `✅ Nice to meet you, **${input}**!\n\n${PROMPTS.age.text}`,
+                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.age.text}`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
@@ -200,19 +261,23 @@ function setupOnboardingCommands(bot, userStates, User) {
                 await User.findOneAndUpdate({ telegramId }, { location: input });
                 invalidateUserCache(telegramId);
 
-                userStates.set(telegramId, { onboarding: { step: 'bio' } });
+                // Advance to phone step with contact-share keyboard
+                userStates.set(telegramId, { onboarding: { step: 'phone' } });
                 return bot.sendMessage(chatId,
-                    `✅ ${input} — great!\n\n${PROMPTS.bio.text}`,
+                    `✅ ${input} — great!\n\n${PROMPTS.phone.text}`,
                     {
                         parse_mode: 'Markdown',
-                        reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
+                        reply_markup: {
+                            keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
+                            one_time_keyboard: true,
+                            resize_keyboard: true
+                        }
                     }
                 );
             }
 
             if (step === 'bio') {
-                // Bio is optional — allow skipping with empty/short input or a specific keyword
-                const skip = input === '' || input.toLowerCase() === 'skip';
+                const skip = input.toLowerCase() === 'skip';
                 if (!skip && input.length > 200) {
                     return bot.sendMessage(chatId, '❌ Bio must be under 200 characters. Try again (or type Skip):');
                 }
@@ -223,10 +288,8 @@ function setupOnboardingCommands(bot, userStates, User) {
 
                 userStates.set(telegramId, { onboarding: { step: 'photo' } });
                 return bot.sendMessage(chatId,
-                    `✅ ${skip ? 'Skipped!' : 'Great bio!'}
-
-${PROMPTS.photo.text}`,
-                    { parse_mode: 'Markdown' }
+                    `✅ ${skip ? 'Skipped!' : 'Great bio!'}\n\n${PROMPTS.photo.text}`,
+                    { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
                 );
             }
 
