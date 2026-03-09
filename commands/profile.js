@@ -34,7 +34,9 @@ function setupProfileCommands(bot, userStates, User) {
         case 'add_phone_number':
           userStates.set(telegramId, { editing: 'phone' });
           await bot.sendMessage(chatId,
-            '📞 *Tap the button below to share your phone number from your Telegram account.*',
+            '📞 *Add Your Phone Number*\n\n' +
+            '📱 *On mobile:* Tap the *"📞 Share My Phone Number"* button that appears at the bottom of your screen.\n\n' +
+            '💻 *On desktop:* Type your number with country code and send it here:\n`+2348012345678`',
             {
               parse_mode: 'Markdown',
               reply_markup: {
