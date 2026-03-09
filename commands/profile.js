@@ -35,13 +35,16 @@ function setupProfileCommands(bot, userStates, User) {
           userStates.set(telegramId, { editing: 'phone' });
           await bot.sendMessage(chatId,
             '📞 *Add Your Phone Number*\n\n' +
-            'Type your phone number including country code:\n' +
+            '▶️ *Option 1 — Tap the button below* (mobile only)\n' +
+            'Look at the bottom of the screen — there is a big button *"📞 Share My Number"*. Tap it and Telegram will auto-fill your number.\n\n' +
+            '▶️ *Option 2 — Type it here* (all platforms)\n' +
+            'Just type your number with country code and hit send:\n' +
             '`+1234567890`\n\n' +
-            '🔒 It is kept private and never shared publicly.',
+            '🔒 Your number is kept private and never shown publicly.',
             {
               parse_mode: 'Markdown',
               reply_markup: {
-                keyboard: [[{ text: '📞 Share Automatically', request_contact: true }]],
+                keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
                 one_time_keyboard: true,
                 resize_keyboard: true
               }
@@ -930,6 +933,57 @@ function setupProfileCommands(bot, userStates, User) {
         ]
       }
     });
+  });
+  // ── Handle Telegram contact share (phone auto-fill button) ──────────
+  bot.on('contact', async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const contact = msg.contact;
+
+    // Only accept the user sharing their OWN number
+    if (String(contact.user_id) !== String(telegramId)) {
+      return bot.sendMessage(chatId, '❌ Please share your own phone number, not someone else\'s.');
+    }
+
+    try {
+      const phone = contact.phone_number.startsWith('+')
+        ? contact.phone_number
+        : `+${contact.phone_number}`;
+
+      await User.findOneAndUpdate({ telegramId: String(telegramId) }, { phone });
+      userStates.delete(telegramId);
+      invalidateUserCache(telegramId);
+
+      const updatedUser = await getCachedUserProfile(telegramId, User);
+      const stillMissing = [];
+      if (!updatedUser.name) stillMissing.push('name');
+      if (!updatedUser.age) stillMissing.push('age');
+      if (!updatedUser.location) stillMissing.push('location');
+      if (!updatedUser.photos || updatedUser.photos.length === 0) stillMissing.push('photo');
+
+      if (stillMissing.length === 0) {
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
+        invalidateUserCache(telegramId);
+        return bot.sendMessage(chatId,
+          '✅ *Phone saved!* 🎉 *Profile complete!* You can now browse and match.',
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              remove_keyboard: true,
+              inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]]
+            }
+          }
+        );
+      }
+
+      bot.sendMessage(chatId,
+        `✅ *Phone saved!* Still missing: ${stillMissing.join(', ')}. Use /profile to finish.`,
+        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+      );
+    } catch (err) {
+      console.error('Contact handler error:', err);
+      bot.sendMessage(chatId, '❌ Failed to save phone number. Please try again.');
+    }
   });
 }
 
