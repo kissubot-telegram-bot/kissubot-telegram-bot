@@ -28,34 +28,24 @@ function setupAuthCommands(bot, userStates, User) {
     try {
       const user = await User.findOne({ telegramId });
 
-      // New user or terms not accepted
-      if (!user || !user.termsAccepted) {
-        const termsMsg = `🎉 **Welcome to KissuBot!** 🎉\n\n` +
-          `💕 Your journey to find love starts here!\n\n` +
-          `**Before we begin, please review:**\n\n` +
-          `📜 Terms of Service - /terms\n` +
-          `🔒 Privacy Policy - /privacy\n\n` +
-          `By clicking "Accept", you agree to our Terms of Service and Privacy Policy.`;
+      // 1. If user doesn't exist, create an empty skeleton and start onboarding immediately
+      if (!user) {
+        user = new User({
+          telegramId,
+          username: msg.from.username || '',
+          location: 'Unknown',
+          onboardingStep: 'registration'
+        });
+        await user.save();
+        invalidateUserCache(telegramId);
 
-        const opts = {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Accept & Continue', callback_data: 'accept_terms' },
-                { text: '❌ Decline', callback_data: 'decline_terms' }
-              ],
-              [
-                { text: '📜 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } },
-                { text: '🔒 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }
-              ]
-            ]
-          }
-        };
-
-        return bot.sendMessage(chatId, termsMsg, opts);
+        const onboardingModule = require('./onboarding');
+        if (onboardingModule.startOnboarding) {
+          return await onboardingModule.startOnboarding(chatId, telegramId);
+        }
       }
 
-      // Compute profile completeness from actual fields (don't trust the flag alone)
+      // 2. Compute profile completeness from actual fields
       const missing = [];
       if (!user.name) missing.push('📝 Add your name');
       if (!user.age) missing.push('🎂 Add your age');

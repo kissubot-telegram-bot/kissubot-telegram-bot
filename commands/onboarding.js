@@ -192,27 +192,34 @@ function setupOnboardingCommands(bot, userStates, User) {
 
                 user.photos = [photoFileId];
                 user.profilePhoto = photoFileId;
-                user.profileCompleted = true;
-                user.onboardingStep = 'completed';
+                // DO NOT mark complete yet. They must accept terms first.
+                // user.profileCompleted = true; // Moved to terms.js
+                // user.onboardingStep = 'completed'; // Moved to terms.js
                 await user.save();
 
                 userStates.delete(telegramId);
                 invalidateUserCache(telegramId);
 
-                return bot.sendMessage(chatId,
-                    `🎉 *Profile Complete!* 🎉\n\n` +
-                    `You're all set, *${user.name}*!\n\n` +
-                    `Your profile is live and you can start browsing matches 💕`,
-                    {
-                        parse_mode: 'Markdown',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+                const termsMsg = `🎉 **Profile Almost Ready!** 🎉\n\n` +
+                    `💕 Your journey to find love is about to start!\n\n` +
+                    `**Before we finish, please review & accept our terms:**\n\n` +
+                    `By clicking "Accept", you agree to our Terms of Service and Privacy Policy.`;
+
+                return bot.sendMessage(chatId, termsMsg, {
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ Accept & Finish', callback_data: 'accept_terms' },
+                                { text: '❌ Decline', callback_data: 'decline_terms' }
+                            ],
+                            [
+                                { text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } },
+                                { text: '🔒 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }
                             ]
-                        }
+                        ]
                     }
-                );
+                });
             }
 
             // ── TEXT steps ─────────────────────────────────────────────────

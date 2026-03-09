@@ -51,13 +51,15 @@ function setupTermsCommands(bot, User) {
 
         if (data === 'accept_terms') {
             try {
+                // We now accept terms at the END of onboarding
                 let user = await User.findOne({ telegramId });
 
                 if (!user) {
+                    // Fallback just in case they manage to hit this without a profile
                     user = new User({
                         telegramId,
                         username: query.from.username || '',
-                        location: 'Unknown', // required field, will be updated in onboarding
+                        location: 'Unknown',
                         termsAccepted: true,
                         termsAcceptedAt: new Date(),
                         onboardingStep: 'registration'
@@ -66,43 +68,30 @@ function setupTermsCommands(bot, User) {
                 } else {
                     user.termsAccepted = true;
                     user.termsAcceptedAt = new Date();
-                    user.onboardingStep = 'registration';
+
+                    // Mark profile complete
+                    user.profileCompleted = true;
+                    user.onboardingStep = 'completed';
                     await user.save();
                 }
 
                 invalidateUserCache(telegramId);
                 await bot.answerCallbackQuery(query.id).catch(() => { });
 
-                // Check if profile is already complete (returning user re-accepted)
-                const profileComplete = user.name && user.age && user.location && user.location !== 'Unknown' && user.photos && user.photos.length > 0;
-
-                if (profileComplete) {
-                    return bot.sendMessage(chatId,
-                        `✅ *Terms Accepted!*\n\nWelcome back to KissuBot! 💕`,
-                        {
-                            parse_mode: 'Markdown',
-                            reply_markup: { inline_keyboard: [[{ text: '🏠 Main Menu', callback_data: 'main_menu' }]] }
+                return bot.sendMessage(chatId,
+                    `🎉 **Profile Complete!** 🎉\n\n` +
+                    `You're all set, **${user.name || 'friend'}**!\n\n` +
+                    `Your profile is live and you can start browsing matches 💕`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+                            ]
                         }
-                    );
-                }
-
-                // New user or incomplete profile → start guided onboarding
-                const onboardingModule = require('./onboarding');
-                if (onboardingModule.startOnboarding) {
-                    await onboardingModule.startOnboarding(chatId, telegramId);
-                } else {
-                    bot.sendMessage(chatId,
-                        `✅ *Terms Accepted!* 🎉\n\nLet's create your profile to start connecting!`,
-                        {
-                            parse_mode: 'Markdown',
-                            reply_markup: {
-                                inline_keyboard: [
-                                    [{ text: '🚀 Set Up Profile', callback_data: 'edit_profile' }]
-                                ]
-                            }
-                        }
-                    );
-                }
+                    }
+                );
             } catch (err) {
                 console.error('Accept terms error:', err);
                 bot.sendMessage(chatId, '❌ Something went wrong. Please try /start again.');
