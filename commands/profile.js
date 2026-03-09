@@ -34,17 +34,11 @@ function setupProfileCommands(bot, userStates, User) {
         case 'add_phone_number':
           userStates.set(telegramId, { editing: 'phone' });
           await bot.sendMessage(chatId,
-            '📞 *Add Your Phone Number*\n\n' +
-            '▶️ *Option 1 — Tap the button below* (mobile only)\n' +
-            'Look at the bottom of the screen — there is a big button *"📞 Share My Number"*. Tap it and Telegram will auto-fill your number.\n\n' +
-            '▶️ *Option 2 — Type it here* (all platforms)\n' +
-            'Just type your number with country code and hit send:\n' +
-            '`+1234567890`\n\n' +
-            '🔒 Your number is kept private and never shown publicly.',
+            '📞 *Tap the button below to share your phone number from your Telegram account.*',
             {
               parse_mode: 'Markdown',
               reply_markup: {
-                keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
+                keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
                 one_time_keyboard: true,
                 resize_keyboard: true
               }
