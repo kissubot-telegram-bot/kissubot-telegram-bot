@@ -30,20 +30,24 @@ function setupProfileCommands(bot, userStates, User) {
 
     try {
       switch (data) {
-        // ── PHONE NUMBER SHARING ──────────────────────────────────────────
+        // ── PHONE NUMBER ────────────────────────────────────────────
         case 'add_phone_number':
+          userStates.set(telegramId, { editing: 'phone' });
           await bot.sendMessage(chatId,
-            '📞 **Share your phone number**\n\n' +
-            'Tap the big button below — Telegram will auto-fill your number.',
+            '📞 *Add Your Phone Number*\n\n' +
+            'Type your phone number including country code:\n' +
+            '`+1234567890`\n\n' +
+            '🔒 It is kept private and never shared publicly.',
             {
+              parse_mode: 'Markdown',
               reply_markup: {
-                keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+                keyboard: [[{ text: '📞 Share Automatically', request_contact: true }]],
                 one_time_keyboard: true,
                 resize_keyboard: true
               }
             }
           );
-          return; // Done, stop processing
+          return;
 
         case 'edit_profile':
         case 'settings_profile':
@@ -407,6 +411,15 @@ function setupProfileCommands(bot, userStates, User) {
           return bot.sendMessage(chatId, '❌ Bio must be 500 characters or less.');
         } else if (field === 'name' && (value.length < 1 || value.length > 50)) {
           return bot.sendMessage(chatId, '❌ Name must be between 1 and 50 characters.');
+        } else if (field === 'phone') {
+          const digits = value.replace(/[\s\-().]/g, '');
+          if (!/^\+?\d{7,15}$/.test(digits)) {
+            return bot.sendMessage(chatId,
+              '❌ Invalid number. Please include your country code, e.g. `+1234567890`',
+              { parse_mode: 'Markdown' }
+            );
+          }
+          value = digits.startsWith('+') ? digits : `+${digits}`;
         }
 
         // Update profile
@@ -423,11 +436,40 @@ function setupProfileCommands(bot, userStates, User) {
           name: 'Name',
           age: 'Age',
           location: 'Location',
-          bio: 'Bio'
+          bio: 'Bio',
+          phone: 'Phone Number'
         };
 
-        bot.sendMessage(chatId, `✅ **${fieldNames[field]} Updated!**\n\n` +
-          `Your ${field} has been updated successfully.`, {
+        if (field === 'phone') {
+          // Remove keyboard + check profile completion
+          const updatedUser = await getCachedUserProfile(telegramId, User);
+          const stillMissing = [];
+          if (!updatedUser.name) stillMissing.push('name');
+          if (!updatedUser.age) stillMissing.push('age');
+          if (!updatedUser.location) stillMissing.push('location');
+          if (!updatedUser.photos || updatedUser.photos.length === 0) stillMissing.push('photo');
+
+          if (stillMissing.length === 0) {
+            await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
+            invalidateUserCache(telegramId);
+            return bot.sendMessage(chatId,
+              '✅ *Phone saved!* 🎉 *Profile complete!* You can now browse and match.',
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  remove_keyboard: true,
+                  inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]]
+                }
+              }
+            );
+          }
+          return bot.sendMessage(chatId,
+            `✅ *Phone saved!* Still missing: ${stillMissing.join(', ')}.`,
+            { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+          );
+        }
+
+        bot.sendMessage(chatId, `✅ **${fieldNames[field] || field} Updated!**\n\nYour ${field} has been saved.`, {
           reply_markup: {
             inline_keyboard: [[
               { text: '👤 View Profile', callback_data: 'edit_profile' },
