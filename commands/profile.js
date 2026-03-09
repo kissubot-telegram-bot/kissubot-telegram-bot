@@ -25,8 +25,26 @@ function setupProfileCommands(bot, userStates, User) {
     const telegramId = query.from.id;
     const data = query.data;
 
+    // Acknowledge the button tap immediately
+    await bot.answerCallbackQuery(query.id).catch(() => { });
+
     try {
       switch (data) {
+        // ── PHONE NUMBER SHARING ──────────────────────────────────────────
+        case 'add_phone_number':
+          await bot.sendMessage(chatId,
+            '📞 **Share your phone number**\n\n' +
+            'Tap the big button below — Telegram will auto-fill your number.',
+            {
+              reply_markup: {
+                keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+                one_time_keyboard: true,
+                resize_keyboard: true
+              }
+            }
+          );
+          return; // Done, stop processing
+
         case 'edit_profile':
         case 'settings_profile':
           try {
@@ -179,19 +197,7 @@ function setupProfileCommands(bot, userStates, User) {
           }
           break;
 
-        case 'add_phone_number':
-          await bot.sendMessage(chatId,
-            '📞 **Share your phone number**\n\n' +
-            'Tap the big button below — Telegram will auto-fill your number for you.',
-            {
-              reply_markup: {
-                keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
-                one_time_keyboard: true,
-                resize_keyboard: true
-              }
-            }
-          );
-          break;
+        // ── ADD PHONE (handled above at top of switch) ──────────────────
 
         case 'start_browse':
           // Call browseProfiles directly (set on module.exports after setupBrowsingCommands runs)
