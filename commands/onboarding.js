@@ -3,11 +3,13 @@
  *
  * Flow (triggered after terms accepted):
  *   Step 1: Welcome → ask name
- *   Step 2: Got name → ask age
- *   Step 3: Got age  → ask location
- *   Step 4: Got location → ask phone number
- *   Step 5: Got phone → ask bio (optional)
- *   Step 6: Got bio → ask for photo
+ *   Step 2: Got name → ask gender 
+ *   Step 3: Got gender → ask interested in (lookingFor)
+ *   Step 4: Got interested in → ask age
+ *   Step 5: Got age  → ask location
+ *   Step 6: Got location → ask phone number
+ *   Step 7: Got phone → ask bio (optional)
+ *   Step 8: Got bio → ask for photo
  *   Done: Got photo → mark complete, show main menu 🎉
  */
 
@@ -15,22 +17,28 @@ const { invalidateUserCache } = require('./auth');
 
 const PROMPTS = {
     name: {
-        text: `📝 *Step 1 of 6 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+        text: `📝 *Step 1 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+    },
+    gender: {
+        text: `👤 *Step 2 of 8 — Your Gender*\n\nHow do you identify?`,
+    },
+    lookingFor: {
+        text: `👀 *Step 3 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
     },
     age: {
-        text: `🎂 *Step 2 of 6 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
+        text: `🎂 *Step 4 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 *Step 3 of 6 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. Lagos, London, New York):_`,
+        text: `📍 *Step 5 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. Lagos, London, New York):_`,
     },
     phone: {
-        text: `📞 *Step 4 of 6 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+2348012345678\`\n\n🔒 Your number is private and never shown publicly.`,
+        text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+2348012345678\`\n\n🔒 Your number is private and never shown publicly.`,
     },
     bio: {
-        text: `💬 *Step 5 of 6 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
+        text: `💬 *Step 7 of 8 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
     },
     photo: {
-        text: `📸 *Step 6 of 6 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
+        text: `📸 *Step 8 of 8 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
     },
 };
 
@@ -45,7 +53,7 @@ function setupOnboardingCommands(bot, userStates, User) {
 
         await bot.sendMessage(chatId,
             `🎉 *Welcome to KissuBot!*\n\n` +
-            `Let's set up your profile in 6 quick steps so you can start meeting people! 💕\n\n` +
+            `Let's set up your profile in 8 quick steps so you can start meeting people! 💕\n\n` +
             `You can always edit this later in your profile settings.`,
             {
                 parse_mode: 'Markdown',
@@ -61,6 +69,55 @@ function setupOnboardingCommands(bot, userStates, User) {
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
         const data = query.data;
+
+        // --- Handle Gender Selection ---
+        if (data.startsWith('onboard_sel_gender_')) {
+            const gender = data.replace('onboard_sel_gender_', '');
+            await User.findOneAndUpdate({ telegramId }, { gender });
+            invalidateUserCache(telegramId);
+
+            userStates.set(telegramId, { onboarding: { step: 'lookingFor' } });
+            await bot.answerCallbackQuery(query.id).catch(() => { });
+
+            return bot.sendMessage(chatId,
+                `✅ Got it!\n\n${PROMPTS.lookingFor.text}`,
+                {
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: 'Men', callback_data: 'onboard_sel_looking_Male' },
+                                { text: 'Women', callback_data: 'onboard_sel_looking_Female' }
+                            ],
+                            [
+                                { text: 'Everyone', callback_data: 'onboard_sel_looking_Everyone' }
+                            ],
+                            [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
+                        ]
+                    }
+                }
+            );
+        }
+
+        // --- Handle LookingFor Selection ---
+        if (data.startsWith('onboard_sel_looking_')) {
+            let lookingFor = data.replace('onboard_sel_looking_', '');
+            if (lookingFor === 'Everyone') lookingFor = 'Both'; // Map to DB enum if necessary
+
+            await User.findOneAndUpdate({ telegramId }, { lookingFor });
+            invalidateUserCache(telegramId);
+
+            userStates.set(telegramId, { onboarding: { step: 'age' } });
+            await bot.answerCallbackQuery(query.id).catch(() => { });
+
+            return bot.sendMessage(chatId,
+                `✅ Preferences saved!\n\n${PROMPTS.age.text}`,
+                {
+                    parse_mode: 'Markdown',
+                    reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
+                }
+            );
+        }
 
         if (!data.startsWith('onboard_next_')) return;
         const step = data.replace('onboard_next_', '');
@@ -233,12 +290,20 @@ function setupOnboardingCommands(bot, userStates, User) {
                 await User.findOneAndUpdate({ telegramId }, { name: input });
                 invalidateUserCache(telegramId);
 
-                userStates.set(telegramId, { onboarding: { step: 'age' } });
+                userStates.set(telegramId, { onboarding: { step: 'gender' } });
                 return bot.sendMessage(chatId,
-                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.age.text}`,
+                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.gender.text}`,
                     {
                         parse_mode: 'Markdown',
-                        reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
+                        reply_markup: {
+                            inline_keyboard: [
+                                [
+                                    { text: '👨 Male', callback_data: 'onboard_sel_gender_Male' },
+                                    { text: '👩 Female', callback_data: 'onboard_sel_gender_Female' }
+                                ],
+                                [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
+                            ]
+                        }
                     }
                 );
             }

@@ -59,6 +59,8 @@ function setupProfileCommands(bot, userStates, User) {
             const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
               `📝 **Current Information:**\n` +
               `• Name: ${user.name || 'Not set'}\n` +
+              `• Gender: ${user.gender || 'Not set'}\n` +
+              `• Looking For: ${user.lookingFor || 'Not set'}\n` +
               `• Age: ${user.age || 'Not set'}\n` +
               `• Location: ${user.location || 'Not set'}\n` +
               `• Phone: ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
@@ -73,6 +75,10 @@ function setupProfileCommands(bot, userStates, User) {
               [
                 { text: '📝 Edit Name', callback_data: 'edit_name' },
                 { text: '🎂 Edit Age', callback_data: 'edit_age' }
+              ],
+              [
+                { text: '👤 Edit Gender', callback_data: 'edit_gender' },
+                { text: '👀 Looking For', callback_data: 'edit_lookingFor' }
               ],
               [
                 { text: '📍 Edit Location', callback_data: 'edit_location' },
@@ -114,6 +120,35 @@ function setupProfileCommands(bot, userStates, User) {
               inline_keyboard: [[
                 { text: '🚫 Cancel', callback_data: 'cancel_edit' }
               ]]
+            }
+          });
+          break;
+
+        case 'edit_gender':
+          bot.sendMessage(chatId, '👤 **Edit Gender**\n\nHow do you identify?', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '👨 Male', callback_data: 'set_gender_Male' },
+                  { text: '👩 Female', callback_data: 'set_gender_Female' }
+                ],
+                [{ text: '🚫 Cancel', callback_data: 'cancel_edit' }]
+              ]
+            }
+          });
+          break;
+
+        case 'edit_lookingFor':
+          bot.sendMessage(chatId, '👀 **Edit Preferences**\n\nWho would you like to meet?', {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: 'Men', callback_data: 'set_lookingFor_Male' },
+                  { text: 'Women', callback_data: 'set_lookingFor_Female' }
+                ],
+                [{ text: 'Everyone', callback_data: 'set_lookingFor_Both' }],
+                [{ text: '🚫 Cancel', callback_data: 'cancel_edit' }]
+              ]
             }
           });
           break;
@@ -177,6 +212,8 @@ function setupProfileCommands(bot, userStates, User) {
 
             let profileMsg = `💖 **Your Dating Profile** 💖\n\n`;
             profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
+            profileMsg += `👤 **Gender:** ${user.gender || 'Not set'}\n`;
+            profileMsg += `👀 **Looking For:** ${user.lookingFor || 'Not set'}\n`;
             profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
             profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
             profileMsg += `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required'}\n`;
@@ -293,6 +330,45 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         default:
+          // Handle gender / lookingFor selection callbacks
+          if (data.startsWith('set_gender_')) {
+            const gender = data.replace('set_gender_', '');
+            try {
+              await User.findOneAndUpdate({ telegramId }, { gender });
+              invalidateUserCache(telegramId);
+              bot.answerCallbackQuery(query.id).catch(() => { });
+              bot.sendMessage(chatId, `✅ Gender updated to ${gender}.`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '👤 Back to Profile', callback_data: 'edit_profile' }]
+                  ]
+                }
+              });
+            } catch (err) {
+              bot.sendMessage(chatId, '❌ Failed to save. Please try again.');
+            }
+            return;
+          }
+
+          if (data.startsWith('set_lookingFor_')) {
+            const lookingFor = data.replace('set_lookingFor_', '');
+            try {
+              await User.findOneAndUpdate({ telegramId }, { lookingFor });
+              invalidateUserCache(telegramId);
+              bot.answerCallbackQuery(query.id).catch(() => { });
+              bot.sendMessage(chatId, `✅ Preferences updated to ${lookingFor === 'Both' ? 'Everyone' : lookingFor}.`, {
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: '👤 Back to Profile', callback_data: 'edit_profile' }]
+                  ]
+                }
+              });
+            } catch (err) {
+              bot.sendMessage(chatId, '❌ Failed to save. Please try again.');
+            }
+            return;
+          }
+
           // Check if it's a state selection callback
           if (data.startsWith('select_state_')) {
             const state = data.replace('select_state_', '');
@@ -499,6 +575,8 @@ function setupProfileCommands(bot, userStates, User) {
 
       const profileMsg = `👤 **YOUR PROFILE** 👤\n\n` +
         `📝 **Name:** ${user.name || 'Not set'}\n` +
+        `👤 **Gender:** ${user.gender || 'Not set'}\n` +
+        `👀 **Looking For:** ${user.lookingFor || 'Not set'}\n` +
         `🎂 **Age:** ${user.age || 'Not set'}\n` +
         `📍 **Location:** ${user.location || 'Not set'}\n` +
         `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required!'}\n` +
@@ -514,6 +592,7 @@ function setupProfileCommands(bot, userStates, User) {
         reply_markup: {
           inline_keyboard: [
             [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
+            [{ text: '👤 Edit Gender', callback_data: 'edit_gender' }, { text: '👀 Looking For', callback_data: 'edit_lookingFor' }],
             [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
             [{ text: phoneButtonLabel, callback_data: 'add_phone_number' }],
             [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],

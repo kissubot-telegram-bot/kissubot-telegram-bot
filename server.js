@@ -282,6 +282,8 @@ const userSchema = new mongoose.Schema({
   telegramId: { type: String, required: true, unique: true },
   username: String,
   name: String,
+  gender: String,      // e.g. 'Male', 'Female'
+  lookingFor: String,  // e.g. 'Male', 'Female', 'Both'
   age: Number,
   location: { type: String, required: true },
   bio: String,

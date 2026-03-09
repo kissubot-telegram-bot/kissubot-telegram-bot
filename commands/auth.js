@@ -48,6 +48,8 @@ function setupAuthCommands(bot, userStates, User) {
       // 2. Compute profile completeness from actual fields
       const missing = [];
       if (!user.name) missing.push('📝 Add your name');
+      if (!user.gender) missing.push('👤 Add your gender');
+      if (!user.lookingFor) missing.push('👀 Add who you are looking for');
       if (!user.age) missing.push('🎂 Add your age');
       if (!user.location) missing.push('📍 Add your location');
       if (!user.phone) missing.push('📞 Add your phone number');
