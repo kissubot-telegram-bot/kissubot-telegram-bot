@@ -5,40 +5,40 @@ const TERMS_PDF = path.join(__dirname, '..', 'docs', 'terms-of-service.pdf');
 const PRIVACY_PDF = path.join(__dirname, '..', 'docs', 'privacy-policy.pdf');
 
 function setupTermsCommands(bot, User) {
-    // TERMS command - Send Terms of Service PDF
     bot.onText(/\/terms/, async (msg) => {
         const chatId = msg.chat.id;
         try {
-            await bot.sendDocument(chatId, TERMS_PDF, {
-                caption: '📜 **KissuBot Terms of Service**\n\nPlease read before using the platform.',
+            await bot.sendMessage(chatId, '📜 **KissuBot Terms of Service**\n\nPlease read before using the platform.', {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '🔒 Privacy Policy', callback_data: 'view_privacy_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                        [{ text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                        [{ text: '🔒 Privacy Policy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                        [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
             });
         } catch (err) {
-            console.error('Terms PDF error:', err);
+            console.error('Terms error:', err);
             bot.sendMessage(chatId, '❌ Could not load Terms of Service. Please try again later.');
         }
     });
 
-    // PRIVACY command - Send Privacy Policy PDF
     bot.onText(/\/privacy/, async (msg) => {
         const chatId = msg.chat.id;
         try {
-            await bot.sendDocument(chatId, PRIVACY_PDF, {
-                caption: '🔒 **KissuBot Privacy Policy**\n\nYour data is safe with us.',
+            await bot.sendMessage(chatId, '🔒 **KissuBot Privacy Policy**\n\nYour data is safe with us.', {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📜 Terms of Service', callback_data: 'view_terms_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                        [{ text: '📖 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                        [{ text: '📜 Terms of Service', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                        [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
             });
         } catch (err) {
-            console.error('Privacy PDF error:', err);
+            console.error('Privacy error:', err);
             bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
         }
     });
@@ -110,12 +110,13 @@ function setupTermsCommands(bot, User) {
 
         } else if (data === 'view_terms_inline') {
             try {
-                await bot.sendDocument(chatId, TERMS_PDF, {
-                    caption: '📜 **KissuBot Terms of Service**',
+                await bot.sendMessage(chatId, '📜 **KissuBot Terms of Service**', {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '🔒 Privacy Policy', callback_data: 'view_privacy_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                            [{ text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                            [{ text: '🔒 Privacy Policy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                            [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
                 });
@@ -124,12 +125,13 @@ function setupTermsCommands(bot, User) {
             }
         } else if (data === 'view_privacy_inline') {
             try {
-                await bot.sendDocument(chatId, PRIVACY_PDF, {
-                    caption: '🔒 **KissuBot Privacy Policy**',
+                await bot.sendMessage(chatId, '🔒 **KissuBot Privacy Policy**', {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📜 Terms of Service', callback_data: 'view_terms_inline' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                            [{ text: '📖 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                            [{ text: '📜 Terms of Service', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                            [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
                 });

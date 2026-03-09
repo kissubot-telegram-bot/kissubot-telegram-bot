@@ -45,8 +45,8 @@ function setupAuthCommands(bot, userStates, User) {
                 { text: '❌ Decline', callback_data: 'decline_terms' }
               ],
               [
-                { text: '📜 Read Terms', callback_data: 'view_terms_inline' },
-                { text: '🔒 Read Privacy', callback_data: 'view_privacy_inline' }
+                { text: '📜 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } },
+                { text: '🔒 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }
               ]
             ]
           }

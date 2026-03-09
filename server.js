@@ -53,6 +53,84 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Terms of Service HTML View
+app.get('/docs/terms', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Terms of Service - KissuBot</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; color: var(--tg-theme-text-color, #000); background: var(--tg-theme-bg-color, #fff); }
+        h1 { color: #ff4b4b; }
+        h2 { font-size: 1.2rem; margin-top: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+      </style>
+      <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Terms of Service</h1>
+        <p>Welcome to KissuBot! By using our service, you agree to these terms.</p>
+        <h2>1. Eligibility</h2>
+        <p>You must be at least 18 years old to use KissuBot. By registering, you confirm you meet this requirement.</p>
+        <h2>2. Acceptable Use</h2>
+        <p>You agree to treat others with respect. Harassment, spam, nudity, and illegal content are strictly prohibited and will result in a ban.</p>
+        <h2>3. Safety & Liability</h2>
+        <p>KissuBot does not conduct background checks on users. You interact with others at your own risk. Always prioritize your safety when meeting people online or offline.</p>
+        <h2>4. Account Termination</h2>
+        <p>We reserve the right to suspend or terminate accounts that violate our community guidelines without notice.</p>
+        <br><br>
+      </div>
+      <script>
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Privacy HTML View
+app.get('/docs/privacy', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Privacy Policy - KissuBot</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; color: var(--tg-theme-text-color, #000); background: var(--tg-theme-bg-color, #fff); }
+        h1 { color: #ff4b4b; }
+        h2 { font-size: 1.2rem; margin-top: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+      </style>
+      <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Privacy Policy</h1>
+        <p>Your privacy is important to us. Here is how we handle your data.</p>
+        <h2>1. Data Collection</h2>
+        <p>We collect the information you provide during onboarding: your name, age, location, photos, phone number, and bio. We also store your Telegram ID to link your account.</p>
+        <h2>2. Data Usage</h2>
+        <p>Your public profile (name, age, location, photos, bio) is visible to other users. Your phone number is kept completely private and is strictly used for account verification/security—it is never shown to other users.</p>
+        <h2>3. Data Deletion</h2>
+        <p>You can delete your account and all associated data at any time from the profile settings menu. Deleting your account removes all your data from our servers.</p>
+        <br><br>
+      </div>
+      <script>
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 // Test endpoint to verify server is reachable
 app.get('/test', (req, res) => {
   console.log('✅ Test endpoint hit!');
