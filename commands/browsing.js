@@ -17,6 +17,7 @@
 
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 const { canLike, recordLike } = require('./antiSpam');
+const { requireSubscription } = require('./genderGate');
 const axios = require('axios');
 
 // Try to load API_BASE from config (optional — stats calls are fire-and-forget)
@@ -130,6 +131,10 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       const currentUser = await User.findOne({ telegramId });
       if (!currentUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+      if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
+        return;
+      }
 
       // Build list of IDs to exclude: self + anyone they've liked/passed + anyone they've blocked + anyone who blocked them
       const blockedByMe = (currentUser.blocked || []).map(b => b.userId);
@@ -262,7 +267,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       const matchButtons = valid.slice(0, 5).map(({ match, other }) => ([{
         text: `💬 Chat with ${other.name}`,
-        url: `tg://user?id=${other.telegramId}`
+        callback_data: `chat_gate_${other.telegramId}`
       }]));
       matchButtons.push([{ text: '🔍 Browse More', callback_data: 'start_browse' }, { text: '🏠 Menu', callback_data: 'main_menu' }]);
 
@@ -301,7 +306,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '💬 Open Chat', url: `tg://user?id=${myUser.telegramId}` },
+                { text: '💬 Open Chat', callback_data: `chat_gate_${myUser.telegramId}` },
                 { text: '🔍 Keep Swiping', callback_data: 'start_browse' }
               ],
               [{ text: '💌 All Matches', callback_data: 'view_matches' }]
@@ -409,7 +414,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: '💬 Open Chat', url: `tg://user?id=${targetTelegramId}` },
+                    { text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` },
                     { text: '🔍 Keep Swiping', callback_data: 'start_browse' }
                   ],
                   [{ text: '💌 All Matches', callback_data: 'view_matches' }]
@@ -515,7 +520,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💬 Open Chat', url: `tg://user?id=${targetTelegramId}` }],
+                [{ text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` }],
                 [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
               ]
             }
@@ -550,6 +555,26 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         // ── 🔍 START BROWSE ───────────────────────────────────────────────
       } else if (data === 'start_browse') {
         await browseProfiles(chatId, telegramId);
+
+        // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
+      } else if (data.startsWith('chat_gate_')) {
+        const targetId = data.replace('chat_gate_', '');
+        if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
+          return;
+        }
+
+        // Allowed to chat: Provide the actual link
+        bot.sendMessage(chatId,
+          `💬 You can now start chatting! \n\nClick the button below to message them directly on Telegram.`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💬 Open Telegram Chat', url: `tg://user?id=${targetId}` }],
+                [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
+              ]
+            }
+          }
+        );
       }
 
     } catch (err) {

@@ -30,55 +30,6 @@ function setupSocialCommands(bot) {
 
         bot.sendMessage(chatId, giftsMsg, opts);
     });
-
-    bot.onText(/\/matches/, async (msg) => {
-        const chatId = msg.chat.id;
-        const telegramId = msg.from.id;
-
-        try {
-            const response = await axios.get(`${API_BASE}/matches/${telegramId}`);
-            const matches = response.data.matches || response.data || [];
-
-            if (!matches || matches.length === 0) {
-                bot.sendMessage(chatId, '💔 **NO MATCHES YET** 💔\n\n' +
-                    'You don\'t have any matches right now.\n\n' +
-                    '💡 **How to get matches:**\n' +
-                    '• Keep browsing and liking profiles\n' +
-                    '• Make your profile more attractive\n' +
-                    '• Be patient! Good things take time.\n\n' +
-                    'Someone special is waiting for you! ✨', {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }],
-                            [{ text: '👤 Edit Your Profile', callback_data: 'edit_profile' }]
-                        ]
-                    }
-                });
-            } else {
-                const matchList = matches.map(match =>
-                    `💕 ${match.name} (${match.age}) - @${match.username}`
-                ).join('\n');
-
-                bot.sendMessage(chatId, `💖 **YOUR MATCHES (${matches.length})** 💖\n\n` +
-                    `${matchList}\n\n` +
-                    '💡 **What to do next:**\n' +
-                    '• Start a conversation!\n' +
-                    '• Send a thoughtful gift\n' +
-                    '• Plan a virtual date\n\n' +
-                    'Don\'t be shy! Reach out and connect. 💌', {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '🎁 Send a Gift', callback_data: 'send_gift' }],
-                            [{ text: '💬 Start Chatting', url: `https://t.me/${matches[0].username}` }]
-                        ]
-                    }
-                });
-            }
-        } catch (error) {
-            console.error('Matches error:', error);
-            bot.sendMessage(chatId, '❌ Failed to load your matches. Please try again later.');
-        }
-    });
 }
 
 module.exports = { setupSocialCommands };

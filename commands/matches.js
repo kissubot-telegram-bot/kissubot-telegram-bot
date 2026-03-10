@@ -1,12 +1,18 @@
 const axios = require('axios');
 const API_BASE = process.env.API_BASE || 'http://localhost:3002';
+const { requireSubscription } = require('./genderGate');
 
-function setupMatchesCommands(bot) {
+function setupMatchesCommands(bot, User) {
     bot.onText(/\/matches/, async (msg) => {
         const chatId = msg.chat.id;
         const telegramId = msg.from.id;
 
         try {
+            // Enforce Subscription Gate (Men must be VIP to view matches)
+            if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
+                return;
+            }
+
             const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
             const matches = res.data;
 

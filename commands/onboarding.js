@@ -2,10 +2,10 @@
  * onboarding.js — Guided step-by-step profile setup
  *
  * Flow (triggered after terms accepted):
- *   Step 1: Welcome → ask name
- *   Step 2: Got name → ask gender 
- *   Step 3: Got gender → ask interested in (lookingFor)
- *   Step 4: Got interested in → ask age
+ *   Step 1: Welcome → ask gender
+ *   Step 2: Got gender → ask interested in (lookingFor)
+ *   Step 3: Got interested in → ask name
+ *   Step 4: Got name → ask age
  *   Step 5: Got age  → ask location
  *   Step 6: Got location → ask phone number
  *   Step 7: Got phone → ask bio (optional)
@@ -16,14 +16,14 @@
 const { invalidateUserCache } = require('./auth');
 
 const PROMPTS = {
-    name: {
-        text: `📝 *Step 1 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
-    },
     gender: {
-        text: `👤 *Step 2 of 8 — Your Gender*\n\nHow do you identify?`,
+        text: `👤 *Step 1 of 8 — Your Gender*\n\nHow do you identify?`,
     },
     lookingFor: {
-        text: `👀 *Step 3 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
+        text: `👀 *Step 2 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
+    },
+    name: {
+        text: `📝 *Step 3 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
     },
     age: {
         text: `🎂 *Step 4 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
@@ -49,7 +49,7 @@ function setupOnboardingCommands(bot, userStates, User) {
      * Called externally (from terms.js) after accept_terms.
      */
     async function startOnboarding(chatId, telegramId) {
-        userStates.set(telegramId, { onboarding: { step: 'name' } });
+        userStates.set(telegramId, { onboarding: { step: 'gender' } });
 
         await bot.sendMessage(chatId,
             `🎉 *Welcome to KissuBot!*\n\n` +
@@ -58,7 +58,7 @@ function setupOnboardingCommands(bot, userStates, User) {
             {
                 parse_mode: 'Markdown',
                 reply_markup: {
-                    inline_keyboard: [[{ text: "Let's Go! 🚀", callback_data: 'onboard_next_name' }]]
+                    inline_keyboard: [[{ text: "Let's Go! 🚀", callback_data: 'onboard_next_gender' }]]
                 }
             }
         );
@@ -107,11 +107,11 @@ function setupOnboardingCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { lookingFor });
             invalidateUserCache(telegramId);
 
-            userStates.set(telegramId, { onboarding: { step: 'age' } });
+            userStates.set(telegramId, { onboarding: { step: 'name' } });
             await bot.answerCallbackQuery(query.id).catch(() => { });
 
             return bot.sendMessage(chatId,
-                `✅ Preferences saved!\n\n${PROMPTS.age.text}`,
+                `✅ Preferences saved!\n\n${PROMPTS.name.text}`,
                 {
                     parse_mode: 'Markdown',
                     reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
@@ -144,6 +144,22 @@ function setupOnboardingCommands(bot, userStates, User) {
             return bot.sendMessage(chatId, PROMPTS.photo.text, {
                 parse_mode: 'Markdown',
                 reply_markup: { remove_keyboard: true }
+            });
+        }
+
+        // Gender step: show gender keyboard
+        if (step === 'gender') {
+            return bot.sendMessage(chatId, PROMPTS.gender.text, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            { text: '👨 Male', callback_data: 'onboard_sel_gender_Male' },
+                            { text: '👩 Female', callback_data: 'onboard_sel_gender_Female' }
+                        ],
+                        [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
+                    ]
+                }
             });
         }
 
@@ -290,20 +306,12 @@ function setupOnboardingCommands(bot, userStates, User) {
                 await User.findOneAndUpdate({ telegramId }, { name: input });
                 invalidateUserCache(telegramId);
 
-                userStates.set(telegramId, { onboarding: { step: 'gender' } });
+                userStates.set(telegramId, { onboarding: { step: 'age' } });
                 return bot.sendMessage(chatId,
-                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.gender.text}`,
+                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.age.text}`,
                     {
                         parse_mode: 'Markdown',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    { text: '👨 Male', callback_data: 'onboard_sel_gender_Male' },
-                                    { text: '👩 Female', callback_data: 'onboard_sel_gender_Female' }
-                                ],
-                                [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
-                            ]
-                        }
+                        reply_markup: { inline_keyboard: [[{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]] }
                     }
                 );
             }
