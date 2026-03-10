@@ -533,7 +533,7 @@ function setupProfileCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
             invalidateUserCache(telegramId);
             return bot.sendMessage(chatId,
-              '✅ *Phone saved!* 🎉 *Profile complete!* You can now browse and match.',
+              '✅ *Phone saved!* 🎉 *Profile complete!*\n\nClick the button below to start browsing.',
               {
                 parse_mode: 'Markdown',
                 reply_markup: {
@@ -642,7 +642,7 @@ function setupProfileCommands(bot, userStates, User) {
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
         invalidateUserCache(telegramId);
         bot.sendMessage(chatId,
-          '🎉 **Profile Complete!** You can now browse and match with others.\n\nUse /browse to start!',
+          '🎉 **Profile Complete!** You can now browse and match with others.',
           { reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
         );
       } else {
@@ -1047,13 +1047,10 @@ function setupProfileCommands(bot, userStates, User) {
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
         invalidateUserCache(telegramId);
         return bot.sendMessage(chatId,
-          '✅ *Phone saved!* 🎉 *Profile complete!* You can now browse and match.',
+          '✅ *Phone saved!* 🎉 *Profile complete!*\n\nClick the button below to start browsing matches.',
           {
             parse_mode: 'Markdown',
-            reply_markup: {
-              remove_keyboard: true,
-              inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]]
-            }
+            reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
           }
         );
       }
