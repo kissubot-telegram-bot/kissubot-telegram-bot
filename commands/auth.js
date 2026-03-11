@@ -200,10 +200,10 @@ function getProfileMissing(user) {
   const missing = [];
   if (!user.name) missing.push({ label: 'name', msgText: '📝 Add your name', btnText: '📝 Add Name', callback: 'edit_name' });
   if (!user.gender) missing.push({ label: 'gender', msgText: '👤 Add your gender', btnText: '👤 Add Gender', callback: 'edit_gender' });
-  if (!user.lookingFor) missing.push({ label: 'lookingFor', msgText: '👀 Add who you are looking for', btnText: '👀 Preferences', callback: 'edit_lookingFor' });
+  if (!user.lookingFor) missing.push({ label: "what's your preference", msgText: '👀 Add who you are looking for', btnText: '👀 Preferences', callback: 'edit_lookingFor' });
   if (!user.age) missing.push({ label: 'age', msgText: '🎂 Add your age', btnText: '🎂 Add Age', callback: 'edit_age' });
   if (!user.location) missing.push({ label: 'location', msgText: '📍 Add your location', btnText: '📍 Add Location', callback: 'edit_location' });
-  if (!user.phone) missing.push({ label: 'phone', msgText: '📞 Add your phone number', btnText: '📞 Add Phone', callback: 'add_phone_number' });
+  if (!user.phone) missing.push({ label: 'phone number', msgText: '📞 Add your phone number', btnText: '📞 Add Phone', callback: 'add_phone_number' });
   if (!user.photos || user.photos.length === 0) missing.push({ label: 'photo', msgText: '📸 Upload at least one photo', btnText: '📸 Upload Photo', callback: 'manage_photos' });
   return missing;
 }

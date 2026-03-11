@@ -534,14 +534,27 @@ function setupProfileCommands(bot, userStates, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                   remove_keyboard: true,
-                  inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]]
                 }
               }
-            );
+            ).then(() => {
+              bot.sendMessage(chatId, 'Start your journey below 👇', {
+                reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
+              });
+            });
           }
+          await bot.sendMessage(chatId, '✅ *Phone saved!*', { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+          const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
           return bot.sendMessage(chatId,
-            `✅ *Phone saved!* Still missing: ${missing.map(m => m.label).join(', ')}.`,
-            { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+            `Your profile is still incomplete. Complete it to start browsing:\n\n📋 *Missing:*\n${missing.map(m => m.msgText).join('\n')}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  ...dynamicButtons,
+                  [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+                ]
+              }
+            }
           );
         }
 
@@ -1041,14 +1054,28 @@ function setupProfileCommands(bot, userStates, User) {
           '✅ *Phone saved!* 🎉 *Profile complete!*\n\nClick the button below to start browsing matches.',
           {
             parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
+            reply_markup: { remove_keyboard: true }
           }
-        );
+        ).then(() => {
+          bot.sendMessage(chatId, 'Start your journey below 👇', {
+            reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
+          });
+        });
       }
 
-      bot.sendMessage(chatId,
-        `✅ *Phone saved!* Still missing: ${missing.map(m => m.label).join(', ')}. Use /profile to finish.`,
-        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+      await bot.sendMessage(chatId, '✅ *Phone saved!*', { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+      const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
+      return bot.sendMessage(chatId,
+        `Your profile is still incomplete. Complete it to start browsing:\n\n📋 *Missing:*\n${missing.map(m => m.msgText).join('\n')}`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              ...dynamicButtons,
+              [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+            ]
+          }
+        }
       );
     } catch (err) {
       console.error('Contact handler error:', err);
