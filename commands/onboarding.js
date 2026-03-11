@@ -32,7 +32,7 @@ const PROMPTS = {
         text: `📍 *Step 5 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. Lagos, London, New York):_`,
     },
     phone: {
-        text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+2348012345678\`\n\n🔒 Your number is private and never shown publicly.`,
+        text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
     },
     bio: {
         text: `💬 *Step 7 of 8 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
@@ -49,16 +49,49 @@ function setupOnboardingCommands(bot, userStates, User) {
      * Called externally (from terms.js) after accept_terms.
      */
     async function startOnboarding(chatId, telegramId) {
-        userStates.set(telegramId, { onboarding: { step: 'gender' } });
+        const user = await User.findOne({ telegramId });
+        let nextStep = 'gender';
+
+        if (user) {
+            if (user.gender) nextStep = 'lookingFor';
+            if (user.gender && user.lookingFor) nextStep = 'name';
+            if (user.gender && user.lookingFor && user.name) nextStep = 'age';
+            if (user.gender && user.lookingFor && user.name && user.age) nextStep = 'location';
+            if (user.gender && user.lookingFor && user.name && user.age && user.location) nextStep = 'phone';
+            if (user.gender && user.lookingFor && user.name && user.age && user.location && user.phone) nextStep = 'photo';
+
+            // If already complete (ignoring optional bio)
+            if (user.gender && user.lookingFor && user.name && user.age && user.location && user.phone && user.photos && user.photos.length > 0) {
+                if (!user.profileCompleted) {
+                    await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
+                }
+                return bot.sendMessage(chatId,
+                    `🎉 **Your profile is already complete!**\n\n` +
+                    `You're all set and ready to find your perfect match. 💕\n\n` +
+                    `Use the menu below or /browse to start matching!`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
+                            ]
+                        }
+                    }
+                );
+            }
+        }
+
+        userStates.set(telegramId, { onboarding: { step: nextStep } });
 
         await bot.sendMessage(chatId,
             `🎉 *Welcome to KissuBot!*\n\n` +
-            `Let's set up your profile in 8 quick steps so you can start meeting people! 💕\n\n` +
+            `Let's set up your profile in a few quick steps so you can start meeting people! 💕\n\n` +
             `You can always edit this later in your profile settings.`,
             {
                 parse_mode: 'Markdown',
                 reply_markup: {
-                    inline_keyboard: [[{ text: "Let's Go! 🚀", callback_data: 'onboard_next_gender' }]]
+                    inline_keyboard: [[{ text: "Let's Go! 🚀", callback_data: `onboard_next_${nextStep}` }]]
                 }
             }
         );
@@ -220,7 +253,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                     const digits = msg.text.trim().replace(/[\s\-().]/g, '');
                     if (!/^\+?\d{7,15}$/.test(digits)) {
                         return bot.sendMessage(chatId,
-                            '❌ Invalid number. Please include your country code, e.g. `+2348012345678`',
+                            '❌ Invalid number. Please include your country code, e.g. `+12345678900`',
                             { parse_mode: 'Markdown' }
                         );
                     }

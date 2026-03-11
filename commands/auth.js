@@ -26,7 +26,7 @@ function setupAuthCommands(bot, userStates, User) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await User.findOne({ telegramId });
+      let user = await User.findOne({ telegramId });
 
       // 1. If user doesn't exist, create an empty skeleton and start onboarding immediately
       if (!user) {

@@ -36,7 +36,7 @@ function setupProfileCommands(bot, userStates, User) {
           await bot.sendMessage(chatId,
             '📞 *Add Your Phone Number*\n\n' +
             '📱 *On mobile:* Tap the *"📞 Share My Phone Number"* button that appears at the bottom of your screen.\n\n' +
-            '💻 *On desktop:* Type your number with country code and send it here:\n`+2348012345678`',
+            '💻 *On desktop:* Type your number with country code and send it here:\n`+12345678900`',
             {
               parse_mode: 'Markdown',
               reply_markup: {

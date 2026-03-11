@@ -39,7 +39,6 @@ const { setupPremiumCommands } = require('./commands/premium');
 const { setupGiftCommands } = require('./commands/gifts');
 const { setupSocialDebugCommands } = require('./commands/social-debug');
 const { setupSocialCommands } = require('./commands/social');
-const { setupSearchCommands } = require('./commands/search');
 const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
 
@@ -440,7 +439,6 @@ setupPremiumCommands(bot, User);
 setupGiftCommands(bot, User);
 setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);
-setupSearchCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
 

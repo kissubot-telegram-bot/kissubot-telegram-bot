@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
+const { User } = require('../server');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
@@ -57,14 +58,14 @@ function setupSettingsCommands(bot) {
         case 'settings_search':
         case 'back_to_search':
           try {
-            const user = await getCachedUserProfile(telegramId);
-            const preferences = user.searchPreferences || {};
+            const user = await getCachedUserProfile(telegramId, User);
+            const preferences = user.searchSettings || {};
 
             const searchMsg = `🔍 **SEARCH SETTINGS** 🔍\n\n` +
               `📊 **Current Preferences:**\n` +
-              `• **Age Range:** ${preferences.minAge || 18} - ${preferences.maxAge || 35}\n` +
+              `• **Age Range:** ${preferences.ageMin || 18} - ${preferences.ageMax || 35}\n` +
               `• **Distance:** ${preferences.maxDistance || 50} km\n` +
-              `• **Gender:** ${preferences.gender || 'All'}\n\n` +
+              `• **Gender:** ${preferences.genderPreference || 'Any'}\n\n` +
               `⚙️ **Adjust your search preferences:**`;
 
             const opts = {
@@ -180,7 +181,10 @@ function setupSettingsCommands(bot) {
               case 'age_range_18_35': ageMin = 18; ageMax = 35; break;
               case 'age_range_25_45': ageMin = 25; ageMax = 45; break;
             }
-            await axios.post(`${API_BASE}/search-settings/${telegramId}`, { ageMin, ageMax });
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { 'searchSettings.ageMin': ageMin, 'searchSettings.ageMax': ageMax } }
+            );
             await bot.sendMessage(chatId, `✅ Age range updated to ${ageMin}-${ageMax} years!`, {
               reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
               parse_mode: 'Markdown'
@@ -208,7 +212,10 @@ function setupSettingsCommands(bot) {
               case 'distance_250': maxDistance = 250; break;
               case 'distance_unlimited': maxDistance = 100000; break;
             }
-            await axios.post(`${API_BASE}/search-settings/${telegramId}`, { maxDistance });
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { 'searchSettings.maxDistance': maxDistance } }
+            );
             const label = data === 'distance_unlimited' ? 'Unlimited' : `${maxDistance} km`;
             await bot.sendMessage(chatId, `✅ Max distance updated to ${label}!`, {
               reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
@@ -229,7 +236,10 @@ function setupSettingsCommands(bot) {
             if (data === 'gender_male') genderPreference = 'Male';
             else if (data === 'gender_female') genderPreference = 'Female';
             else genderPreference = 'Any';
-            await axios.post(`${API_BASE}/search-settings/${telegramId}`, { genderPreference });
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { 'searchSettings.genderPreference': genderPreference } }
+            );
             await bot.sendMessage(chatId, `✅ Gender preference set to ${genderPreference}!`, {
               reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
               parse_mode: 'Markdown'
@@ -422,19 +432,19 @@ function setupSettingsCommands(bot) {
   });
 
   // SEARCH settings command
-  bot.onText(/\/search/, async (msg) => {
+  bot.onText(/\/(search|searchsettings)/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId);
-      const preferences = user.searchPreferences || {};
+      const user = await getCachedUserProfile(telegramId, User);
+      const preferences = user.searchSettings || {};
 
       const searchMsg = `🔍 **SEARCH SETTINGS** 🔍\n\n` +
         `📊 **Current Preferences:**\n` +
-        `• **Age Range:** ${preferences.minAge || 18} - ${preferences.maxAge || 35}\n` +
+        `• **Age Range:** ${preferences.ageMin || 18} - ${preferences.ageMax || 35}\n` +
         `• **Distance:** ${preferences.maxDistance || 50} km\n` +
-        `• **Gender:** ${preferences.gender || 'All'}\n\n` +
+        `• **Gender:** ${preferences.genderPreference || 'Any'}\n\n` +
         `⚙️ **Adjust your search preferences:**`;
 
       const opts = {
