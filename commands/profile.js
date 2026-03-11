@@ -1,4 +1,4 @@
-const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require('./auth');
 const axios = require('axios');
 const { API_BASE } = require('../config');
 const browsingModule = require('./browsing');
@@ -523,13 +523,9 @@ function setupProfileCommands(bot, userStates, User) {
         if (field === 'phone') {
           // Remove keyboard + check profile completion
           const updatedUser = await getCachedUserProfile(telegramId, User);
-          const stillMissing = [];
-          if (!updatedUser.name) stillMissing.push('name');
-          if (!updatedUser.age) stillMissing.push('age');
-          if (!updatedUser.location) stillMissing.push('location');
-          if (!updatedUser.photos || updatedUser.photos.length === 0) stillMissing.push('photo');
+          const missing = getProfileMissing(updatedUser);
 
-          if (stillMissing.length === 0) {
+          if (missing.length === 0) {
             await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
             invalidateUserCache(telegramId);
             return bot.sendMessage(chatId,
@@ -544,7 +540,7 @@ function setupProfileCommands(bot, userStates, User) {
             );
           }
           return bot.sendMessage(chatId,
-            `✅ *Phone saved!* Still missing: ${stillMissing.join(', ')}.`,
+            `✅ *Phone saved!* Still missing: ${missing.map(m => m.label).join(', ')}.`,
             { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
           );
         }
@@ -1036,14 +1032,9 @@ function setupProfileCommands(bot, userStates, User) {
       invalidateUserCache(telegramId);
 
       const updatedUser = await getCachedUserProfile(telegramId, User);
-      const stillMissing = [];
-      if (!updatedUser.name) stillMissing.push('name');
-      if (!updatedUser.age) stillMissing.push('age');
-      if (!updatedUser.location) stillMissing.push('location');
-      if (!updatedUser.phone) stillMissing.push('phone');
-      if (!updatedUser.photos || updatedUser.photos.length === 0) stillMissing.push('photo');
+      const missing = getProfileMissing(updatedUser);
 
-      if (stillMissing.length === 0) {
+      if (missing.length === 0) {
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
         invalidateUserCache(telegramId);
         return bot.sendMessage(chatId,
@@ -1056,7 +1047,7 @@ function setupProfileCommands(bot, userStates, User) {
       }
 
       bot.sendMessage(chatId,
-        `✅ *Phone saved!* Still missing: ${stillMissing.join(', ')}. Use /profile to finish.`,
+        `✅ *Phone saved!* Still missing: ${missing.map(m => m.label).join(', ')}. Use /profile to finish.`,
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
       );
     } catch (err) {

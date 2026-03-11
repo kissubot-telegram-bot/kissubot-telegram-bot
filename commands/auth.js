@@ -46,27 +46,23 @@ function setupAuthCommands(bot, userStates, User) {
       }
 
       // 2. Compute profile completeness from actual fields
-      const missing = [];
-      if (!user.name) missing.push('📝 Add your name');
-      if (!user.gender) missing.push('👤 Add your gender');
-      if (!user.lookingFor) missing.push('👀 Add who you are looking for');
-      if (!user.age) missing.push('🎂 Add your age');
-      if (!user.location) missing.push('📍 Add your location');
-      if (!user.phone) missing.push('📞 Add your phone number');
-      if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
+      const missing = getProfileMissing(user);
 
       // Profile still incomplete — show what's missing
       if (missing.length > 0) {
         const incompleteMsg = `✨ **Almost Ready!** ✨\n\n` +
           `You're just one step away from finding your perfect match!\n\n` +
           `📋 **What's Missing:**\n` +
-          `${missing.join('\n')}\n\n` +
+          `${missing.map(m => m.msgText).join('\n')}\n\n` +
           `💡 Complete your profile to start browsing and matching! 💕`;
+
+        // Create dynamic buttons for missing fields (max 2 to avoid clutter)
+        const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
 
         return bot.sendMessage(chatId, incompleteMsg, {
           reply_markup: {
             inline_keyboard: [
-              [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }],
+              ...dynamicButtons,
               [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
             ]
           }
@@ -200,7 +196,19 @@ function setupAuthCommands(bot, userStates, User) {
   });
 }
 
-module.exports = { setupAuthCommands, invalidateUserCache, handleRegister, getCachedUserProfile };
+function getProfileMissing(user) {
+  const missing = [];
+  if (!user.name) missing.push({ label: 'name', msgText: '📝 Add your name', btnText: '📝 Add Name', callback: 'edit_name' });
+  if (!user.gender) missing.push({ label: 'gender', msgText: '👤 Add your gender', btnText: '👤 Add Gender', callback: 'edit_gender' });
+  if (!user.lookingFor) missing.push({ label: 'lookingFor', msgText: '👀 Add who you are looking for', btnText: '👀 Preferences', callback: 'edit_lookingFor' });
+  if (!user.age) missing.push({ label: 'age', msgText: '🎂 Add your age', btnText: '🎂 Add Age', callback: 'edit_age' });
+  if (!user.location) missing.push({ label: 'location', msgText: '📍 Add your location', btnText: '📍 Add Location', callback: 'edit_location' });
+  if (!user.phone) missing.push({ label: 'phone', msgText: '📞 Add your phone number', btnText: '📞 Add Phone', callback: 'add_phone_number' });
+  if (!user.photos || user.photos.length === 0) missing.push({ label: 'photo', msgText: '📸 Upload at least one photo', btnText: '📸 Upload Photo', callback: 'manage_photos' });
+  return missing;
+}
+
+module.exports = { setupAuthCommands, invalidateUserCache, handleRegister, getCachedUserProfile, getProfileMissing };
 
 async function handleRegister(bot, msg, User) {
   const chatId = msg.chat.id;

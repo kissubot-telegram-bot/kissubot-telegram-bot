@@ -15,7 +15,7 @@
  * Match event → notify BOTH users simultaneously
  */
 
-const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require('./auth');
 const { canLike, recordLike } = require('./antiSpam');
 const { requireSubscription } = require('./genderGate');
 const axios = require('axios');
@@ -25,21 +25,6 @@ let API_BASE = '';
 try { API_BASE = require('../config').API_BASE; } catch (e) { }
 
 function setupBrowsingCommands(bot, User, Match, Like) {
-
-  // ─────────────────────────────────────────────────────────────────────
-  // Profile completeness check
-  // ─────────────────────────────────────────────────────────────────────
-  function getProfileMissing(user) {
-    const missing = [];
-    if (!user.name) missing.push('📝 Add your name');
-    if (!user.gender) missing.push('👤 Add your gender');
-    if (!user.lookingFor) missing.push('👀 Add who you are looking for');
-    if (!user.age) missing.push('🎂 Add your age');
-    if (!user.location) missing.push('📍 Add your location');
-    if (!user.phone) missing.push('📞 Add your phone number');
-    if (!user.photos || user.photos.length === 0) missing.push('📸 Upload at least one photo');
-    return missing;
-  }
 
   // ─────────────────────────────────────────────────────────────────────
   // Build the 4-button inline keyboard for a profile card
@@ -113,16 +98,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       // Check real completeness — don't trust the flag alone
       const missing = getProfileMissing(user);
       if (missing.length > 0) {
+        const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
+
         return bot.sendMessage(chatId,
           '✨ *Almost Ready!*\n\n' +
           'Complete your profile to start browsing:\n\n' +
-          `📋 *Missing:*\n${missing.join('\n')}`,
+          `📋 *Missing:*\n${missing.map(m => m.msgText).join('\n')}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📸 Upload Photo', callback_data: 'manage_photos' }, { text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ...dynamicButtons,
+                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
               ]
             }
           }
