@@ -123,64 +123,7 @@ bot.on('photo', async (msg) => {
 
   if (!userState) return;
 
-  if (userState.action === 'uploading_photo') {
-    try {
-      // Get the highest resolution photo
-      const photo = msg.photo[msg.photo.length - 1];
-      const fileId = photo.file_id;
-
-      // Get file info from Telegram
-      const file = await bot.getFile(fileId);
-      const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-
-      // Upload photo to profile using multipart form
-      const FormData = require('form-data');
-      const https = require('https');
-      const form = new FormData();
-
-      // Fetch the photo from Telegram
-      const photoBuffer = await new Promise((resolve, reject) => {
-        https.get(fileUrl, (res) => {
-          const chunks = [];
-          res.on('data', chunk => chunks.push(chunk));
-          res.on('end', () => resolve(Buffer.concat(chunks)));
-          res.on('error', reject);
-        });
-      });
-
-      form.append('image', photoBuffer, 'photo.jpg');
-
-      const uploadRes = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
-        headers: form.getHeaders()
-      });
-
-      userStates.delete(telegramId);
-
-      // Invalidate cache so profile shows updated photo count
-      invalidateUserCache(telegramId);
-
-      const successMsg = `✅ **Photo Uploaded Successfully!** ✅\n\n` +
-        `Your new photo has been added to your profile.\n\n` +
-        `📸 **Want to add more photos?**`;
-
-      const opts = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📸 Add Another Photo', callback_data: 'add_another_photo' }],
-            [{ text: '👤 View Profile', callback_data: 'view_profile' }],
-            [{ text: '🔍 Start Browsing', callback_data: 'browse_profiles' }],
-            [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-          ]
-        }
-      };
-
-      bot.sendMessage(chatId, successMsg, opts);
-    } catch (err) {
-      console.error('Photo upload error:', err.response?.data || err.message);
-      userStates.delete(telegramId);
-      bot.sendMessage(chatId, '❌ Failed to upload photo. Please try again later.');
-    }
-  } else if (userState.action === 'uploading_story') {
+  if (userState.action === 'uploading_story') {
     try {
       // Get the highest resolution photo
       const photo = msg.photo[msg.photo.length - 1];

@@ -520,20 +520,20 @@ function setupProfileCommands(bot, userStates, User) {
           phone: 'Phone Number'
         };
 
-        if (field === 'phone') {
-          // Remove keyboard + check profile completion
-          const updatedUser = await getCachedUserProfile(telegramId, User);
-          const missing = getProfileMissing(updatedUser);
+        const updatedUser = await getCachedUserProfile(telegramId, User);
+        const missing = getProfileMissing(updatedUser);
 
-          if (missing.length === 0) {
+        // ALWAYS evaluate completion when any missing information is uploaded
+        if (missing.length === 0) {
+          if (!updatedUser.profileCompleted) {
             await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
             invalidateUserCache(telegramId);
             return bot.sendMessage(chatId,
-              '✅ *Phone saved!* 🎉 *Profile complete!*\n\nClick the button below to start browsing.',
+              `✅ *${fieldNames[field] || field} saved!*\n\n🎉 *Profile complete!*\nClick the button below to start browsing.`,
               {
                 parse_mode: 'Markdown',
                 reply_markup: {
-                  remove_keyboard: true,
+                  remove_keyboard: field === 'phone'
                 }
               }
             ).then(() => {
@@ -542,6 +542,10 @@ function setupProfileCommands(bot, userStates, User) {
               });
             });
           }
+        }
+
+        if (field === 'phone') {
+          // Remove keyboard for contact share
           await bot.sendMessage(chatId, '✅ *Phone saved!*', { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
           const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
           return bot.sendMessage(chatId,
@@ -1080,6 +1084,92 @@ function setupProfileCommands(bot, userStates, User) {
     } catch (err) {
       console.error('Contact handler error:', err);
       bot.sendMessage(chatId, '❌ Failed to save phone number. Please try again.');
+    }
+  });
+
+  // Media handler for photos
+  bot.on('photo', async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const userState = userStates.get(telegramId);
+
+    if (!userState) return;
+
+    if (userState.action === 'uploading_photo') {
+      try {
+        // Get the highest resolution photo
+        const photo = msg.photo[msg.photo.length - 1];
+        const fileId = photo.file_id;
+
+        // Get file info from Telegram
+        const file = await bot.getFile(fileId);
+        const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+
+        // Upload photo to profile using multipart form
+        const FormData = require('form-data');
+        const https = require('https');
+        const form = new FormData();
+
+        // Fetch the photo from Telegram
+        const photoBuffer = await new Promise((resolve, reject) => {
+          https.get(fileUrl, (res) => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+            res.on('error', reject);
+          });
+        });
+
+        form.append('image', photoBuffer, 'photo.jpg');
+
+        const uploadRes = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
+          headers: form.getHeaders()
+        });
+
+        userStates.delete(telegramId);
+
+        // Invalidate cache so profile shows updated photo count
+        invalidateUserCache(telegramId);
+
+        // Check completion universally
+        const updatedUser = await getCachedUserProfile(telegramId, User);
+        const missing = getProfileMissing(updatedUser);
+
+        if (missing.length === 0) {
+          if (!updatedUser.profileCompleted) {
+            await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
+            invalidateUserCache(telegramId);
+            return bot.sendMessage(chatId,
+              `✅ **Photo Uploaded Successfully!** ✅\n\n🎉 *Profile complete!*\nClick the button below to start browsing.`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
+              }
+            );
+          }
+        }
+
+        const successMsg = `✅ **Photo Uploaded Successfully!** ✅\n\n` +
+          `Your new photo has been added to your profile.\n\n` +
+          `📸 **Want to add more photos?**`;
+
+        const opts = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📸 Add Another Photo', callback_data: 'add_another_photo' }],
+              [{ text: '👤 View Profile', callback_data: 'view_profile' }],
+              [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+              [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
+            ]
+          }
+        };
+
+        bot.sendMessage(chatId, successMsg, opts);
+      } catch (err) {
+        console.error('Photo upload error:', err.response?.data || err.message);
+        userStates.delete(telegramId);
+        bot.sendMessage(chatId, '❌ Failed to upload photo. Please try again later.');
+      }
     }
   });
 }

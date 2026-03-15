@@ -540,11 +540,11 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         await showMatches(chatId, telegramId);
 
         // ── 🔍 START BROWSE ───────────────────────────────────────────────
-      } else if (data === 'start_browse') {
-        await browseProfiles(chatId, telegramId);
-
-        // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
-      } else if (data.startsWith('chat_gate_')) {
+      } else if (data === 'start_browse' || data === 'browse_profiles') {
+        return browseProfiles(chatId, telegramId);
+      }
+      // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
+      else if (data.startsWith('chat_gate_')) {
         const targetId = data.replace('chat_gate_', '');
         if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
           return;
