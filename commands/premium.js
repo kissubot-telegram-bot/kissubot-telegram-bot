@@ -53,17 +53,14 @@ function setupPremiumCommands(bot, User) {
     try {
       switch (data) {
         case 'extend_vip':
-          bot.sendMessage(chatId, 'Choose a plan to extend your VIP membership:', {
+          bot.sendMessage(chatId, '🔄 **Extend VIP Membership**\n\nChoose a plan to extend — paid with Telegram Stars (⭐):', {
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: '📅 Weekly', callback_data: 'vip_purchase_weekly' },
-                  { text: '📅 Monthly', callback_data: 'vip_purchase_monthly' }
-                ],
-                [
-                  { text: '📆 Yearly', callback_data: 'vip_purchase_yearly' },
-                  { text: '♾️ Lifetime', callback_data: 'vip_purchase_lifetime' }
-                ]
+                [{ text: '� 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
+                [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
+                [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+                [{ text: '🔙 Back', callback_data: 'manage_vip' }]
               ]
             }
           });
@@ -114,27 +111,16 @@ function setupPremiumCommands(bot, User) {
                 `• 🔍 Advanced search filters\n` +
                 `• 🚫 No advertisements\n` +
                 `• ⭐ VIP badge on your profile\n\n` +
-                `💰 **VIP Pricing:**\n` +
-                `• 1 Week - 300 coins\n` +
-                `• 1 Month - 1000 coins\n` +
-                `• 3 Months - 2500 coins (Save 17%)\n` +
-                `• 6 Months - 4500 coins (Save 25%)\n\n` +
-                `🚀 **Ready to upgrade?**`;
+                `� **Pay with Telegram Stars (⭐):**`;
 
               bot.sendMessage(chatId, vipMsg, {
+                parse_mode: 'Markdown',
                 reply_markup: {
                   inline_keyboard: [
-                    [
-                      { text: '📅 1 Week VIP', callback_data: 'vip_purchase_weekly' },
-                      { text: '1️⃣ 1 Month VIP', callback_data: 'buy_vip_1' }
-                    ],
-                    [
-                      { text: '3️⃣ 3 Months VIP', callback_data: 'buy_vip_3' },
-                      { text: '6️⃣ 6 Months VIP', callback_data: 'buy_vip_6' }
-                    ],
-                    [
-                      { text: '🔙 Back', callback_data: 'main_menu' }
-                    ]
+                    [{ text: '� 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
+                    [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
+                    [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+                    [{ text: '🔙 Back', callback_data: 'main_menu' }]
                   ]
                 }
               });
@@ -602,19 +588,13 @@ function setupPremiumCommands(bot, User) {
           `🚀 **Ready to upgrade?**`;
 
         bot.sendMessage(chatId, vipMsg, {
+          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [
-                { text: '📅 1 Week VIP', callback_data: 'vip_purchase_weekly' },
-                { text: '1️⃣ 1 Month VIP', callback_data: 'buy_vip_1' }
-              ],
-              [
-                { text: '3️⃣ 3 Months VIP', callback_data: 'buy_vip_3' },
-                { text: '6️⃣ 6 Months VIP', callback_data: 'buy_vip_6' }
-              ],
-              [
-                { text: '🔙 Back', callback_data: 'main_menu' }
-              ]
+              [{ text: '� 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
+              [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
+              [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+              [{ text: '🔙 Back', callback_data: 'main_menu' }]
             ]
           }
         });
