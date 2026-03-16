@@ -111,23 +111,21 @@ function setupPremiumCommands(bot, User, userStates) {
                 }
               });
             } else {
-              const vipMsg = `⭐ **UPGRADE TO VIP** ⭐\n\n` +
-                `💎 **VIP Benefits:**\n` +
+              const vipMsg = `⭐ *UPGRADE TO VIP* ⭐\n\n` +
+                `💎 *VIP Benefits:*\n` +
                 `• 👀 See who likes you\n` +
                 `• ♾️ Unlimited likes\n` +
                 `• 🚀 Priority in browse queue\n` +
                 `• 🔍 Advanced search filters\n` +
                 `• 🚫 No advertisements\n` +
-                `• ⭐ VIP badge on your profile\n\n` +
-                `� **Pay with Telegram Stars (⭐):**`;
+                `• ⭐ VIP badge on profile`;
 
               bot.sendMessage(chatId, vipMsg, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                   inline_keyboard: [
-                    [{ text: '� 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
-                    [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
-                    [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+                    [{ text: '⭐ Pay with Stars', callback_data: 'vip_pay_stars' }, { text: '🪙 Pay with Coins', callback_data: 'vip_pay_coins' }],
+                    [{ text: '💎 Visit Kissu Store', callback_data: 'back_to_store' }],
                     [{ text: '🔙 Back', callback_data: 'main_menu' }]
                   ]
                 }
@@ -446,29 +444,44 @@ function setupPremiumCommands(bot, User, userStates) {
           break;
 
         case 'store_vip':
-          const vipStoreMsg = `👑 **VIP Membership** 👑\n\n` +
-            `Get unlimited likes, advanced filters, and more!\n\n` +
-            `✨ **VIP Benefits:**\n` +
+        case 'vip_pay_stars':
+        case 'vip_pay_coins': {
+          const isCoins = data === 'vip_pay_coins';
+          const vipStoreMsg = `👑 *VIP Membership* 👑\n\n` +
+            `✨ *VIP Benefits:*\n` +
             `• 👀 See who liked you\n` +
             `• ♾️ Unlimited daily likes\n` +
             `• 🔍 Advanced search filters\n` +
             `• 🚀 Priority profile visibility\n` +
             `• 🚫 No advertisements\n` +
             `• ⭐ VIP badge on profile\n\n` +
-            `� **Pay with Telegram Stars (⭐):**`;
+            (isCoins
+              ? `🪙 *Pay with Coins:*`
+              : `💳 *Pay with Telegram Stars (⭐):*`);
+
+          const starsButtons = [
+            [{ text: '📆 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
+            [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
+            [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+          ];
+          const coinsButtons = [
+            [{ text: '🪙 1 Month — 1,000 coins', callback_data: 'coin_vip_monthly' }],
+            [{ text: '🪙 6 Months — 4,500 coins  (save 25%)', callback_data: 'coin_vip_6months' }],
+            [{ text: '🪙 1 Year — 8,000 coins  (save 33%)', callback_data: 'coin_vip_yearly' }],
+          ];
 
           bot.sendMessage(chatId, vipStoreMsg, {
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '📆 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
-                [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
-                [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
-                [{ text: '🪙 Pay with Coins Instead', callback_data: 'manage_vip' }],
+                ...(isCoins ? coinsButtons : starsButtons),
+                [{ text: isCoins ? '⭐ Pay with Stars Instead' : '🪙 Pay with Coins Instead', callback_data: isCoins ? 'vip_pay_stars' : 'vip_pay_coins' }],
                 [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
               ]
             }
           });
           break;
+        }
 
         case 'store_boosts':
           const boostsStoreMsg = `⚡ **Profile Boosts** ⚡\n\n` +
@@ -513,6 +526,51 @@ function setupPremiumCommands(bot, User, userStates) {
             }
           });
           break;
+
+        case 'coin_vip_monthly':
+        case 'coin_vip_6months':
+        case 'coin_vip_yearly': {
+          const coinVipPlans = {
+            coin_vip_monthly: { name: '1 Month VIP',  coins: 1000, days: 30  },
+            coin_vip_6months: { name: '6 Months VIP', coins: 4500, days: 180 },
+            coin_vip_yearly:  { name: '1 Year VIP',   coins: 8000, days: 365 },
+          };
+          const cvp = coinVipPlans[data];
+          try {
+            const user = await User.findOne({ telegramId: String(telegramId) });
+            if (!user) return bot.sendMessage(chatId, '❌ User not found.');
+            if ((user.coins || 0) < cvp.coins) {
+              return bot.sendMessage(chatId,
+                `❌ *Not enough coins!*\n\nYou need *${cvp.coins} coins* for ${cvp.name} but only have *${user.coins || 0}*.`,
+                { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [
+                  [{ text: '💰 Buy Coins', callback_data: 'store_coins' }],
+                  [{ text: '🔙 Back', callback_data: 'vip_pay_coins' }]
+                ]}}
+              );
+            }
+            const now = new Date();
+            const base = user.vipExpiresAt && user.vipExpiresAt > now ? user.vipExpiresAt : now;
+            const newExpiry = new Date(base.getTime() + cvp.days * 24 * 60 * 60 * 1000);
+            user.coins -= cvp.coins;
+            user.isVip = true;
+            user.vipExpiresAt = newExpiry;
+            await user.save();
+            const { invalidateUserCache } = require('./auth');
+            invalidateUserCache(String(telegramId));
+            const expiryStr = newExpiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+            await bot.sendMessage(chatId,
+              `✅ *VIP Activated!* 👑\n\nYou're now a *VIP member* until *${expiryStr}*!\n🪙 Remaining coins: *${user.coins}*`,
+              { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [
+                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
+                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              ]}}
+            );
+          } catch (err) {
+            console.error('Coin VIP purchase error:', err);
+            bot.sendMessage(chatId, '❌ Failed to process purchase. Please try again.');
+          }
+          break;
+        }
 
         case 'back_to_store':
           // Return to main store menu
@@ -576,28 +634,21 @@ function setupPremiumCommands(bot, User, userStates) {
           }
         });
       } else {
-        const vipMsg = `⭐ **UPGRADE TO VIP** ⭐\n\n` +
-          `💎 **VIP Benefits:**\n` +
+        const vipMsg = `⭐ *UPGRADE TO VIP* ⭐\n\n` +
+          `💎 *VIP Benefits:*\n` +
           `• 👀 See who likes you\n` +
           `• ♾️ Unlimited likes\n` +
           `• 🚀 Priority in browse queue\n` +
           `• 🔍 Advanced search filters\n` +
           `• 🚫 No advertisements\n` +
-          `• ⭐ VIP badge on your profile\n\n` +
-          `💰 **VIP Pricing:**\n` +
-          `• 1 Week - 300 coins\n` +
-          `• 1 Month - 1000 coins\n` +
-          `• 3 Months - 2500 coins (Save 17%)\n` +
-          `• 6 Months - 4500 coins (Save 25%)\n\n` +
-          `🚀 **Ready to upgrade?**`;
+          `• ⭐ VIP badge on profile`;
 
         bot.sendMessage(chatId, vipMsg, {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '� 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
-              [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
-              [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+              [{ text: '⭐ Pay with Stars', callback_data: 'vip_pay_stars' }, { text: '🪙 Pay with Coins', callback_data: 'vip_pay_coins' }],
+              [{ text: '💎 Visit Kissu Store', callback_data: 'back_to_store' }],
               [{ text: '🔙 Back', callback_data: 'main_menu' }]
             ]
           }
