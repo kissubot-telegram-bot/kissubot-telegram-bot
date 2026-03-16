@@ -3,7 +3,15 @@ const { getCachedUserProfile } = require('./auth');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
-function setupPremiumCommands(bot, User) {
+const PAYMENT_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN || '';
+
+const GIFT_VIP_PLANS = {
+  gift_vip_monthly:  { name: '1 Month VIP',  days: 30,  amount: 749  },
+  gift_vip_6months:  { name: '6 Months VIP', days: 180, amount: 2490 },
+  gift_vip_yearly:   { name: '1 Year VIP',   days: 365, amount: 3490 },
+};
+
+function setupPremiumCommands(bot, User, userStates) {
   const axios = require('axios');
   const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
@@ -132,43 +140,39 @@ function setupPremiumCommands(bot, User) {
           break;
 
         case 'gift_vip':
-          bot.sendMessage(chatId, '🎁 **GIFT VIP TO SOMEONE SPECIAL** 🎁\n\n' +
-            'Choose a VIP plan to gift:', {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '1️⃣ Gift 1 Month VIP', callback_data: 'gift_vip_1' },
-                  { text: '3️⃣ Gift 3 Months VIP', callback_data: 'gift_vip_3' }
-                ],
-                [
-                  { text: '6️⃣ Gift 6 Months VIP', callback_data: 'gift_vip_6' }
-                ],
-                [
-                  { text: '🔙 Back', callback_data: 'manage_vip' }
+          bot.sendMessage(chatId,
+            '🎁 *Gift VIP to Someone Special* 🎁\n\n' +
+            'Choose a plan to gift — paid with Telegram Stars (⭐):',
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '📆 1 Month — 749 ⭐', callback_data: 'gift_vip_monthly' }],
+                  [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'gift_vip_6months' }],
+                  [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'gift_vip_yearly' }],
+                  [{ text: '🔙 Back', callback_data: 'manage_vip' }]
                 ]
-              ]
+              }
             }
-          });
+          );
           break;
 
-        case 'gift_vip_1':
-        case 'gift_vip_3':
-        case 'gift_vip_6':
-          const giftPlanMap = {
-            'gift_vip_1': { type: 'monthly', name: '1 Month VIP' },
-            'gift_vip_3': { type: 'quarterly', name: '3 Months VIP' },
-            'gift_vip_6': { type: 'biannual', name: '6 Months VIP' }
-          };
-          const giftPlan = giftPlanMap[data];
-
-          bot.sendMessage(chatId, `🎁 **GIFT ${giftPlan.name.toUpperCase()}** 🎁\n\n` +
-            'Please send the Telegram username or ID of the person you want to gift VIP to:\n\n' +
-            '📝 Example: @username or 123456789\n\n' +
-            '⚠️ Make sure the person has started the bot before gifting!');
-
-          // Store gift plan type for next message
-          // This would need a proper state management system in production
+        case 'gift_vip_monthly':
+        case 'gift_vip_6months':
+        case 'gift_vip_yearly': {
+          const plan = GIFT_VIP_PLANS[data];
+          if (userStates) {
+            userStates.set(telegramId, { awaitingGiftVipRecipient: true, giftPlan: plan });
+          }
+          bot.sendMessage(chatId,
+            `🎁 *Gift ${plan.name}*\n\n` +
+            `Send the *@username* or *Telegram ID* of the person you want to gift VIP to:\n\n` +
+            `📝 Example: \`@username\` or \`123456789\`\n\n` +
+            `⚠️ They must have started this bot before you can gift them.`,
+            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'gift_vip' }]] } }
+          );
           break;
+        }
 
         case 'buy_vip_1':
         case 'buy_vip_3':
@@ -719,6 +723,60 @@ function setupPremiumCommands(bot, User) {
         ]
       }
     });
+  });
+
+  // Gift VIP: capture recipient input
+  bot.on('message', async (msg) => {
+    if (!msg.text || msg.text.startsWith('/')) return;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    if (!userStates) return;
+
+    const state = userStates.get(telegramId);
+    if (!state || !state.awaitingGiftVipRecipient) return;
+
+    userStates.delete(telegramId);
+    const { giftPlan } = state;
+    const input = msg.text.trim();
+
+    try {
+      let recipient;
+      if (input.startsWith('@')) {
+        recipient = await User.findOne({ username: input.replace('@', '') });
+      } else if (/^\d+$/.test(input)) {
+        recipient = await User.findOne({ telegramId: input });
+      }
+
+      if (!recipient) {
+        return bot.sendMessage(chatId,
+          `❌ *User not found.*\n\nMake sure they have started the bot and check the username or ID.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Gift VIP', callback_data: 'gift_vip' }]] }
+          }
+        );
+      }
+
+      if (String(recipient.telegramId) === String(telegramId)) {
+        return bot.sendMessage(chatId,
+          `❌ You can't gift VIP to yourself! Use /vip to upgrade your own account.`,
+          { reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'gift_vip' }]] } }
+        );
+      }
+
+      await bot.sendInvoice(
+        chatId,
+        `🎁 Gift ${giftPlan.name} to ${recipient.name}`,
+        `Grant ${giftPlan.name} to ${recipient.name}. They'll get all VIP perks immediately!`,
+        `kissubot_giftvip_${giftPlan.days}_${recipient.telegramId}`,
+        PAYMENT_TOKEN,
+        'XTR',
+        [{ label: `Gift ${giftPlan.name}`, amount: giftPlan.amount }]
+      );
+    } catch (err) {
+      console.error('[GiftVIP] recipient lookup error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+    }
   });
 
   // STORE command (main premium store - accessible before registration)

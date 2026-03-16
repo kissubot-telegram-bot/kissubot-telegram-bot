@@ -36,25 +36,25 @@ function setupMatchesCommands(bot, User) {
                     }
                 });
             } else {
-                let matchesMessage = `💕 **Your Matches** 💕\n\nHere are the people you've matched with:\n`;
+                let matchesMessage = `💕 **Your Matches (${matches.length})** 💕\n\nHere are the people you've matched with:\n`;
                 const keyboard = [];
 
                 matches.forEach(match => {
-                    matchesMessage += `\n• ${match.name} (@${match.username}) - Matched on ${new Date(match.matchedAt).toLocaleDateString()}`;
-                    keyboard.push([{ text: `View ${match.name}'s Profile`, callback_data: `view_match_${match.telegramId}` }]);
+                    matchesMessage += `\n• *${match.name}* — ${new Date(match.matchedAt).toLocaleDateString()}`;
+                    keyboard.push([
+                        { text: `💬 ${match.name}`, callback_data: `chat_gate_${match.telegramId}` },
+                        { text: `🎁 Gift`, callback_data: `gift_to_${match.telegramId}` }
+                    ]);
                 });
 
-                matchesMessage += `\n\nSelect a profile to view more details or continue browsing.`;
-
                 keyboard.push(
-                    [{ text: '🔍 Browse More Profiles', callback_data: 'browse_profiles' }],
-                    [{ text: '🏠 Back to Main Menu', callback_data: 'main_menu' }]
+                    [{ text: '🔍 Browse More', callback_data: 'browse_profiles' }],
+                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                 );
 
                 bot.sendMessage(chatId, matchesMessage, {
-                    reply_markup: {
-                        inline_keyboard: keyboard
-                    }
+                    parse_mode: 'Markdown',
+                    reply_markup: { inline_keyboard: keyboard }
                 });
             }
         } catch (error) {

@@ -442,7 +442,7 @@ setupBrowsingCommands(bot, User, Match, Like);
 setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot);
 setupSettingsCommands(bot, userStates, User);
-setupPremiumCommands(bot, User);
+setupPremiumCommands(bot, User, userStates);
 setupGiftCommands(bot, User);
 setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);

@@ -77,10 +77,58 @@ function setupPaymentCommands(bot, User) {
     const stars = msg.successful_payment.total_amount;
 
     // Payload format: kissubot_<productKey>_<telegramId>
-    // e.g. kissubot_coins_100_123456789 → productKey=coins_100
+    // Gift VIP format: kissubot_giftvip_<days>_<recipientId>
     const parts = payload.split('_');
     if (parts[0] !== 'kissubot' || parts.length < 3) {
       console.error('[Payment] Unexpected payload:', payload);
+      return;
+    }
+
+    // ── Gift VIP special case ────────────────────────────────────────────
+    if (parts[1] === 'giftvip') {
+      const days = parseInt(parts[2]);
+      const recipientId = parts[3];
+      const buyerId = msg.from.id;
+
+      try {
+        const [buyer, recipient] = await Promise.all([
+          User.findOne({ telegramId: String(buyerId) }),
+          User.findOne({ telegramId: String(recipientId) })
+        ]);
+
+        if (!recipient) {
+          return bot.sendMessage(chatId, '❌ Recipient not found. Please contact support.');
+        }
+
+        const now = new Date();
+        const base = recipient.vipExpiresAt && recipient.vipExpiresAt > now ? recipient.vipExpiresAt : now;
+        const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+        recipient.isVip = true;
+        recipient.vipExpiresAt = newExpiry;
+        await recipient.save();
+        invalidateUserCache(String(recipientId));
+
+        const expiryStr = newExpiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const planName = days === 30 ? '1 Month' : days === 180 ? '6 Months' : '1 Year';
+
+        await bot.sendMessage(chatId,
+          `✅ *VIP Gift Sent!* 🎁\n\n*${recipient.name}* now has *${planName} VIP* until *${expiryStr}*!`,
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🏠 Main Menu', callback_data: 'main_menu' }]] } }
+        );
+
+        bot.sendMessage(recipientId,
+          `🎁 *You've been gifted VIP!* 👑\n\n` +
+          `*${buyer?.name || 'Someone'}* gifted you *${planName} VIP* until *${expiryStr}*!\n\n` +
+          `*Your new perks:*\n` +
+          `• ♾️ Unlimited likes\n• 👀 See who liked you\n• 🚀 Priority browse\n• 🔍 Advanced filters`,
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
+        ).catch(() => {});
+
+        console.log(`[Payment] ✅ Gift VIP (${days}d) fulfilled for recipient ${recipientId} by buyer ${buyerId}`);
+      } catch (err) {
+        console.error('[Payment] Gift VIP fulfill error:', err);
+        bot.sendMessage(chatId, '❌ Payment received but gifting failed. Please contact support.');
+      }
       return;
     }
 

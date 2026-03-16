@@ -1,140 +1,268 @@
-const axios = require('axios');
-const { API_BASE } = require('../config');
+const { invalidateUserCache } = require('./auth');
 
-function setupGiftCommands(bot) {
+const GIFTS = {
+  rose:      { name: '🌹 Rose',      coins: 5  },
+  heart:     { name: '💖 Heart',     coins: 10 },
+  chocolate: { name: '🍫 Chocolate', coins: 15 },
+  flowers:   { name: '🌺 Flowers',   coins: 20 },
+  diamond:   { name: '💎 Diamond',   coins: 50 },
+};
+
+function giftCenterMenu(chatId, bot) {
+    bot.sendMessage(chatId,
+        `🎁 *Gift Center*\n\n` +
+        `Send virtual gifts to your matches and make their day special!\n\n` +
+        `🌹 Rose — 5 coins\n` +
+        `💖 Heart — 10 coins\n` +
+        `🍫 Chocolate — 15 coins\n` +
+        `🌺 Flowers — 20 coins\n` +
+        `💎 Diamond — 50 coins`,
+        {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🎁 Send a Gift', callback_data: 'gift_pick_match' }],
+                    [{ text: '📨 Sent Gifts', callback_data: 'sent_gifts' }, { text: '📬 Received Gifts', callback_data: 'received_gifts' }],
+                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ]
+            }
+        }
+    );
+}
+
+function setupGiftCommands(bot, User) {
+
+    // ── /gifts command ────────────────────────────────────────────────────
+    bot.onText(/\/gifts/, (msg) => {
+        giftCenterMenu(msg.chat.id, bot);
+    });
+
     bot.on('callback_query', async (query) => {
         const { data, message } = query;
         const chatId = message.chat.id;
         const telegramId = query.from.id;
 
-        if (data === 'gift_shop') {
-            const giftShopMsg = `🎁 **GIFT SHOP** 🎁\n\n` +
-                `Choose a gift to send to your matches:\n\n` +
-                `🌹 **Rose** - 5 coins\n` +
-                `💖 **Heart** - 10 coins\n` +
-                `🍫 **Chocolate** - 15 coins\n` +
-                `🌺 **Flowers** - 20 coins\n` +
-                `💎 **Diamond** - 50 coins\n\n` +
-                `💡 **To send a gift:**\n` +
-                `1. Go to /matches\n` +
-                `2. Select someone special\n` +
-                `3. Choose "Send Gift"\n` +
-                `4. Pick your perfect gift!`;
+        // ── Gift Center home ──────────────────────────────────────────────
+        if (data === 'gift_shop' || data === 'gift_center') {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            return giftCenterMenu(chatId, bot);
+        }
 
-            bot.sendMessage(chatId, giftShopMsg, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            { text: '💕 View Matches', callback_data: 'view_matches' },
-                            { text: '🪙 Buy Coins', callback_data: 'buy_coins_menu' }
-                        ],
-                        [
-                            { text: '🔙 Back', callback_data: 'main_menu' }
-                        ]
-                    ]
-                }
-            });
-        } else if (data === 'sent_gifts') {
+        // ── Step 1: Pick a match to gift ──────────────────────────────────
+        if (data === 'gift_pick_match') {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
             try {
-                const response = await axios.get(`${API_BASE}/gifts/sent/${telegramId}`);
-                const sentGifts = response.data.gifts;
+                const sender = await User.findOne({ telegramId: String(telegramId) });
+                if (!sender) return bot.sendMessage(chatId, '❌ User not found.');
 
-                if (sentGifts.length === 0) {
-                    bot.sendMessage(chatId, '📨 **SENT GIFTS** 📨\n\n' +
-                        'You haven\'t sent any gifts yet.\n\n' +
-                        '💡 **Send your first gift:**\n' +
-                        '• Go to /matches\n' +
-                        '• Select someone special\n' +
-                        '• Choose "Send Gift"\n\n' +
-                        '🎁 Gifts help you stand out and show you care!', {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    { text: '💕 View Matches', callback_data: 'view_matches' },
-                                    { text: '🎁 Gift Shop', callback_data: 'gift_shop' }
-                                ],
-                                [
-                                    { text: '🔙 Back', callback_data: 'main_menu' }
+                const matchIds = (sender.matches || []).map(m => m.userId);
+                if (matchIds.length === 0) {
+                    return bot.sendMessage(chatId,
+                        '💔 *No matches yet!*\n\nYou need to match with someone before sending a gift.',
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }],
+                                    [{ text: '🔙 Back', callback_data: 'gift_center' }]
                                 ]
-                            ]
+                            }
                         }
-                    });
-                } else {
-                    const giftsList = sentGifts.slice(0, 10).map(gift =>
-                        `🎁 ${gift.giftType} → ${gift.recipientName} (${gift.value} coins)`
-                    ).join('\n');
-
-                    bot.sendMessage(chatId, `📨 **SENT GIFTS (${sentGifts.length})** 📨\n\n` +
-                        `${giftsList}\n\n` +
-                        `💰 **Total Value:** ${sentGifts.reduce((sum, gift) => sum + gift.value, 0)} coins`, {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    { text: '🎁 Send More Gifts', callback_data: 'gift_shop' },
-                                    { text: '💕 View Matches', callback_data: 'view_matches' }
-                                ],
-                                [
-                                    { text: '🔙 Back', callback_data: 'main_menu' }
-                                ]
-                            ]
-                        }
-                    });
+                    );
                 }
+
+                const matchUsers = await User.find({ telegramId: { $in: matchIds } }).select('telegramId name');
+                const buttons = matchUsers.map(u => ([{ text: `${u.name}`, callback_data: `gift_to_${u.telegramId}` }]));
+                buttons.push([{ text: '🔙 Back', callback_data: 'gift_center' }]);
+
+                await bot.sendMessage(chatId,
+                    `🎁 *Send a Gift*\n\nChoose who to send a gift to:`,
+                    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } }
+                );
             } catch (err) {
-                console.error('Sent gifts error:', err);
-                bot.sendMessage(chatId, '❌ Failed to load sent gifts. Please try again later.');
+                console.error('[Gifts] pick match error:', err);
+                bot.sendMessage(chatId, '❌ Failed to load matches. Please try again.');
             }
-        } else if (data === 'received_gifts') {
+            return;
+        }
+
+        // ── Step 2: Pick gift type for a recipient ────────────────────────
+        if (data.startsWith('gift_to_')) {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            const recipientId = data.replace('gift_to_', '');
             try {
-                const response = await axios.get(`${API_BASE}/gifts/received/${telegramId}`);
-                const receivedGifts = response.data.gifts;
+                const recipient = await User.findOne({ telegramId: String(recipientId) }).select('name');
+                const sender = await User.findOne({ telegramId: String(telegramId) }).select('coins');
+                const balance = sender?.coins || 0;
 
-                if (receivedGifts.length === 0) {
-                    bot.sendMessage(chatId, '📬 **RECEIVED GIFTS** 📬\n\n' +
-                        'You haven\'t received any gifts yet.\n\n' +
-                        '💡 **Get more gifts by:**\n' +
-                        '• Adding great photos to your profile\n' +
-                        '• Writing an interesting bio\n' +
-                        '• Being active and engaging\n\n' +
-                        '🌟 Great profiles attract more attention!', {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    { text: '👤 Edit Profile', callback_data: 'edit_profile' },
-                                    { text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }
-                                ],
-                                [
-                                    { text: '🔙 Back', callback_data: 'main_menu' }
-                                ]
-                            ]
-                        }
-                    });
-                } else {
-                    const giftsList = receivedGifts.slice(0, 10).map(gift =>
-                        `🎁 ${gift.giftType} from ${gift.senderName}${gift.senderIsVip ? ' 👑' : ''}`
-                    ).join('\n');
+                const giftButtons = Object.entries(GIFTS).map(([key, g]) => ([{
+                    text: `${g.name} — ${g.coins} coins`,
+                    callback_data: `gift_send_${key}_${recipientId}`
+                }]));
+                giftButtons.push([{ text: '🔙 Back', callback_data: 'gift_pick_match' }]);
 
-                    bot.sendMessage(chatId, `📬 **RECEIVED GIFTS (${receivedGifts.length})** 📬\n\n` +
-                        `${giftsList}\n\n` +
-                        `💰 **Total Value:** ${receivedGifts.reduce((sum, gift) => sum + gift.value, 0)} coins\n\n` +
-                        `💕 **You're popular! Keep being awesome!**`, {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    { text: '💕 View Matches', callback_data: 'view_matches' },
-                                    { text: '🎁 Send Gifts', callback_data: 'gift_shop' }
-                                ],
-                                [
-                                    { text: '🔙 Back', callback_data: 'main_menu' }
-                                ]
-                            ]
-                        }
-                    });
-                }
+                await bot.sendMessage(chatId,
+                    `🎁 *Send a gift to ${recipient?.name || 'your match'}*\n\n` +
+                    `🪙 Your balance: *${balance} coins*\n\n` +
+                    `Choose a gift:`,
+                    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: giftButtons } }
+                );
             } catch (err) {
-                console.error('Received gifts error:', err);
-                bot.sendMessage(chatId, '❌ Failed to load received gifts. Please try again later.');
+                console.error('[Gifts] pick gift error:', err);
+                bot.sendMessage(chatId, '❌ Failed to load gift picker. Please try again.');
             }
+            return;
+        }
+
+        // ── Step 3: Confirm and send the gift ────────────────────────────
+        if (data.startsWith('gift_send_')) {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            const parts = data.replace('gift_send_', '').split('_');
+            const recipientId = parts[parts.length - 1];
+            const giftKey = parts.slice(0, -1).join('_');
+            const gift = GIFTS[giftKey];
+
+            if (!gift) return bot.sendMessage(chatId, '❌ Unknown gift type.');
+
+            try {
+                const [sender, recipient] = await Promise.all([
+                    User.findOne({ telegramId: String(telegramId) }),
+                    User.findOne({ telegramId: String(recipientId) })
+                ]);
+
+                if (!sender) return bot.sendMessage(chatId, '❌ User not found.');
+                if (!recipient) return bot.sendMessage(chatId, '❌ Recipient not found.');
+
+                if ((sender.coins || 0) < gift.coins) {
+                    return bot.sendMessage(chatId,
+                        `❌ *Not enough coins!*\n\nYou need *${gift.coins} coins* for ${gift.name} but only have *${sender.coins || 0}*.\n\nBuy more coins to send gifts!`,
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: '🪙 Buy Coins', callback_data: 'store_coins' }],
+                                    [{ text: '🔙 Back', callback_data: `gift_to_${recipientId}` }]
+                                ]
+                            }
+                        }
+                    );
+                }
+
+                sender.coins -= gift.coins;
+                recipient.gifts = recipient.gifts || [];
+                recipient.gifts.push({
+                    fromUserId: String(telegramId),
+                    giftType: gift.name,
+                    value: gift.coins,
+                    sentAt: new Date()
+                });
+
+                await Promise.all([sender.save(), recipient.save()]);
+                invalidateUserCache(String(telegramId));
+                invalidateUserCache(String(recipientId));
+
+                await bot.sendMessage(chatId,
+                    `✅ *Gift Sent!*\n\nYou sent ${gift.name} to *${recipient.name}*!\n🪙 Remaining balance: *${sender.coins} coins*`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '🎁 Send Another', callback_data: 'gift_pick_match' }],
+                                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                            ]
+                        }
+                    }
+                );
+
+                // Notify the recipient
+                bot.sendMessage(recipientId,
+                    `🎁 *You received a gift!*\n\n*${sender.name}* sent you ${gift.name}!\n\n💬 Say thank you by starting a chat!`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '💬 Open Chat', callback_data: `chat_gate_${telegramId}` }],
+                                [{ text: '🎁 Send a Gift Back', callback_data: `gift_to_${telegramId}` }]
+                            ]
+                        }
+                    }
+                ).catch(() => {});
+
+            } catch (err) {
+                console.error('[Gifts] send error:', err);
+                bot.sendMessage(chatId, '❌ Failed to send gift. Please try again.');
+            }
+            return;
+        }
+
+        // ── Sent gifts history ────────────────────────────────────────────
+        if (data === 'sent_gifts') {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            try {
+                const sender = await User.findOne({ telegramId: String(telegramId) });
+                const allGifts = await User.aggregate([
+                    { $unwind: '$gifts' },
+                    { $match: { 'gifts.fromUserId': String(telegramId) } },
+                    { $sort: { 'gifts.sentAt': -1 } },
+                    { $limit: 10 },
+                    { $project: { 'gifts': 1, 'name': 1 } }
+                ]);
+
+                if (!allGifts || allGifts.length === 0) {
+                    return bot.sendMessage(chatId,
+                        `📨 *Sent Gifts*\n\nYou haven't sent any gifts yet.\n\n🎁 Send your first gift to a match!`,
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: { inline_keyboard: [[{ text: '🎁 Send a Gift', callback_data: 'gift_pick_match' }], [{ text: '🔙 Back', callback_data: 'gift_center' }]] }
+                        }
+                    );
+                }
+
+                const list = allGifts.map(u => `${u.gifts.giftType} → ${u.name} (${u.gifts.value} coins)`).join('\n');
+                bot.sendMessage(chatId,
+                    `📨 *Sent Gifts*\n\n${list}`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: { inline_keyboard: [[{ text: '🎁 Send Another', callback_data: 'gift_pick_match' }], [{ text: '🔙 Back', callback_data: 'gift_center' }]] }
+                    }
+                );
+            } catch (err) {
+                console.error('[Gifts] sent history error:', err);
+                bot.sendMessage(chatId, '❌ Failed to load sent gifts.');
+            }
+            return;
+        }
+
+        // ── Received gifts history ────────────────────────────────────────
+        if (data === 'received_gifts') {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            try {
+                const user = await User.findOne({ telegramId: String(telegramId) });
+                const received = (user?.gifts || []).slice(-10).reverse();
+
+                if (received.length === 0) {
+                    return bot.sendMessage(chatId,
+                        `📬 *Received Gifts*\n\nYou haven't received any gifts yet.\n\n🌟 A great profile attracts more gifts!`,
+                        {
+                            parse_mode: 'Markdown',
+                            reply_markup: { inline_keyboard: [[{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }], [{ text: '🔙 Back', callback_data: 'gift_center' }]] }
+                        }
+                    );
+                }
+
+                const list = received.map(g => `${g.giftType} — ${g.value} coins`).join('\n');
+                bot.sendMessage(chatId,
+                    `📬 *Received Gifts (${received.length})*\n\n${list}`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: { inline_keyboard: [[{ text: '🎁 Send a Gift', callback_data: 'gift_pick_match' }], [{ text: '🔙 Back', callback_data: 'gift_center' }]] }
+                    }
+                );
+            } catch (err) {
+                console.error('[Gifts] received history error:', err);
+                bot.sendMessage(chatId, '❌ Failed to load received gifts.');
+            }
+            return;
         }
     });
 }
