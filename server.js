@@ -41,6 +41,7 @@ const { setupSocialDebugCommands } = require('./commands/social-debug');
 const { setupSocialCommands } = require('./commands/social');
 const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
+const { setupPaymentCommands } = require('./commands/payment');
 
 const userStates = new Map();
 
@@ -394,6 +395,12 @@ const userSchema = new mongoose.Schema({
     reportCount: { type: Number, default: 0 }
   },
 
+  // Seen profiles (liked or passed) — used to avoid re-showing them in browse
+  seenProfiles: [{ type: String }],
+
+  // Profile boosts purchased via Telegram Payments
+  boosts: { type: Number, default: 0 },
+
   // Anti-spam
   lastLikeAt: { type: Date },
 
@@ -441,6 +448,7 @@ setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
+setupPaymentCommands(bot, User);
 
 // Register bot command menu with Telegram (visible in the "/" list)
 bot.setMyCommands([

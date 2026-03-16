@@ -12,6 +12,10 @@
  *   3. Confirmation shown → next profile loads immediately
  */
 
+const { invalidateUserCache } = require('./auth');
+
+const GENERAL_REPORT_CALLBACKS = ['report_user', 'report_content', 'report_bug'];
+
 const REPORT_REASONS = [
     { label: '🔞 Inappropriate content', key: 'inappropriate' },
     { label: '🤖 Spam / Bot', key: 'spam' },
@@ -27,6 +31,7 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
         const data = query.data;
         if (!data.startsWith('report_')) return;
         if (data.startsWith('report_reason_') || data.startsWith('report_skip_')) return;
+        if (GENERAL_REPORT_CALLBACKS.includes(data)) return;
 
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
@@ -156,6 +161,7 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
             }
 
             await blocker.save();
+            invalidateUserCache(String(telegramId));
 
             await bot.sendMessage(chatId,
                 `⛔ **Blocked.**\n\nYou won't see this person again.`,

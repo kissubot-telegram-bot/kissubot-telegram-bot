@@ -456,7 +456,6 @@ function setupPremiumCommands(bot, User) {
           break;
 
         case 'store_vip':
-          // VIP Membership section
           const vipStoreMsg = `👑 **VIP Membership** 👑\n\n` +
             `Get unlimited likes, advanced filters, and more!\n\n` +
             `✨ **VIP Benefits:**\n` +
@@ -465,90 +464,61 @@ function setupPremiumCommands(bot, User) {
             `• 🔍 Advanced search filters\n` +
             `• 🚀 Priority profile visibility\n` +
             `• 🚫 No advertisements\n` +
-            `• ↩️ Rewind last swipe\n` +
             `• ⭐ VIP badge on profile\n\n` +
-            `💰 **Pricing:**`;
+            `� **Pay with Telegram Stars (⭐):**`;
 
           bot.sendMessage(chatId, vipStoreMsg, {
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: '📆 1 Month - $15 (749 ⭐)', callback_data: 'vip_purchase_monthly' }
-                ],
-                [
-                  { text: '📅 6 Months - $50 (2490 ⭐)', callback_data: 'vip_purchase_6months' }
-                ],
-                [
-                  { text: '🎯 1 Year - $70 (3490 ⭐)', callback_data: 'vip_purchase_yearly' }
-                ],
-                [
-                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
-                ]
+                [{ text: '📆 1 Month — 749 ⭐', callback_data: 'pay_vip_monthly' }],
+                [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)', callback_data: 'pay_vip_6months' }],
+                [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)', callback_data: 'pay_vip_yearly' }],
+                [{ text: '🪙 Pay with Coins Instead', callback_data: 'manage_vip' }],
+                [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
               ]
             }
           });
           break;
 
         case 'store_boosts':
-          // Boosts section
           const boostsStoreMsg = `⚡ **Profile Boosts** ⚡\n\n` +
             `Get 10x more profile views for 30 minutes!\n\n` +
             `💫 **What you get:**\n` +
-            `• 10x profile visibility\n` +
+            `• 10× profile visibility\n` +
             `• Appear first in browse\n` +
             `• 30 minutes duration\n` +
             `• Instant activation\n\n` +
-            `💰 **Pricing:**`;
+            `� **Pay with Telegram Stars (⭐):**`;
 
           bot.sendMessage(chatId, boostsStoreMsg, {
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: '🚀 1 Boost - $2.99', callback_data: 'buy_boost_1' }
-                ],
-                [
-                  { text: '⚡ 5 Boosts - $9.99', callback_data: 'buy_boost_5' }
-                ],
-                [
-                  { text: '💥 10 Boosts - $14.99', callback_data: 'buy_boost_10' }
-                ],
-                [
-                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
-                ]
+                [{ text: '🚀 1 Boost — 149 ⭐', callback_data: 'pay_boost_1' }],
+                [{ text: '⚡ 5 Boosts — 499 ⭐  (save 33%)', callback_data: 'pay_boost_5' }],
+                [{ text: '💥 10 Boosts — 749 ⭐  (save 50%)', callback_data: 'pay_boost_10' }],
+                [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
               ]
             }
           });
           break;
 
         case 'store_coins':
-          // Coins section
           const coinsStoreMsg = `💰 **Kissu Coins** 💰\n\n` +
-            `Use coins for Super Likes, Rewinds, and more!\n\n` +
+            `Use coins for Super Likes, VIP, gifts & more!\n\n` +
             `🪙 **Coin Uses:**\n` +
-            `• Super Like - 5 coins\n` +
-            `• Rewind - 3 coins\n` +
-            `• Boost - 10 coins\n` +
-            `• Gift VIP - 50 coins\n\n` +
-            `💰 **Pricing:**`;
+            `• ⭐ Super Like — 10 coins\n` +
+            `• 🎁 Send a gift — 5–50 coins\n` +
+            `• 👑 VIP membership — from 300 coins\n\n` +
+            `� **Buy with Telegram Stars (⭐):**`;
 
           bot.sendMessage(chatId, coinsStoreMsg, {
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: '💵 100 Coins - $0.99', callback_data: 'buy_coins_100' }
-                ],
-                [
-                  { text: '💵 500 Coins - $3.99', callback_data: 'buy_coins_500' }
-                ],
-                [
-                  { text: '💵 1000 Coins - $6.99', callback_data: 'buy_coins_1000' }
-                ],
-                [
-                  { text: '💵 5000 Coins - $24.99', callback_data: 'buy_coins_5000' }
-                ],
-                [
-                  { text: '🔙 Back to Store', callback_data: 'back_to_store' }
-                ]
+                [{ text: '� 100 coins — 75 ⭐', callback_data: 'pay_coins_100' }],
+                [{ text: '� 500 coins + 50 bonus — 299 ⭐', callback_data: 'pay_coins_500' }],
+                [{ text: '� 1,000 coins + 150 bonus — 499 ⭐', callback_data: 'pay_coins_1000' }],
+                [{ text: '� 5,000 coins + 1,000 bonus — 1,999 ⭐', callback_data: 'pay_coins_5000' }],
+                [{ text: '🔙 Back to Store', callback_data: 'back_to_store' }]
               ]
             }
           });
@@ -680,19 +650,11 @@ function setupPremiumCommands(bot, User) {
       bot.sendMessage(chatId, coinsMsg, {
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: '💳 Buy 100 Coins', callback_data: 'buy_coins_100' },
-              { text: '💳 Buy 500 Coins', callback_data: 'buy_coins_500' }
-            ],
-            [
-              { text: '💳 Buy 1000 Coins', callback_data: 'buy_coins_1000' }
-            ],
-            [
-              { text: '🎁 Free Coins', callback_data: 'free_coins' }
-            ],
-            [
-              { text: '🔙 Back', callback_data: 'main_menu' }
-            ]
+            [{ text: '� 100 coins — 75 ⭐', callback_data: 'pay_coins_100' }],
+            [{ text: '� 500 coins + 50 bonus — 299 ⭐', callback_data: 'pay_coins_500' }],
+            [{ text: '� 1,000 coins + 150 bonus — 499 ⭐', callback_data: 'pay_coins_1000' }],
+            [{ text: '💰 5,000 coins + 1,000 bonus — 1,999 ⭐', callback_data: 'pay_coins_5000' }],
+            [{ text: '🔙 Back', callback_data: 'main_menu' }]
           ]
         }
       });

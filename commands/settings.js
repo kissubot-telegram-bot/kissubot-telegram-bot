@@ -1,10 +1,9 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
-const { User } = require('../server');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
-function setupSettingsCommands(bot) {
+function setupSettingsCommands(bot, userStates, User) {
   // Callback query handlers
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;

@@ -89,7 +89,7 @@ function setupProfileCommands(bot, userStates, User) {
                 { text: '📸 Manage Photos', callback_data: 'manage_photos' }
               ],
               [
-                { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+                { text: '🏠 Main Menu', callback_data: 'main_menu' }
               ]
             ];
 
@@ -566,7 +566,7 @@ function setupProfileCommands(bot, userStates, User) {
           reply_markup: {
             inline_keyboard: [[
               { text: '👤 View Profile', callback_data: 'edit_profile' },
-              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
+              { text: '🏠 Main Menu', callback_data: 'main_menu' }
             ]]
           }
         });

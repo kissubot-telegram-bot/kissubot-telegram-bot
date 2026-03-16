@@ -123,17 +123,11 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         return;
       }
 
-      // Build list of IDs to exclude: self + anyone they've liked/passed + anyone they've blocked + anyone who blocked them
+      // Build list of IDs to exclude: self + seen (liked/passed) + blocked + users who blocked them
       const blockedByMe = (currentUser.blocked || []).map(b => b.userId);
+      const seenIds = currentUser.seenProfiles || [];
 
-      let excludeIds = [...blockedByMe];
-      if (Like) {
-        const likedIds = await Like.find({ fromUserId: currentUser._id }).distinct('toUserId');
-        excludeIds = [...excludeIds, ...likedIds.map(String)];
-      } else {
-        // Fallback: exclude users already in matches array
-        excludeIds = [...excludeIds, ...(currentUser.matches || []).map(m => m.userId)];
-      }
+      let excludeIds = [...blockedByMe, ...seenIds];
 
       // Also exclude users who have blocked the current user
       const usersWhoBlockedMe = await User.find({
@@ -142,12 +136,20 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const blockedMeIds = usersWhoBlockedMe.map(u => u.telegramId);
       excludeIds = [...excludeIds, ...blockedMeIds];
 
-      // Query: exclude self, all excluded IDs, require complete profiles
+      // Gender preference filter
+      const lookingFor = currentUser.lookingFor;
+      const genderFilter =
+        lookingFor === 'Both' || !lookingFor
+          ? {}
+          : { gender: lookingFor };
+
+      // Query: exclude self, all excluded IDs, require complete profiles, match gender pref
       let profileQuery = User.find({
         telegramId: { $ne: String(telegramId), $nin: excludeIds },
         name: { $exists: true, $ne: null },
         age: { $exists: true, $ne: null },
-        photos: { $exists: true, $not: { $size: 0 } }
+        photos: { $exists: true, $not: { $size: 0 } },
+        ...genderFilter
       });
 
       if (!currentUser.isVip) {
@@ -344,19 +346,16 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         // Remove buttons immediately (fast UX)
         bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
 
-        // Record the like
-        if (Like) {
-          await Like.findOneAndUpdate(
-            { fromUserId: fromUser._id, toUserId: toUser._id },
-            { fromUserId: fromUser._id, toUserId: toUser._id },
-            { upsert: true }
+        // Record the like and mark profile as seen
+        if (!toUser.likes.includes(String(telegramId))) {
+          toUser.likes.push(String(telegramId));
+          await toUser.save();
+        }
+        if (!(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
+          await User.findOneAndUpdate(
+            { telegramId: String(telegramId) },
+            { $push: { seenProfiles: String(targetTelegramId) } }
           );
-        } else {
-          // Fallback: store in user.likes array
-          if (!toUser.likes.includes(String(telegramId))) {
-            toUser.likes.push(String(telegramId));
-            await toUser.save();
-          }
         }
 
         // Track stats (fire-and-forget)
@@ -431,16 +430,11 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
         // Record pass so we don't show this profile again
         const fromUser = await User.findOne({ telegramId });
-        const toUser = await User.findOne({ telegramId: targetTelegramId });
-
-        if (fromUser && toUser) {
-          if (Like) {
-            await Like.findOneAndUpdate(
-              { fromUserId: fromUser._id, toUserId: toUser._id },
-              { fromUserId: fromUser._id, toUserId: toUser._id, passed: true },
-              { upsert: true }
-            );
-          }
+        if (fromUser && !(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
+          await User.findOneAndUpdate(
+            { telegramId: String(telegramId) },
+            { $push: { seenProfiles: String(targetTelegramId) } }
+          );
         }
 
         // Instantly show next profile
