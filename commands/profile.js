@@ -56,16 +56,16 @@ function setupProfileCommands(bot, userStates, User) {
               return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
             }
 
-            const photos = user.photos || [];
-
-            const profileMsg =
-              `👤 *${user.name || 'Your Profile'}*, ${user.age || '—'}\n` +
-              `📍 ${user.location || 'Location not set'}\n` +
-              `👤 ${user.gender || '—'}  ·  👀 ${user.lookingFor || '—'}\n` +
-              `📞 ${user.phone ? '✅ Phone added' : '❌ Phone required'}\n` +
-              `💭 ${user.bio || '_(no bio yet)_'}\n` +
-              `📸 ${photos.length}/6 photos\n\n` +
-              `✏️ *What would you like to edit?*`;
+            const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
+              `📝 **Current Information:**\n` +
+              `• Name: ${user.name || 'Not set'}\n` +
+              `• Gender: ${user.gender || 'Not set'}\n` +
+              `• Looking For: ${user.lookingFor || 'Not set'}\n` +
+              `• Age: ${user.age || 'Not set'}\n` +
+              `• Location: ${user.location || 'Not set'}\n` +
+              `• Phone: ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
+              `• Bio: ${user.bio || '(optional)'}\n\n` +
+              `✏️ **What would you like to edit?**`;
 
             const phoneRow = !user.phone
               ? [{ text: '📞 Add Phone Number ⭐', callback_data: 'add_phone_number' }]
@@ -85,24 +85,17 @@ function setupProfileCommands(bot, userStates, User) {
                 { text: '💭 Edit Bio', callback_data: 'edit_bio' }
               ],
               [phoneRow[0]],
-              [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
-              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+              [
+                { text: '📸 Manage Photos', callback_data: 'manage_photos' }
+              ],
+              [
+                { text: '🏠 Main Menu', callback_data: 'main_menu' }
+              ]
             ];
 
-            const replyMarkup = { inline_keyboard: buttons };
-
-            if (photos.length > 0) {
-              bot.sendPhoto(chatId, photos[0], {
-                caption: profileMsg,
-                parse_mode: 'Markdown',
-                reply_markup: replyMarkup
-              });
-            } else {
-              bot.sendMessage(chatId, profileMsg, {
-                parse_mode: 'Markdown',
-                reply_markup: replyMarkup
-              });
-            }
+            bot.sendMessage(chatId, profileMsg, {
+              reply_markup: { inline_keyboard: buttons }
+            });
 
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');

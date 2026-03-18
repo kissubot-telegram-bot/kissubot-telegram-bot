@@ -498,6 +498,25 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         // Instantly show next profile
         await browseProfiles(chatId, telegramId);
 
+        // ── 🔄 RESET BROWSE HISTORY ──────────────────────────────────────
+      } else if (data === 'reset_seen_profiles') {
+        await User.findOneAndUpdate(
+          { telegramId: String(telegramId) },
+          { $set: { seenProfiles: [] } }
+        );
+        invalidateUserCache(String(telegramId));
+        await bot.sendMessage(chatId,
+          `🔄 *Browse history cleared!*\n\nYou'll start seeing all profiles again from scratch.`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '⚙️ Search Settings', callback_data: 'settings_search' }]
+              ]
+            }
+          }
+        );
+
         // ── ⭐ SUPER LIKE ─────────────────────────────────────────────────
       } else if (data.startsWith('superlike_')) {
         const targetTelegramId = data.replace('superlike_', '');
