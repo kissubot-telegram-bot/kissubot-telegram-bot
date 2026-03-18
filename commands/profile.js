@@ -56,16 +56,16 @@ function setupProfileCommands(bot, userStates, User) {
               return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
             }
 
-            const profileMsg = `👤 **PROFILE SETTINGS** 👤\n\n` +
-              `📝 **Current Information:**\n` +
-              `• Name: ${user.name || 'Not set'}\n` +
-              `• Gender: ${user.gender || 'Not set'}\n` +
-              `• Looking For: ${user.lookingFor || 'Not set'}\n` +
-              `• Age: ${user.age || 'Not set'}\n` +
-              `• Location: ${user.location || 'Not set'}\n` +
-              `• Phone: ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
-              `• Bio: ${user.bio || '(optional)'}\n\n` +
-              `✏️ **What would you like to edit?**`;
+            const photos = user.photos || [];
+
+            const profileMsg =
+              `👤 *${user.name || 'Your Profile'}*, ${user.age || '—'}\n` +
+              `📍 ${user.location || 'Location not set'}\n` +
+              `👤 ${user.gender || '—'}  ·  👀 ${user.lookingFor || '—'}\n` +
+              `📞 ${user.phone ? '✅ Phone added' : '❌ Phone required'}\n` +
+              `💭 ${user.bio || '_(no bio yet)_'}\n` +
+              `📸 ${photos.length}/6 photos\n\n` +
+              `✏️ *What would you like to edit?*`;
 
             const phoneRow = !user.phone
               ? [{ text: '📞 Add Phone Number ⭐', callback_data: 'add_phone_number' }]
@@ -85,17 +85,24 @@ function setupProfileCommands(bot, userStates, User) {
                 { text: '💭 Edit Bio', callback_data: 'edit_bio' }
               ],
               [phoneRow[0]],
-              [
-                { text: '📸 Manage Photos', callback_data: 'manage_photos' }
-              ],
-              [
-                { text: '🏠 Main Menu', callback_data: 'main_menu' }
-              ]
+              [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
+              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
             ];
 
-            bot.sendMessage(chatId, profileMsg, {
-              reply_markup: { inline_keyboard: buttons }
-            });
+            const replyMarkup = { inline_keyboard: buttons };
+
+            if (photos.length > 0) {
+              bot.sendPhoto(chatId, photos[0], {
+                caption: profileMsg,
+                parse_mode: 'Markdown',
+                reply_markup: replyMarkup
+              });
+            } else {
+              bot.sendMessage(chatId, profileMsg, {
+                parse_mode: 'Markdown',
+                reply_markup: replyMarkup
+              });
+            }
 
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
@@ -208,18 +215,19 @@ function setupProfileCommands(bot, userStates, User) {
               return bot.sendMessage(chatId, '❌ User not found. Please /register first.');
             }
 
-            const photoCount = (user.photos || []).length;
+            const photos = user.photos || [];
+            const photoCount = photos.length;
 
-            let profileMsg = `💖 **Your Dating Profile** 💖\n\n`;
-            profileMsg += `📝 **Name:** ${user.name || 'Not set'}\n`;
-            profileMsg += `👤 **Gender:** ${user.gender || 'Not set'}\n`;
-            profileMsg += `👀 **Looking For:** ${user.lookingFor || 'Not set'}\n`;
-            profileMsg += `🎂 **Age:** ${user.age || 'Not set'}\n`;
-            profileMsg += `📍 **Location:** ${user.location || 'Not set'}\n`;
-            profileMsg += `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required'}\n`;
-            profileMsg += `💭 **Bio:** ${user.bio || '(optional — not set)'}\n`;
-            profileMsg += `📸 **Photos:** ${photoCount}/6\n`;
-            profileMsg += `✨ **Status:** ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n`;
+            let profileMsg = `💖 *Your Dating Profile* 💖\n\n`;
+            profileMsg += `📝 *Name:* ${user.name || 'Not set'}\n`;
+            profileMsg += `👤 *Gender:* ${user.gender || 'Not set'}\n`;
+            profileMsg += `👀 *Looking For:* ${user.lookingFor || 'Not set'}\n`;
+            profileMsg += `🎂 *Age:* ${user.age || 'Not set'}\n`;
+            profileMsg += `📍 *Location:* ${user.location || 'Not set'}\n`;
+            profileMsg += `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Not added — required'}\n`;
+            profileMsg += `💭 *Bio:* ${user.bio || '_(not set)_'}\n`;
+            profileMsg += `📸 *Photos:* ${photoCount}/6\n`;
+            profileMsg += `✨ *Status:* ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}`;
 
             const profileButtons = [
               [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '📸 Manage Photos', callback_data: 'manage_photos' }]
@@ -232,9 +240,20 @@ function setupProfileCommands(bot, userStates, User) {
 
             profileButtons.push([{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]);
 
-            await bot.sendMessage(chatId, profileMsg, {
-              reply_markup: { inline_keyboard: profileButtons }
-            });
+            const replyMarkup = { inline_keyboard: profileButtons };
+
+            if (photos.length > 0) {
+              await bot.sendPhoto(chatId, photos[0], {
+                caption: profileMsg,
+                parse_mode: 'Markdown',
+                reply_markup: replyMarkup
+              });
+            } else {
+              await bot.sendMessage(chatId, profileMsg, {
+                parse_mode: 'Markdown',
+                reply_markup: replyMarkup
+              });
+            }
 
           } catch (err) {
             console.error('View profile error:', err);
