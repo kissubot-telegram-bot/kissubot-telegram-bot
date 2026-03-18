@@ -44,10 +44,11 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
             text: r.label,
             callback_data: `report_reason_${r.key}_${targetId}`
         }]));
+        reasonButtons.push([{ text: '⛔ Block this user', callback_data: `block_from_report_${targetId}` }]);
         reasonButtons.push([{ text: '🔙 Cancel', callback_data: 'start_browse' }]);
 
         await bot.sendMessage(chatId,
-            `🚩 **Report Profile**\n\nWhy are you reporting this user?`,
+            `🚩 *Report Profile*\n\nWhy are you reporting this user?\nYou can also block them without reporting.`,
             {
                 parse_mode: 'Markdown',
                 reply_markup: { inline_keyboard: reasonButtons }
@@ -124,59 +125,31 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
         await saveReport(bot, chatId, telegramId, targetId, reason, screenshotFileId, User, Report, browseNext);
     });
 
+    // ── ⛔ BLOCK FROM REPORT MENU ────────────────────────────────────
+    bot.on('callback_query', async (query) => {
+        const data = query.data;
+        if (!data.startsWith('block_from_report_')) return;
+
+        const chatId = query.message.chat.id;
+        const telegramId = query.from.id;
+        const targetId = data.replace('block_from_report_', '');
+
+        await bot.answerCallbackQuery(query.id).catch(() => { });
+        await performBlock(bot, chatId, telegramId, targetId, User, browseNext);
+    });
+
     // ── ⛔ BLOCK: Add to blocked list, remove mutual data ─────────────
     bot.on('callback_query', async (query) => {
         const data = query.data;
         if (!data.startsWith('block_')) return;
+        if (data.startsWith('block_from_report_')) return;
 
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
         const targetId = data.replace('block_', '');
 
         await bot.answerCallbackQuery(query.id).catch(() => { });
-
-        try {
-            const [blocker, blocked] = await Promise.all([
-                User.findOne({ telegramId }),
-                User.findOne({ telegramId: targetId })
-            ]);
-
-            if (!blocker) return bot.sendMessage(chatId, '❌ Error: user not found.');
-
-            // Add to blocker's blocked list (if not already)
-            const alreadyBlocked = blocker.blocked && blocker.blocked.some(b => b.userId === String(targetId));
-            if (!alreadyBlocked) {
-                if (!blocker.blocked) blocker.blocked = [];
-                blocker.blocked.push({ userId: String(targetId), blockedAt: new Date() });
-            }
-
-            // Remove mutual like data from both sides
-            blocker.likes = (blocker.likes || []).filter(id => String(id) !== String(targetId));
-            blocker.matches = (blocker.matches || []).filter(m => String(m.userId) !== String(targetId));
-
-            if (blocked) {
-                blocked.likes = (blocked.likes || []).filter(id => String(id) !== String(telegramId));
-                blocked.matches = (blocked.matches || []).filter(m => String(m.userId) !== String(telegramId));
-                await blocked.save().catch(() => { });
-            }
-
-            await blocker.save();
-            invalidateUserCache(String(telegramId));
-
-            await bot.sendMessage(chatId,
-                `⛔ **Blocked.**\n\nYou won't see this person again.`,
-                {
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [[{ text: '➡️ Next Profile', callback_data: 'start_browse' }]]
-                    }
-                }
-            );
-
-        } catch (err) {
-            console.error('[Block] Error:', err);
-            bot.sendMessage(chatId, '❌ Failed to block. Please try again.');
-        }
+        await performBlock(bot, chatId, telegramId, targetId, User, browseNext);
     });
 
     // ── 🛡️ ADMIN: /reports command ───────────────────────────────────────
@@ -210,6 +183,47 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
             bot.sendMessage(chatId, '❌ Failed to load reports.');
         }
     });
+}
+
+// ── Helper: block a user ─────────────────────────────────────────────────
+async function performBlock(bot, chatId, telegramId, targetId, User, browseNext) {
+    try {
+        const [blocker, blocked] = await Promise.all([
+            User.findOne({ telegramId }),
+            User.findOne({ telegramId: targetId })
+        ]);
+
+        if (!blocker) return bot.sendMessage(chatId, '❌ Error: user not found.');
+
+        const alreadyBlocked = blocker.blocked && blocker.blocked.some(b => b.userId === String(targetId));
+        if (!alreadyBlocked) {
+            if (!blocker.blocked) blocker.blocked = [];
+            blocker.blocked.push({ userId: String(targetId), blockedAt: new Date() });
+        }
+
+        blocker.likes = (blocker.likes || []).filter(id => String(id) !== String(targetId));
+        blocker.matches = (blocker.matches || []).filter(m => String(m.userId) !== String(targetId));
+
+        if (blocked) {
+            blocked.likes = (blocked.likes || []).filter(id => String(id) !== String(telegramId));
+            blocked.matches = (blocked.matches || []).filter(m => String(m.userId) !== String(telegramId));
+            await blocked.save().catch(() => { });
+        }
+
+        await blocker.save();
+        invalidateUserCache(String(telegramId));
+
+        await bot.sendMessage(chatId,
+            `⛔ *Blocked.*\n\nYou won't see this person again.`,
+            {
+                parse_mode: 'Markdown',
+                reply_markup: { inline_keyboard: [[{ text: '➡️ Next Profile', callback_data: 'start_browse' }]] }
+            }
+        );
+    } catch (err) {
+        console.error('[Block] Error:', err);
+        bot.sendMessage(chatId, '❌ Failed to block. Please try again.');
+    }
 }
 
 // ── Helper: save a report to DB and confirm ─────────────────────────────

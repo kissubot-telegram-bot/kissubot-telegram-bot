@@ -127,15 +127,20 @@ function setupTermsCommands(bot, User) {
             } catch (err) {
                 bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
             }
-        } else if (data === 'decline_terms') {
-            `❌ **Terms Declined**\n\n` +
-                `You must accept our Terms of Service and Privacy Policy to use KissuBot.\n\n` +
-                `If you change your mind, you can click Start again. Goodbye! 👋`,
-            {
-                reply_markup: {
-                    inline_keyboard: [[{ text: '🚀 Trial Again', callback_data: 'main_menu' }]]
+        } else if (data === 'decline_terms' || data === 'decline_privacy') {
+            await bot.answerCallbackQuery(query.id).catch(() => { });
+            await bot.sendMessage(chatId,
+                `❌ *Terms Declined*\n\nYou must accept our Terms of Service to use KissuBot.\n\nIf you change your mind, tap below. �`,
+                {
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '� Read Terms Again', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                            [{ text: '🔙 Try Again', callback_data: 'main_menu' }]
+                        ]
+                    }
                 }
-            }
+            );
         }
     });
 }

@@ -4,13 +4,13 @@
  * Card format:
  *   📸 Photo (or text card with name/age/city/bio)
  *   [ ❤️ Like ]  [ ❌ Skip ]
- *   [ 🚩 Report ][ ⛔ Block ]
+ *   [ 🚩 Report ][ ⭐ Super Like ]
  *
  * Flow:
  *   Like  → anti-spam check → save like → check mutual → match OR liked+next
  *   Skip  → remove buttons → load next immediately
  *   Report→ hands off to report.js callback
- *   Block → hands off to report.js callback
+ *   Super Like → costs 10 coins, notifies target user
  *
  * Match event → notify BOTH users simultaneously
  */
@@ -38,7 +38,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         ],
         [
           { text: '🚩 Report', callback_data: `report_${profileId}` },
-          { text: '⛔ Block', callback_data: `block_${profileId}` }
+          { text: '⭐ Super Like (10🪙)', callback_data: `superlike_${profileId}` }
         ]
       ]
     };
@@ -47,14 +47,42 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   // ─────────────────────────────────────────────────────────────────────
   // Build the caption for a profile card
   // ─────────────────────────────────────────────────────────────────────
-  function buildProfileCaption(profile) {
+  const LIKE_LINES = [
+    '❤️ Liked! Looking for your next match...',
+    '💘 Nice choice! Finding someone new...',
+    '🔥 You liked them! Fingers crossed for a match...',
+    '✨ Like sent! Who\'s next?',
+    '💌 They might just like you back! Loading...',
+  ];
+
+  const PASS_LINES = [
+    '👀 On to the next one...',
+    '⏭️ Skipped! Finding someone better...',
+    '🙈 Not this time! Loading next profile...',
+    '➡️ Moving on...',
+  ];
+
+  function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function buildProfileCaption(profile, viewerTelegramId) {
+    const genderIcon = profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑';
+    const lookingFor = profile.lookingFor
+      ? `\n🔍 Looking for: *${profile.lookingFor}*`
+      : '';
     const bio = profile.bio
-      ? (profile.bio.length > 100 ? profile.bio.substring(0, 97) + '...' : profile.bio)
-      : 'No bio yet 🤷';
+      ? (profile.bio.length > 120 ? profile.bio.substring(0, 117) + '...' : profile.bio)
+      : '_No bio yet_ 🤷';
+    const photoCount = profile.photos && profile.photos.length > 1
+      ? `  📸 *${profile.photos.length} photos*`
+      : '';
+    const mutualHint = viewerTelegramId && (profile.likes || []).includes(String(viewerTelegramId))
+      ? `\n\n� *Psst! This person may already like you...*`
+      : '';
     return (
-      `💕 *${profile.name}*, ${profile.age}\n` +
-      `📍 ${profile.location}\n\n` +
-      `💬 ${bio}`
+      `${genderIcon} *${profile.name}*, ${profile.age}${photoCount}\n` +
+      `📍 ${profile.location}${lookingFor}\n\n` +
+      `💬 ${bio}` +
+      mutualHint
     );
   }
 
@@ -136,20 +164,43 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const blockedMeIds = usersWhoBlockedMe.map(u => u.telegramId);
       excludeIds = [...excludeIds, ...blockedMeIds];
 
-      // Gender preference filter
-      const lookingFor = currentUser.lookingFor;
-      const genderFilter =
-        lookingFor === 'Both' || !lookingFor
-          ? {}
-          : { gender: lookingFor };
+      // ── Read search preferences ────────────────────────────────────────
+      const ss = currentUser.searchSettings || {};
+      const ageMin = ss.ageMin || 18;
+      const ageMax = ss.ageMax || 99;
+      const maxDistance = ss.maxDistance || 100000;
+      const hideLiked = ss.hideLiked !== false; // default true
 
-      // Query: exclude self, all excluded IDs, require complete profiles, match gender pref
+      // Gender: searchSettings.genderPreference takes precedence over lookingFor
+      const genderPref = (ss.genderPreference && ss.genderPreference !== 'Any')
+        ? ss.genderPreference
+        : (currentUser.lookingFor === 'Both' ? null : currentUser.lookingFor);
+      const genderFilter = genderPref ? { gender: genderPref } : {};
+
+      // Age filter
+      const ageFilter = { age: { $gte: ageMin, $lte: ageMax } };
+
+      // Location filter — approximate text match when distance is not unlimited
+      let locationFilter = {};
+      if (maxDistance < 100000 && currentUser.location) {
+        const city = currentUser.location.split(',')[0].trim();
+        if (city) locationFilter = { location: { $regex: new RegExp(city, 'i') } };
+      }
+
+      // Hide already-liked filter — exclude profiles where this user's ID is in their likes[]
+      const hideLikedFilter = hideLiked
+        ? { likes: { $not: { $elemMatch: { $eq: String(telegramId) } } } }
+        : {};
+
+      // Query: exclude self, all excluded IDs, require complete profiles, apply all filters
       let profileQuery = User.find({
         telegramId: { $ne: String(telegramId), $nin: excludeIds },
         name: { $exists: true, $ne: null },
-        age: { $exists: true, $ne: null },
         photos: { $exists: true, $not: { $size: 0 } },
-        ...genderFilter
+        ...ageFilter,
+        ...genderFilter,
+        ...locationFilter,
+        ...hideLikedFilter
       });
 
       if (!currentUser.isVip) {
@@ -160,13 +211,17 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       if (!profiles || profiles.length === 0) {
         return bot.sendMessage(chatId,
-          '😔 *No More Profiles*\n\n' +
-          "You've seen everyone available right now!\n\n" +
-          '💡 Check back later as new users join Kissubot.',
+          '🌙 *You\'ve seen everyone for now!*\n\n' +
+          'New people join Kissubot every day — check back soon 💕\n\n' +
+          '💡 *Tips to see more profiles:*\n' +
+          '• Expand your age range or distance in Search Settings\n' +
+          '• Reset your browse history to see past profiles again\n' +
+          '• Update your profile to attract more matches',
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
+                [{ text: '⚙️ Search Settings', callback_data: 'settings_search' }, { text: '🔄 Reset History', callback_data: 'reset_seen_profiles' }],
                 [{ text: '💕 View Matches', callback_data: 'view_matches' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
               ]
             }
@@ -176,7 +231,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       // Pick one profile at random for variety
       const profile = profiles[Math.floor(Math.random() * profiles.length)];
-      const caption = buildProfileCaption(profile);
+      const caption = buildProfileCaption(profile, telegramId);
       const keyboard = buildProfileKeyboard(profile.telegramId);
 
       if (profile.photos && profile.photos.length > 0) {
@@ -214,6 +269,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
   async function showMatches(chatId, telegramId) {
     try {
+      if (!(await requireSubscription(bot, chatId, String(telegramId), User))) return;
+
       const user = await User.findOne({ telegramId });
       if (!user) return bot.sendMessage(chatId, '❌ User not found.');
 
@@ -415,7 +472,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         } else {
           // No match yet — quick feedback then next profile
           await bot.sendMessage(chatId,
-            '❤️ Liked! Loading next profile...',
+            randomFrom(LIKE_LINES),
             { reply_markup: { inline_keyboard: [[{ text: '💌 Matches', callback_data: 'view_matches' }]] } }
           );
           await browseProfiles(chatId, telegramId);
@@ -437,6 +494,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           );
         }
 
+        await bot.sendMessage(chatId, randomFrom(PASS_LINES));
         // Instantly show next profile
         await browseProfiles(chatId, telegramId);
 

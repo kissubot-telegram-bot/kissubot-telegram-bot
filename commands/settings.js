@@ -55,62 +55,62 @@ function setupSettingsCommands(bot, userStates, User) {
           break;
 
         case 'settings_search':
-        case 'back_to_search':
+        case 'back_to_search': {
           try {
             const user = await getCachedUserProfile(telegramId, User);
-            const preferences = user.searchSettings || {};
+            const p = user.searchSettings || {};
+            const ageMin = p.ageMin || 18;
+            const ageMax = p.ageMax || 99;
+            const dist = p.maxDistance || 50;
+            const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
+            const gender = p.genderPreference || 'Any';
+            const hideLiked = p.hideLiked !== false;
 
-            const searchMsg = `🔍 **SEARCH SETTINGS** 🔍\n\n` +
-              `📊 **Current Preferences:**\n` +
-              `• **Age Range:** ${preferences.ageMin || 18} - ${preferences.ageMax || 35}\n` +
-              `• **Distance:** ${preferences.maxDistance || 50} km\n` +
-              `• **Gender:** ${preferences.genderPreference || 'Any'}\n\n` +
-              `⚙️ **Adjust your search preferences:**`;
+            const searchMsg =
+              `� *Search Preferences*\n\n` +
+              `🎂 *Age Range:* ${ageMin}–${ageMax}\n` +
+              `📍 *Distance:* ${distLabel}\n` +
+              `👥 *Gender:* ${gender}\n` +
+              `🚫 *Hide Already Liked:* ${hideLiked ? '✅ On' : '❌ Off'}\n\n` +
+              `Tap a setting to change it:`;
 
-            const opts = {
+            bot.sendMessage(chatId, searchMsg, {
+              parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [
-                  [
-                    { text: '🎂 Age Range', callback_data: 'set_age_range' },
-                    { text: '📍 Distance', callback_data: 'set_distance' }
-                  ],
-                  [
-                    { text: '👥 Gender Preference', callback_data: 'set_gender_pref' }
-                  ],
-                  [
-                    { text: '⭐ Advanced Filters (VIP)', callback_data: 'vip_filters' }
-                  ],
-                  [
-                    { text: '🔙 Back to Settings', callback_data: 'main_settings' }
-                  ]
+                  [{ text: `🎂 Age Range (${ageMin}–${ageMax})`, callback_data: 'set_age_range' },
+                   { text: `📍 Distance (${distLabel})`, callback_data: 'set_distance' }],
+                  [{ text: `👥 Gender (${gender})`, callback_data: 'set_gender_pref' }],
+                  [{ text: `🚫 Hide Liked: ${hideLiked ? '✅ On' : '❌ Off'} — tap to toggle`, callback_data: 'toggle_hide_liked' }],
+                  [{ text: '🔄 Reset Browse History', callback_data: 'reset_seen_profiles' }],
+                  [{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]
                 ]
               }
-            };
-
-            bot.sendMessage(chatId, searchMsg, opts);
+            });
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
           }
           break;
+        }
 
         case 'set_age_range':
-          bot.sendMessage(chatId, '👥 **SET AGE RANGE** 👥\n\nChoose your preferred age range for matches:', {
+          bot.sendMessage(chatId, '🎂 *Set Age Range*\n\nChoose your preferred age range:', {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '18-25', callback_data: 'age_range_18_25' },
-                  { text: '26-35', callback_data: 'age_range_26_35' }
+                  { text: '18–25', callback_data: 'age_range_18_25' },
+                  { text: '26–35', callback_data: 'age_range_26_35' }
                 ],
                 [
-                  { text: '36-45', callback_data: 'age_range_36_45' },
-                  { text: '46-55', callback_data: 'age_range_46_55' }
+                  { text: '36–45', callback_data: 'age_range_36_45' },
+                  { text: '46–55', callback_data: 'age_range_46_55' }
                 ],
                 [
-                  { text: '18-35', callback_data: 'age_range_18_35' },
-                  { text: '25-45', callback_data: 'age_range_25_45' }
+                  { text: '18–35', callback_data: 'age_range_18_35' },
+                  { text: '25–45', callback_data: 'age_range_25_45' }
                 ],
                 [
-                  { text: '🔙 Back to Settings', callback_data: 'back_to_search' }
+                  { text: '🔙 Back', callback_data: 'back_to_search' }
                 ]
               ]
             },
@@ -119,7 +119,7 @@ function setupSettingsCommands(bot, userStates, User) {
           break;
 
         case 'set_distance':
-          bot.sendMessage(chatId, '📍 **SET DISTANCE** 📍\n\nChoose maximum distance for matches:', {
+          bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum distance for matches:', {
             reply_markup: {
               inline_keyboard: [
                 [
@@ -135,7 +135,7 @@ function setupSettingsCommands(bot, userStates, User) {
                   { text: 'Unlimited', callback_data: 'distance_unlimited' }
                 ],
                 [
-                  { text: '🔙 Back to Settings', callback_data: 'back_to_search' }
+                  { text: '🔙 Back', callback_data: 'back_to_search' }
                 ]
               ]
             },
@@ -144,7 +144,7 @@ function setupSettingsCommands(bot, userStates, User) {
           break;
 
         case 'set_gender_pref':
-          bot.sendMessage(chatId, '⚧️ **GENDER PREFERENCE** ⚧️\n\nWho would you like to see?', {
+          bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
             reply_markup: {
               inline_keyboard: [
                 [
@@ -155,7 +155,7 @@ function setupSettingsCommands(bot, userStates, User) {
                   { text: '👥 Everyone', callback_data: 'gender_any' }
                 ],
                 [
-                  { text: '🔙 Back to Settings', callback_data: 'back_to_search' }
+                  { text: '🔙 Back', callback_data: 'back_to_search' }
                 ]
               ]
             },
@@ -180,13 +180,15 @@ function setupSettingsCommands(bot, userStates, User) {
               case 'age_range_18_35': ageMin = 18; ageMax = 35; break;
               case 'age_range_25_45': ageMin = 25; ageMax = 45; break;
             }
+            const { invalidateUserCache } = require('./auth');
             await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
               { $set: { 'searchSettings.ageMin': ageMin, 'searchSettings.ageMax': ageMax } }
             );
-            await bot.sendMessage(chatId, `✅ Age range updated to ${ageMin}-${ageMax} years!`, {
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
-              parse_mode: 'Markdown'
+            invalidateUserCache(String(telegramId));
+            await bot.sendMessage(chatId, `✅ *Age range set to ${ageMin}–${ageMax}.*\nBrowse will now show profiles in this range.`, {
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
             });
           } catch (err) {
             console.error('Set age range error:', err.response?.data || err.message);
@@ -211,14 +213,16 @@ function setupSettingsCommands(bot, userStates, User) {
               case 'distance_250': maxDistance = 250; break;
               case 'distance_unlimited': maxDistance = 100000; break;
             }
+            const { invalidateUserCache } = require('./auth');
             await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
               { $set: { 'searchSettings.maxDistance': maxDistance } }
             );
+            invalidateUserCache(String(telegramId));
             const label = data === 'distance_unlimited' ? 'Unlimited' : `${maxDistance} km`;
-            await bot.sendMessage(chatId, `✅ Max distance updated to ${label}!`, {
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
-              parse_mode: 'Markdown'
+            await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*\nBrowse will now prefer profiles in this range.`, {
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
             });
           } catch (err) {
             console.error('Set distance error:', err.response?.data || err.message);
@@ -235,19 +239,60 @@ function setupSettingsCommands(bot, userStates, User) {
             if (data === 'gender_male') genderPreference = 'Male';
             else if (data === 'gender_female') genderPreference = 'Female';
             else genderPreference = 'Any';
+            const { invalidateUserCache } = require('./auth');
             await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
-              { $set: { 'searchSettings.genderPreference': genderPreference } }
+              { $set: { 'searchSettings.genderPreference': genderPreference, lookingFor: genderPreference === 'Any' ? 'Both' : genderPreference } }
             );
-            await bot.sendMessage(chatId, `✅ Gender preference set to ${genderPreference}!`, {
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search', callback_data: 'back_to_search' }]] },
-              parse_mode: 'Markdown'
+            invalidateUserCache(String(telegramId));
+            await bot.sendMessage(chatId, `✅ *Gender preference set to ${genderPreference}.*`, {
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
             });
           } catch (err) {
             console.error('Set gender preference error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to update gender preference. Please try again.');
           }
           break;
+
+        case 'toggle_hide_liked': {
+          try {
+            const { invalidateUserCache } = require('./auth');
+            const user = await User.findOne({ telegramId: String(telegramId) });
+            const current = user?.searchSettings?.hideLiked !== false;
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { 'searchSettings.hideLiked': !current } }
+            );
+            invalidateUserCache(String(telegramId));
+            await bot.sendMessage(chatId,
+              `✅ *Hide Already Liked* is now *${!current ? '✅ On' : '❌ Off'}*.\n\n` +
+              (!current ? 'Profiles you\u2019ve already liked won\u2019t appear in browse.' : 'Already-liked profiles may appear again in browse.'),
+              { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] } }
+            );
+          } catch (err) {
+            bot.sendMessage(chatId, '❌ Failed to update. Please try again.');
+          }
+          break;
+        }
+
+        case 'reset_seen_profiles': {
+          try {
+            const { invalidateUserCache } = require('./auth');
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { seenProfiles: [] } }
+            );
+            invalidateUserCache(String(telegramId));
+            await bot.sendMessage(chatId,
+              `🔄 *Browse history cleared!*\n\nYou\u2019ll start seeing all profiles again from scratch.`,
+              { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '🔙 Search Settings', callback_data: 'back_to_search' }]] } }
+            );
+          } catch (err) {
+            bot.sendMessage(chatId, '❌ Failed to reset. Please try again.');
+          }
+          break;
+        }
 
         case 'settings_notifications':
           const notifMsg = `🔔 **NOTIFICATION SETTINGS** 🔔\n\n` +

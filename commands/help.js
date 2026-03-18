@@ -12,52 +12,45 @@ function setupHelpCommands(bot) {
     try {
       switch (data) {
         case 'email_support':
-          bot.sendMessage(chatId, `📧 **EMAIL SUPPORT** 📧\n\n` +
-            `Send your support request to:\n` +
-            `📮 **spprtksbt@gmail.com**\n\n` +
-            `📋 **Please include:**\n` +
-            `• Your Telegram username: @${query.from.username || 'N/A'}\n` +
-            `• Your user ID: ${telegramId}\n` +
-            `• Detailed description of your issue\n` +
-            `• Screenshots if relevant\n\n` +
-            `⏰ **Response time:** 24-48 hours\n\n` +
-            `💡 **Tip:** Copy the email address above and paste it in your email app.`);
+          bot.sendMessage(chatId,
+            `� *Email Support*\n\nSend your request to:\n📮 *spprtksbt@gmail.com*\n\n📋 *Please include:*\n• Your username: @${query.from.username || 'N/A'}\n• Your user ID: \`${telegramId}\`\n• Detailed description of your issue\n• Screenshots if relevant\n\n⏰ *Response time:* 24-48 hours`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }],
+                  [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
+                ]
+              }
+            }
+          );
           break;
 
-        case 'contact_support':
-          const supportMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
+        case 'contact_support': {
+          const supportMsg =
+            `🆘 *Support Center*\n\n` +
             `Our support team is here to help!\n\n` +
-            `🕐 **Support Hours:**\n` +
-            `Monday - Friday: 9 AM - 6 PM UTC\n` +
-            `Weekend: Limited support\n\n` +
-            `📧 **Contact Methods:**\n` +
-            `• Email: spprtksbt@gmail.com\n` +
-            `• Response time: 24-48 hours\n\n` +
-            `💬 **Common Issues:**\n` +
+            `💬 *Telegram:* @kissSupport\n` +
+            `📧 *Email:* spprtksbt@gmail.com\n` +
+            `⏰ Response time: 24\u201348 hours\n\n` +
+            `💬 *Common Issues:*\n` +
             `• Profile visibility\n` +
-            `• Payment/VIP problems\n` +
+            `• Payment / VIP problems\n` +
             `• Technical difficulties\n` +
             `• Account recovery\n` +
-            `• Report violations\n\n` +
-            `📋 **Before contacting:**\n` +
-            `• Check our help categories for solutions\n` +
-            `• Include your Telegram username\n` +
-            `• Describe the issue clearly`;
+            `• Report violations`;
 
           bot.sendMessage(chatId, supportMsg, {
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: '📧 Send Email', callback_data: 'email_support' }
-                ],
-                [
-                  { text: '🔙 Back to Help', callback_data: 'show_help' }
-                ]
+                [{ text: '� Message @kissSupport', url: 'https://t.me/kissSupport' }],
+                [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
               ]
-            },
-            parse_mode: 'Markdown'
+            }
           });
           break;
+        }
 
         case 'show_help':
         case 'help_menu':
@@ -200,37 +193,26 @@ function setupHelpCommands(bot) {
   // CONTACT command
   bot.onText(/\/contact/, (msg) => {
     const chatId = msg.chat.id;
-    const contactMsg = `📞 **CONTACT SUPPORT** 📞\n\n` +
-      `Our support team is here to help!\n\n` +
-      `📧 **Email Support:**\n` +
-      `support@kissubot.com\n\n` +
-      `💬 **Live Chat:**\n` +
-      `Available 9 AM - 6 PM EST\n\n` +
-      `📋 **When contacting us, please include:**\n` +
+    const contactMsg =
+      `🆘 *Support Center*\n\n` +
+      `💬 *Telegram:* @kissSupport\n` +
+      `� *Email:* spprtksbt@gmail.com\n\n` +
+      `📋 *When contacting us, please include:*\n` +
       `• Your username: @${msg.from.username || 'N/A'}\n` +
       `• Description of the issue\n` +
       `• Screenshots if applicable\n\n` +
-      `⏱️ **Response Time:** Usually within 24 hours\n\n` +
-      `🙏 **Thank you for using Kissubot!**`;
+      `🙏 Thank you for using Kissubot!`;
 
-    const opts = {
+    bot.sendMessage(chatId, contactMsg, {
+      parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [
-            { text: '📧 Email Support', callback_data: 'email_support' },
-            { text: '💬 Send Feedback', callback_data: 'email_feedback' }
-          ],
-          [
-            { text: '🚨 Report Issue', callback_data: 'report_menu' }
-          ],
-          [
-            { text: '🔙 Back to Help', callback_data: 'show_help' }
-          ]
+          [{ text: '� Message @kissSupport', url: 'https://t.me/kissSupport' }],
+          [{ text: '🚨 Report Issue', callback_data: 'report_menu' }],
+          [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
         ]
       }
-    };
-
-    bot.sendMessage(chatId, contactMsg, opts);
+    });
   });
 }
 

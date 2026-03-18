@@ -375,10 +375,11 @@ const userSchema = new mongoose.Schema({
   // Search Settings
   searchSettings: {
     ageMin: { type: Number, default: 18 },
-    ageMax: { type: Number, default: 35 },
+    ageMax: { type: Number, default: 99 },
     maxDistance: { type: Number, default: 50 },
-    genderPreference: { type: String, default: 'any' },
-    locationPreference: { type: String, default: null }
+    genderPreference: { type: String, default: 'Any' },
+    locationPreference: { type: String, default: null },
+    hideLiked: { type: Boolean, default: true }
   },
 
   // Trust & Safety
