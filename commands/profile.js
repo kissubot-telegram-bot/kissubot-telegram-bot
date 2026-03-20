@@ -596,35 +596,48 @@ function setupProfileCommands(bot, userStates, User) {
 
     try {
       const user = await getCachedUserProfile(telegramId, User);
-      const photoCount = (user.photos || []).length;
+      const photos = user.photos || [];
+      const photoCount = photos.length;
 
-      const profileMsg = `👤 **YOUR PROFILE** 👤\n\n` +
-        `📝 **Name:** ${user.name || 'Not set'}\n` +
-        `👤 **Gender:** ${user.gender || 'Not set'}\n` +
-        `👀 **Looking For:** ${user.lookingFor || 'Not set'}\n` +
-        `🎂 **Age:** ${user.age || 'Not set'}\n` +
-        `📍 **Location:** ${user.location || 'Not set'}\n` +
-        `📞 **Phone:** ${user.phone ? '✅ Added' : '❌ Not added — required!'}\n` +
-        `💭 **Bio:** ${user.bio || '(optional)'}\n` +
-        `📸 **Photos:** ${photoCount}/6\n\n` +
-        `✨ Choose what to edit:`;
+      const profileMsg =
+        `� *Your Dating Profile* �\n\n` +
+        `📝 *Name:* ${user.name || 'Not set'}\n` +
+        `👤 *Gender:* ${user.gender || 'Not set'}\n` +
+        `👀 *Looking For:* ${user.lookingFor || 'Not set'}\n` +
+        `🎂 *Age:* ${user.age || 'Not set'}\n` +
+        `📍 *Location:* ${user.location || 'Not set'}\n` +
+        `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
+        `💭 *Bio:* ${user.bio || '_(not set)_'}\n` +
+        `📸 *Photos:* ${photoCount}/6\n` +
+        `✨ *Status:* ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}`;
 
       const phoneButtonLabel = user.phone
         ? '📞 Update Phone'
         : '📞 Add Phone Number ⭐ Required';
 
-      await bot.sendMessage(chatId, profileMsg, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
-            [{ text: '👤 Edit Gender', callback_data: 'edit_gender' }, { text: '👀 Looking For', callback_data: 'edit_lookingFor' }],
-            [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
-            [{ text: phoneButtonLabel, callback_data: 'add_phone_number' }],
-            [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
-            [{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]
-          ]
-        }
-      });
+      const replyMarkup = {
+        inline_keyboard: [
+          [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
+          [{ text: '👤 Edit Gender', callback_data: 'edit_gender' }, { text: '👀 Looking For', callback_data: 'edit_lookingFor' }],
+          [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
+          [{ text: phoneButtonLabel, callback_data: 'add_phone_number' }],
+          [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
+          [{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]
+        ]
+      };
+
+      if (photos.length > 0) {
+        await bot.sendPhoto(chatId, photos[0], {
+          caption: profileMsg,
+          parse_mode: 'Markdown',
+          reply_markup: replyMarkup
+        });
+      } else {
+        await bot.sendMessage(chatId, profileMsg, {
+          parse_mode: 'Markdown',
+          reply_markup: replyMarkup
+        });
+      }
 
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
