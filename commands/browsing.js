@@ -331,7 +331,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   // ─────────────────────────────────────────────────────────────────────
   // Notify the OTHER user about a match (background, non-blocking)
   // ─────────────────────────────────────────────────────────────────────
-  async function notifyMatchedUser(otherTelegramId, myUser) {
+  async function notifyMatchedUser(otherTelegramId, myUser, otherUser) {
     try {
       const starters = [
         "Ask about their favourite travel destination 🌍",
@@ -341,6 +341,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         "Ask about their weekend plans 🎉"
       ];
       const starter = starters[Math.floor(Math.random() * starters.length)];
+
+      const myPhoto = (myUser.photos || [])[0];
+      const theirPhoto = otherUser && (otherUser.photos || [])[0];
+
+      if (myPhoto && theirPhoto) {
+        await bot.sendMediaGroup(otherTelegramId, [
+          { type: 'photo', media: theirPhoto, caption: '💖', parse_mode: 'Markdown' },
+          { type: 'photo', media: myPhoto, caption: '💖', parse_mode: 'Markdown' }
+        ]).catch(() => {});
+      } else if (myPhoto) {
+        await bot.sendPhoto(otherTelegramId, myPhoto).catch(() => {});
+      }
 
       await bot.sendMessage(
         otherTelegramId,
@@ -448,6 +460,18 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           const starter = starters[Math.floor(Math.random() * starters.length)];
 
           // ── Show "It's a Match!" to the liker ──────────────────────
+          const fromPhoto = (fromUser.photos || [])[0];
+          const toPhoto = (toUser.photos || [])[0];
+
+          if (fromPhoto && toPhoto) {
+            await bot.sendMediaGroup(chatId, [
+              { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
+              { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
+            ]).catch(() => {});
+          } else if (toPhoto) {
+            await bot.sendPhoto(chatId, toPhoto).catch(() => {});
+          }
+
           await bot.sendMessage(chatId,
             `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
             `You and *${toUser.name}* liked each other!\n\n` +
@@ -467,7 +491,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           );
 
           // ── Notify the OTHER user too (background) ─────────────────
-          notifyMatchedUser(targetTelegramId, fromUser);
+          notifyMatchedUser(targetTelegramId, fromUser, toUser);
 
         } else {
           // No match yet — quick feedback then next profile
@@ -570,7 +594,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         await browseProfiles(chatId, telegramId);
 
         // ── 💬 CHAT ───────────────────────────────────────────────────────
-      } else if (data.startsWith('chat_')) {
+      } else if (data.startsWith('chat_') && !data.startsWith('chat_gate_')) {
         const targetTelegramId = data.replace('chat_', '');
         bot.sendMessage(chatId,
           '💬 *Open a direct chat:*',

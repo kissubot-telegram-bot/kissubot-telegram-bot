@@ -5,6 +5,107 @@ const { API_BASE } = require('../config');
 const userStates = {};
 
 function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
+
+  bot.onText(/\/forcematch(?:\s+(\d+))?/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const targetId = match && match[1];
+
+    if (!targetId) {
+      return bot.sendMessage(chatId, '⚙️ Usage: `/forcematch <telegramId>`\n\nExample: `/forcematch 123456789`', { parse_mode: 'Markdown' });
+    }
+
+    try {
+      const [fromUser, toUser] = await Promise.all([
+        User.findOne({ telegramId: String(telegramId) }),
+        User.findOne({ telegramId: String(targetId) })
+      ]);
+
+      if (!fromUser) return bot.sendMessage(chatId, '❌ Your account not found. Please /register first.');
+      if (!toUser) return bot.sendMessage(chatId, `❌ No user found with Telegram ID \`${targetId}\`.`, { parse_mode: 'Markdown' });
+
+      // Add mutual likes
+      if (!fromUser.likes.includes(String(targetId))) fromUser.likes.push(String(targetId));
+      if (!toUser.likes.includes(String(telegramId))) toUser.likes.push(String(telegramId));
+
+      // Add mutual matches if not already matched
+      const alreadyMatched = (fromUser.matches || []).some(m => String(m.userId) === String(targetId));
+      if (!alreadyMatched) {
+        fromUser.matches = fromUser.matches || [];
+        toUser.matches = toUser.matches || [];
+        fromUser.matches.push({ userId: String(targetId), matchedAt: new Date() });
+        toUser.matches.push({ userId: String(telegramId), matchedAt: new Date() });
+      }
+
+      await Promise.all([fromUser.save(), toUser.save()]);
+
+      const starters = [
+        "Ask about their favourite travel destination 🌍",
+        "Comment on something from their bio 💬",
+        "Ask what they're looking for 💕",
+        "Share a fun fact about yourself ✨",
+        "Ask about their weekend plans 🎉"
+      ];
+      const starter = starters[Math.floor(Math.random() * starters.length)];
+
+      // Notify both users with photos
+      const fromPhoto = (fromUser.photos || [])[0];
+      const toPhoto = (toUser.photos || [])[0];
+
+      // Notify the sender
+      if (fromPhoto && toPhoto) {
+        await bot.sendMediaGroup(chatId, [
+          { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
+          { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
+        ]).catch(() => {});
+      } else if (toPhoto) {
+        await bot.sendPhoto(chatId, toPhoto).catch(() => {});
+      }
+
+      await bot.sendMessage(chatId,
+        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💬 Open Chat', callback_data: `chat_gate_${targetId}` }, { text: '🔍 Keep Swiping', callback_data: 'start_browse' }],
+              [{ text: '💌 All Matches', callback_data: 'view_matches' }]
+            ]
+          }
+        }
+      );
+
+      // Notify the target user
+      try {
+        if (fromPhoto && toPhoto) {
+          await bot.sendMediaGroup(String(targetId), [
+            { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' },
+            { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' }
+          ]).catch(() => {});
+        } else if (fromPhoto) {
+          await bot.sendPhoto(String(targetId), fromPhoto).catch(() => {});
+        }
+
+        await bot.sendMessage(String(targetId),
+          `🎉💖 *IT'S A MATCH!* 💖🎉\n\n*${fromUser.name}* liked you back!\n\n💡 *Conversation starter:*\n${starter}`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '💬 Open Chat', callback_data: `chat_gate_${telegramId}` }, { text: '🔍 Keep Swiping', callback_data: 'start_browse' }],
+                [{ text: '💌 All Matches', callback_data: 'view_matches' }]
+              ]
+            }
+          }
+        );
+      } catch (e) { /* target may not have started the bot */ }
+
+    } catch (err) {
+      console.error('[forcematch] Error:', err);
+      bot.sendMessage(chatId, '❌ Force match failed. Check the server logs.');
+    }
+  });
+
   bot.onText(/\/stories/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await getCachedUserProfile(chatId);
