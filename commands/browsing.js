@@ -645,13 +645,22 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           return;
         }
 
-        // Allowed to chat: Provide the actual link
+        const targetUser = await User.findOne({ telegramId: String(targetId) });
+        const chatUrl = targetUser && targetUser.username
+          ? `https://t.me/${targetUser.username}`
+          : `tg://user?id=${targetId}`;
+
+        const noUsernameNote = targetUser && !targetUser.username
+          ? `\n\n⚠️ *${targetUser.name || 'This user'}* hasn't set a Telegram username yet — the link may not open. Ask them to set one in Telegram Settings.`
+          : '';
+
         bot.sendMessage(chatId,
-          `💬 You can now start chatting! \n\nClick the button below to message them directly on Telegram.`,
+          `💬 *It's a match!* Start your conversation below.${noUsernameNote}`,
           {
+            parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💬 Open Telegram Chat', url: `tg://user?id=${targetId}` }],
+                [{ text: `💬 Message ${targetUser ? targetUser.name : 'Match'}`, url: chatUrl }],
                 [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
               ]
             }
