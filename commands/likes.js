@@ -1,6 +1,6 @@
 const axios = require('axios');
 const API_BASE = process.env.API_BASE || 'http://localhost:3002';
-const { requireSubscription } = require('./genderGate');
+const { requireLikesAccess } = require('./genderGate');
 
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -23,7 +23,7 @@ function setupLikesCommands(bot, User) {
         const telegramId = msg.from.id;
 
         try {
-            if (!(await requireSubscription(bot, chatId, String(telegramId), User))) return;
+            if (!(await requireLikesAccess(bot, chatId, String(telegramId), User))) return;
             const res = await axios.get(`${API_BASE}/likes/for/${telegramId}`);
             const likers = res.data.likers;
             const isVip = res.data.isVip;

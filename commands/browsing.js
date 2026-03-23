@@ -17,7 +17,7 @@
 
 const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require('./auth');
 const { canLike, recordLike } = require('./antiSpam');
-const { requireSubscription } = require('./genderGate');
+const { requireBrowseAccess, requireMatchesAccess, incrementMaleSwipeCount, getMaleSwipeCount } = require('./genderGate');
 const axios = require('axios');
 
 // Try to load API_BASE from config (optional — stats calls are fire-and-forget)
@@ -66,6 +66,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
   function buildProfileCaption(profile, viewerTelegramId) {
     const genderIcon = profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑';
+    const vipBadge = profile.isVip ? ' 👑' : '';
     const lookingFor = profile.lookingFor
       ? `\n🔍 Looking for: *${profile.lookingFor}*`
       : '';
@@ -76,10 +77,10 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       ? `  📸 *${profile.photos.length} photos*`
       : '';
     const mutualHint = viewerTelegramId && (profile.likes || []).includes(String(viewerTelegramId))
-      ? `\n\n� *Psst! This person may already like you...*`
+      ? `\n\n💡 *Psst! This person may already like you...*`
       : '';
     return (
-      `${genderIcon} *${profile.name}*, ${profile.age}${photoCount}\n` +
+      `${genderIcon} *${profile.name}*${vipBadge}, ${profile.age}${photoCount}\n` +
       `📍 ${profile.location}${lookingFor}\n\n` +
       `💬 ${bio}` +
       mutualHint
@@ -147,7 +148,15 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const currentUser = await User.findOne({ telegramId });
       if (!currentUser) return bot.sendMessage(chatId, '❌ User not found.');
 
-      if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
+      const gender = (currentUser.gender || '').toLowerCase();
+      const isMaleNonVip = (gender === 'male' || gender === '') && !currentUser.isVip;
+
+      // Invisible mode: don't update lastActive while browsing
+      if (!currentUser.invisibleMode) {
+        User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date() }).catch(() => {});
+      }
+
+      if (!(await requireBrowseAccess(bot, chatId, String(telegramId), User))) {
         return;
       }
 
@@ -209,6 +218,25 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       const profiles = await profileQuery;
 
+      // Increment swipe count for non-VIP male users after a profile is found
+      if (isMaleNonVip && profiles.length > 0) {
+        incrementMaleSwipeCount(String(telegramId));
+      }
+
+      // Monthly VIP coins grant
+      if (currentUser.isVip) {
+        const now = new Date();
+        const lastGrant = currentUser.vipDetails && currentUser.vipDetails.lastCoinGrantDate;
+        const monthlyCoins = (currentUser.vipDetails && currentUser.vipDetails.benefits && currentUser.vipDetails.benefits.monthlyCoins) || 500;
+        if (!lastGrant || (now - new Date(lastGrant)) > 30 * 24 * 60 * 60 * 1000) {
+          await User.findOneAndUpdate(
+            { telegramId: String(telegramId) },
+            { $inc: { coins: monthlyCoins }, $set: { 'vipDetails.lastCoinGrantDate': now } }
+          );
+          bot.sendMessage(chatId, `🎁 *Monthly VIP Coins!*\n\n+${monthlyCoins} coins have been added to your balance! 🪙`, { parse_mode: 'Markdown' }).catch(() => {});
+        }
+      }
+
       if (!profiles || profiles.length === 0) {
         return bot.sendMessage(chatId,
           '🌙 *You\'ve seen everyone for now!*\n\n' +
@@ -229,12 +257,27 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         );
       }
 
-      // Pick one profile at random for variety
-      const profile = profiles[Math.floor(Math.random() * profiles.length)];
+      // Prioritize boosted profiles; otherwise pick at random
+      const now = new Date();
+      const boostedProfiles = profiles.filter(p => p.boostExpiresAt && p.boostExpiresAt > now);
+      const profile = boostedProfiles.length > 0
+        ? boostedProfiles[Math.floor(Math.random() * boostedProfiles.length)]
+        : profiles[Math.floor(Math.random() * profiles.length)];
       const caption = buildProfileCaption(profile, telegramId);
       const keyboard = buildProfileKeyboard(profile.telegramId);
 
-      if (profile.photos && profile.photos.length > 0) {
+      // VIP viewers see all photos as media group; non-VIP sees only first photo
+      if (currentUser.isVip && profile.photos && profile.photos.length > 1) {
+        const mediaGroup = profile.photos.map((url, i) => ({
+          type: 'photo', media: url,
+          ...(i === 0 ? { caption, parse_mode: 'Markdown' } : {})
+        }));
+        await bot.sendMediaGroup(chatId, mediaGroup).catch(() => {});
+        await bot.sendMessage(chatId, `📸 *${profile.name.split(' ')[0]}'s ${profile.photos.length} photos above* — like or skip?`, {
+          parse_mode: 'Markdown',
+          reply_markup: keyboard
+        });
+      } else if (profile.photos && profile.photos.length > 0) {
         await bot.sendPhoto(chatId, profile.photos[0], {
           caption,
           parse_mode: 'Markdown',
@@ -269,7 +312,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
   async function showMatches(chatId, telegramId) {
     try {
-      if (!(await requireSubscription(bot, chatId, String(telegramId), User))) return;
+      if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) return;
 
       const user = await User.findOne({ telegramId });
       if (!user) return bot.sendMessage(chatId, '❌ User not found.');
@@ -514,13 +557,43 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         if (fromUser && !(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
           await User.findOneAndUpdate(
             { telegramId: String(telegramId) },
-            { $push: { seenProfiles: String(targetTelegramId) } }
+            { $push: { seenProfiles: String(targetTelegramId) }, lastSkippedProfile: String(targetTelegramId) }
           );
+          invalidateUserCache(String(telegramId));
         }
 
-        await bot.sendMessage(chatId, randomFrom(PASS_LINES));
+        const skipKeyboard = fromUser && fromUser.isVip
+          ? { reply_markup: { inline_keyboard: [[{ text: '↩️ Undo Skip', callback_data: `undo_skip_${targetTelegramId}` }]] } }
+          : {};
+        await bot.sendMessage(chatId, randomFrom(PASS_LINES), skipKeyboard);
         // Instantly show next profile
         await browseProfiles(chatId, telegramId);
+
+        // ── ↩️ UNDO SKIP (VIP only) ───────────────────────────────────────
+      } else if (data.startsWith('undo_skip_')) {
+        const targetId = data.replace('undo_skip_', '');
+        const userDoc = await User.findOne({ telegramId: String(telegramId) });
+        if (!userDoc || !userDoc.isVip) {
+          return bot.sendMessage(chatId,
+            '🔒 *VIP Feature*\n\nUndo Skip is available for VIP members only.',
+            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👑 Subscribe', callback_data: 'manage_vip' }]] } }
+          );
+        }
+        await User.findOneAndUpdate(
+          { telegramId: String(telegramId) },
+          { $pull: { seenProfiles: String(targetId) } }
+        );
+        invalidateUserCache(String(telegramId));
+        const undoProfile = await User.findOne({ telegramId: String(targetId) });
+        if (!undoProfile) return bot.sendMessage(chatId, '❌ Profile no longer available.');
+        const undoCaption = buildProfileCaption(undoProfile, telegramId);
+        const undoKeyboard = buildProfileKeyboard(undoProfile.telegramId);
+        await bot.sendMessage(chatId, '↩️ *Undone! Here they are again:*', { parse_mode: 'Markdown' });
+        if (undoProfile.photos && undoProfile.photos.length > 0) {
+          await bot.sendPhoto(chatId, undoProfile.photos[0], { caption: undoCaption, parse_mode: 'Markdown', reply_markup: undoKeyboard });
+        } else {
+          await bot.sendMessage(chatId, undoCaption, { parse_mode: 'Markdown', reply_markup: undoKeyboard });
+        }
 
         // ── 🔄 RESET BROWSE HISTORY ──────────────────────────────────────
       } else if (data === 'reset_seen_profiles') {
@@ -548,9 +621,15 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
         if (!fromUser) return bot.sendMessage(chatId, '❌ User not found.');
 
-        if ((fromUser.coins || 0) < 10) {
+        const today = new Date().toDateString();
+        const vipDaily = fromUser.dailySuperLikesVip || {};
+        const freeSLUsed = vipDaily.date === today ? (vipDaily.count || 0) : 0;
+        const FREE_SL_LIMIT = 5;
+        const useFreeSuperLike = fromUser.isVip && freeSLUsed < FREE_SL_LIMIT;
+
+        if (!useFreeSuperLike && (fromUser.coins || 0) < 10) {
           return bot.sendMessage(chatId,
-            '❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.',
+            `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n_VIP free super likes today: ${freeSLUsed}/${FREE_SL_LIMIT}_` : ''}`,
             {
               parse_mode: 'Markdown',
               reply_markup: { inline_keyboard: [[{ text: '💰 Buy Coins', callback_data: 'buy_coins' }, { text: '🔍 Browse', callback_data: 'start_browse' }]] }
@@ -561,8 +640,15 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         const toUser = await User.findOne({ telegramId: targetTelegramId });
         if (!toUser) return bot.sendMessage(chatId, '❌ User not found.');
 
-        fromUser.coins -= 10;
-        await fromUser.save();
+        if (useFreeSuperLike) {
+          await User.findOneAndUpdate(
+            { telegramId: String(telegramId) },
+            { dailySuperLikesVip: { count: freeSLUsed + 1, date: today } }
+          );
+        } else {
+          fromUser.coins -= 10;
+          await fromUser.save();
+        }
         bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
 
         if (Like) {
@@ -641,7 +727,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
       else if (data.startsWith('chat_gate_')) {
         const targetId = data.replace('chat_gate_', '');
-        if (!(await requireSubscription(bot, chatId, String(telegramId), User))) {
+        if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
           return;
         }
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -271,6 +272,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'kissubot_profiles',
     allowed_formats: ['jpg', 'png', 'jpeg'],
+    faces: true,
   },
 });
 
@@ -405,6 +407,16 @@ const userSchema = new mongoose.Schema({
   // Anti-spam
   lastLikeAt: { type: Date },
 
+  // VIP Perks
+  boostExpiresAt: Date,                               // profile boost expiry
+  lastBoostAt: Date,                                  // last time boost was activated
+  invisibleMode: { type: Boolean, default: false },   // browse without updating lastActive
+  lastSkippedProfile: String,                         // for undo-skip feature
+  dailySuperLikesVip: {                               // free daily super likes for VIP
+    count: { type: Number, default: 0 },
+    date: { type: String, default: '' }
+  },
+
   // System Fields
   createdAt: { type: Date, default: Date.now },
   lastActive: { type: Date, default: Date.now },
@@ -434,6 +446,7 @@ const Like = undefined;
 
 const { setupOnboardingCommands } = require('./commands/onboarding');
 const { setupReportCommands } = require('./commands/report');
+const { setupVipPerksCommands } = require('./commands/vipPerks');
 
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
@@ -449,6 +462,7 @@ setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
+setupVipPerksCommands(bot, User);
 setupPaymentCommands(bot, User);
 
 // Register bot command menu with Telegram (visible in the "/" list)
@@ -462,6 +476,7 @@ bot.setMyCommands([
   { command: 'vip', description: '👑 Manage VIP membership' },
   { command: 'coins', description: '🪙 Check balance & buy coins' },
   { command: 'settings', description: '⚙️ Adjust your preferences' },
+  { command: 'perks', description: '👑 View your VIP perks & activate boost' },
   { command: 'help', description: '❓ Get help and support' },
   { command: 'delete', description: '🗑️ Delete your account' }
 ]).then(() => {
@@ -2155,9 +2170,17 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
     const imageUrl = req.file.path;
     const telegramId = req.params.telegramId;
 
+    // Reject photos with no human face detected
+    const faces = req.file.faces || [];
+    if (faces.length === 0) {
+      await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
+      return res.status(400).json({ error: 'No face detected. Please upload a clear photo of yourself.' });
+    }
+
     // Find user first to check photo count
     const user = await User.findOne({ telegramId });
     if (!user) {
+      await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -2191,6 +2214,24 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
     console.error('Photo upload error:', err);
     res.status(500).json({ error: 'Upload failed', details: err.message });
   }
+});
+
+// Serve Terms of Service PDF
+app.get('/docs/terms', (req, res) => {
+  const filePath = path.join(__dirname, 'docs', 'terms-of-service.pdf');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.sendFile(filePath, (err) => {
+    if (err) res.status(404).send('Terms of Service not found.');
+  });
+});
+
+// Serve Privacy Policy PDF
+app.get('/docs/privacy', (req, res) => {
+  const filePath = path.join(__dirname, 'docs', 'privacy-policy.pdf');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.sendFile(filePath, (err) => {
+    if (err) res.status(404).send('Privacy Policy not found.');
+  });
 });
 
 // Catch-all for unhandled routes (should be after all API routes)

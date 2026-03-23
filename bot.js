@@ -961,14 +961,18 @@ bot.on('callback_query', async (query) => {
             // VIP filter callbacks
             'filter_interests', 'filter_education', 'filter_height', 'filter_profession', 'filter_lifestyle',
             // Likes You callbacks
-            'view_all_likes', 'back_to_likes'
+            'view_all_likes', 'back_to_likes',
+            // VIP Perks callbacks
+            'activate_boost', 'toggle_invisible', 'show_vip_perks'
           ];
 
           // Check for dynamic callbacks (with IDs)
           const isDynamicCallback = data.startsWith('view_liker_') ||
             data.startsWith('like_') ||
             data.startsWith('pass_') ||
-            data.startsWith('superlike_');
+            data.startsWith('superlike_') ||
+            data.startsWith('undo_skip_') ||
+            data.startsWith('chat_gate_');
 
           if (!handledCallbacks.includes(data) && !isDynamicCallback) {
             console.log('Unhandled callback data:', data);

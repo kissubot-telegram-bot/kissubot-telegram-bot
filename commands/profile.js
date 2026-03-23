@@ -1193,7 +1193,11 @@ function setupProfileCommands(bot, userStates, User) {
       } catch (err) {
         console.error('Photo upload error:', err.response?.data || err.message);
         userStates.delete(telegramId);
-        bot.sendMessage(chatId, '❌ Failed to upload photo. Please try again later.');
+        const serverError = err.response?.data?.error;
+        const userMsg = serverError
+          ? `❌ *Photo rejected:* ${serverError}\n\nPlease try a different photo.`
+          : '❌ Failed to upload photo. Please try again later.';
+        bot.sendMessage(chatId, userMsg, { parse_mode: 'Markdown' });
       }
     }
   });
