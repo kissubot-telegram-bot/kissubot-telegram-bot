@@ -279,16 +279,24 @@ function setupSettingsCommands(bot, userStates, User) {
         case 'reset_seen_profiles': {
           try {
             const { invalidateUserCache } = require('./auth');
-            await User.findOneAndUpdate(
+            const updated = await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
-              { $set: { seenProfiles: [] } }
+              { $set: { seenProfiles: [] } },
+              { new: true }
             );
+            if (!updated) {
+              console.error('[reset_seen_profiles] User not found for telegramId:', telegramId);
+              return bot.sendMessage(chatId, '❌ Could not find your profile. Please try again.');
+            }
+            console.log(`[reset_seen_profiles] Cleared for ${telegramId}, seenProfiles now: ${updated.seenProfiles.length}`);
             invalidateUserCache(String(telegramId));
+            invalidateUserCache(telegramId);
             await bot.sendMessage(chatId,
-              `🔄 *Browse history cleared!*\n\nYou\u2019ll start seeing all profiles again from scratch.`,
+              `🔄 *Browse history cleared!*\n\nYou'll start seeing all profiles again from scratch.`,
               { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '🔙 Search Settings', callback_data: 'back_to_search' }]] } }
             );
           } catch (err) {
+            console.error('[reset_seen_profiles] Error:', err);
             bot.sendMessage(chatId, '❌ Failed to reset. Please try again.');
           }
           break;

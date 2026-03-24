@@ -152,44 +152,6 @@ function setupHelpCommands(bot) {
     bot.sendMessage(chatId, reportMsg, opts);
   });
 
-  // DELETE command
-  bot.onText(/\/delete/, (msg) => {
-    const chatId = msg.chat.id;
-    const deleteMsg = `⚠️ **DELETE PROFILE** ⚠️\n\n` +
-      `🚨 **WARNING: This action cannot be undone!**\n\n` +
-      `💔 **Deleting your profile will remove:**\n` +
-      `• All your profile information\n` +
-      `• All your photos\n` +
-      `• All your matches and conversations\n` +
-      `• Your VIP status and coins\n\n` +
-      `🤔 **Before you delete, consider:**\n` +
-      `• Taking a break instead (deactivate temporarily)\n` +
-      `• Contacting support if you're having issues\n` +
-      `• Adjusting your settings instead\n\n` +
-      `💭 **What would you like to do?**`;
-
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '❌ Cancel - Keep My Profile', callback_data: 'cancel_delete' }
-          ],
-          [
-            { text: '⏸️ Deactivate Temporarily', callback_data: 'deactivate_profile' }
-          ],
-          [
-            { text: '🗑️ DELETE PERMANENTLY', callback_data: 'confirm_delete_profile' }
-          ],
-          [
-            { text: '📞 Contact Support First', callback_data: 'contact_support' }
-          ]
-        ]
-      }
-    };
-
-    bot.sendMessage(chatId, deleteMsg, opts);
-  });
-
   // CONTACT command
   bot.onText(/\/contact/, (msg) => {
     const chatId = msg.chat.id;

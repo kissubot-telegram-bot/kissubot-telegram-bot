@@ -256,15 +256,6 @@ function setupProfileCommands(bot, userStates, User) {
 
         // ── ADD PHONE (handled above at top of switch) ──────────────────
 
-        case 'start_browse':
-          // Call browseProfiles directly (set on module.exports after setupBrowsingCommands runs)
-          if (browsingModule.browseProfiles) {
-            await browsingModule.browseProfiles(chatId, telegramId);
-          } else {
-            bot.emit('message', { chat: { id: chatId }, from: { id: telegramId, username: query.from.username, first_name: query.from.first_name }, text: '/browse' });
-          }
-          break;
-
         // main_menu is handled by bot.js showMainMenu()
 
         case 'cancel_edit':
@@ -1031,7 +1022,7 @@ function setupProfileCommands(bot, userStates, User) {
   });
 
   // Photo upload command
-  bot.onText(/\/photo/, async (msg) => {
+  bot.onText(/^\/photo(@\w+)?$/, async (msg) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 

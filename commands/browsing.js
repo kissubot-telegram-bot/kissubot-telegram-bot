@@ -303,13 +303,6 @@ function setupBrowsingCommands(bot, User, Match, Like) {
     await browseProfiles(msg.chat.id, msg.from.id);
   });
 
-  // ─────────────────────────────────────────────────────────────────────
-  // /matches command
-  // ─────────────────────────────────────────────────────────────────────
-  bot.onText(/\/matches/, async (msg) => {
-    await showMatches(msg.chat.id, msg.from.id);
-  });
-
   async function showMatches(chatId, telegramId) {
     try {
       if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) return;
@@ -594,25 +587,6 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         } else {
           await bot.sendMessage(chatId, undoCaption, { parse_mode: 'Markdown', reply_markup: undoKeyboard });
         }
-
-        // ── 🔄 RESET BROWSE HISTORY ──────────────────────────────────────
-      } else if (data === 'reset_seen_profiles') {
-        await User.findOneAndUpdate(
-          { telegramId: String(telegramId) },
-          { $set: { seenProfiles: [] } }
-        );
-        invalidateUserCache(String(telegramId));
-        await bot.sendMessage(chatId,
-          `🔄 *Browse history cleared!*\n\nYou'll start seeing all profiles again from scratch.`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '⚙️ Search Settings', callback_data: 'settings_search' }]
-              ]
-            }
-          }
-        );
 
         // ── ⭐ SUPER LIKE ─────────────────────────────────────────────────
       } else if (data.startsWith('superlike_')) {
