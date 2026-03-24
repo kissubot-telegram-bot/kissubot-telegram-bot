@@ -104,8 +104,8 @@ function setupPremiumCommands(bot, User, userStates) {
               bot.sendMessage(chatId, vipMsg, {
                 reply_markup: {
                   inline_keyboard: [
-                    [{ text: '🔄 Extend VIP', callback_data: 'extend_vip' }],
-                    [{ text: '🎁 Gift VIP', callback_data: 'gift_vip' }],
+                    [{ text: '� My VIP Perks', callback_data: 'show_vip_perks' }],
+                    [{ text: '🔄 Extend VIP', callback_data: 'extend_vip' }, { text: '🎁 Gift VIP', callback_data: 'gift_vip' }],
                     [{ text: '🔙 Back', callback_data: 'main_menu' }]
                   ]
                 }

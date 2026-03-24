@@ -10,7 +10,13 @@ function setupVipPerksCommands(bot, User) {
   // /perks — show VIP perks panel
   // ─────────────────────────────────────────────────────────────────────
   bot.onText(/\/perks/, async (msg) => {
-    await showPerksPanel(msg.chat.id, msg.from.id);
+    console.log('[/perks] triggered by', msg.from.id);
+    try {
+      await showPerksPanel(msg.chat.id, msg.from.id);
+    } catch (err) {
+      console.error('[/perks] Error:', err);
+      bot.sendMessage(msg.chat.id, '❌ Failed to load VIP perks. Please try again.').catch(() => {});
+    }
   });
 
   async function showPerksPanel(chatId, telegramId) {

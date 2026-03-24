@@ -476,7 +476,6 @@ bot.setMyCommands([
   { command: 'vip', description: '👑 Manage VIP membership' },
   { command: 'coins', description: '🪙 Check balance & buy coins' },
   { command: 'settings', description: '⚙️ Adjust your preferences' },
-  { command: 'perks', description: '👑 View your VIP perks & activate boost' },
   { command: 'help', description: '❓ Get help and support' },
   { command: 'delete', description: '🗑️ Delete your account' }
 ]).then(() => {

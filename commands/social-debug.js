@@ -106,6 +106,70 @@ function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
     }
   });
 
+  // ── 🛠️ DEV MODE — toggle full VIP for testing ──────────────────────
+  bot.onText(/\/devmode(?:\s+(on|off))?/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = String(msg.from.id);
+    const arg = match && match[1];
+
+    try {
+      const user = await User.findOne({ telegramId });
+      if (!user) return bot.sendMessage(chatId, '❌ Register first with /start');
+
+      if (!arg) {
+        // Show current status
+        const status = user.isVip ? '✅ ON' : '❌ OFF';
+        return bot.sendMessage(chatId,
+          `🛠️ *Dev Mode*\n\nCurrent VIP status: ${status}\n\nUsage:\n\`/devmode on\` — enable full VIP\n\`/devmode off\` — revert to normal`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+      if (arg === 'on') {
+        await User.findOneAndUpdate({ telegramId }, {
+          isVip: true,
+          coins: 9999,
+          invisibleMode: false,
+          'dailySuperLikesVip': { count: 0, date: '' },
+          'vipDetails.lastCoinGrantDate': null,
+          boostExpiresAt: null,
+          lastBoostAt: null
+        });
+        return bot.sendMessage(chatId,
+          `🛠️ *Dev Mode ON*\n\n` +
+          `✅ You now have full VIP access:\n` +
+          `• 👑 VIP badge active\n` +
+          `• 📸 See all photos on browse\n` +
+          `• ⭐ 5 free super likes/day\n` +
+          `• ↩️ Undo skip after passing\n` +
+          `• 🚀 Boost via /vip → My VIP Perks\n` +
+          `• 👻 Invisible mode toggle\n` +
+          `• 🪙 9999 coins added\n` +
+          `• 💌 Matches & chat unlocked\n\n` +
+          `Run \`/devmode off\` to revert.`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+      if (arg === 'off') {
+        await User.findOneAndUpdate({ telegramId }, {
+          isVip: false,
+          coins: 0,
+          invisibleMode: false,
+          boostExpiresAt: null
+        });
+        return bot.sendMessage(chatId,
+          `🛠️ *Dev Mode OFF*\n\nReverted to normal user. Run \`/devmode on\` to re-enable.`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+    } catch (err) {
+      console.error('[devmode] Error:', err);
+      bot.sendMessage(chatId, '❌ Dev mode error. Check server logs.');
+    }
+  });
+
   bot.onText(/\/stories/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await getCachedUserProfile(chatId);
