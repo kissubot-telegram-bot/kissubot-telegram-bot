@@ -2153,13 +2153,6 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
     const imageUrl = req.file.path;
     const telegramId = req.params.telegramId;
 
-    // Reject photos with no human face detected
-    const faces = req.file.faces || [];
-    if (faces.length === 0) {
-      await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
-      return res.status(400).json({ error: 'No face detected. Please upload a clear photo of yourself.' });
-    }
-
     // Find user first to check photo count
     const user = await User.findOne({ telegramId });
     if (!user) {
