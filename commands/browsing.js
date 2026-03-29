@@ -344,20 +344,30 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const lookingFor = me ? me.lookingFor : 'N/A';
       const gender = me ? me.gender : 'N/A';
 
+      const withMale = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, gender: 'Male', name: { $exists: true, $ne: null } });
+      const withMalePhotos = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, gender: 'Male', name: { $exists: true, $ne: null }, photos: { $exists: true, $not: { $size: 0 } } });
+      const withMalePhotosAge = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, gender: 'Male', name: { $exists: true, $ne: null }, photos: { $exists: true, $not: { $size: 0 } }, age: { $gte: 18, $lte: 99 } });
+      const anyWithAge = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, age: { $gte: 18, $lte: 99 } });
+      const me2 = me ? await User.findOne({ telegramId: String(telegramId) }) : null;
+      const ss = me2 ? (await require('axios').get(`http://localhost:${process.env.PORT || 3003}/search-settings/${telegramId}`).catch(() => ({ data: {} }))).data : {};
+
       bot.sendMessage(chatId,
         `🔍 *Browse Debug Info*\n\n` +
         `*Your account:*\n` +
         `• Found by string ID: ${me ? '✅' : '❌'}\n` +
-        `• Found by number ID: ${meNum ? '✅' : '❌'}\n` +
         `• seenProfiles count: ${seenCount}\n` +
         `• Blocked count: ${blockedCount}\n` +
-        `• Gender: ${gender}\n` +
-        `• lookingFor: ${lookingFor}\n\n` +
+        `• Gender: ${gender} | lookingFor: ${lookingFor}\n\n` +
         `*DB counts:*\n` +
         `• Total users: ${totalUsers}\n` +
-        `• Other users: ${otherUsers}\n` +
+        `• Other users (excl. you): ${otherUsers}\n` +
         `• Others with name: ${withName}\n` +
-        `• Others with name+photos: ${withPhotos}`,
+        `• Others with name+photos: ${withPhotos}\n` +
+        `• Others with name+age(18-99): ${anyWithAge}\n\n` +
+        `*Male profiles (your target):*\n` +
+        `• Males with name: ${withMale}\n` +
+        `• Males with name+photos: ${withMalePhotos}\n` +
+        `• Males with name+photos+age: ${withMalePhotosAge}`,
         { parse_mode: 'Markdown' }
       );
     } catch (err) {
