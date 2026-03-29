@@ -290,7 +290,7 @@ function setupSettingsCommands(bot, userStates, User) {
               `🔄 *Browse history cleared!*\n\nLoading profiles for you now...`,
               { parse_mode: 'Markdown' }
             );
-            await browseProfiles(chatId, telegramId);
+            await browseProfiles(chatId, telegramId, true);
           } catch (err) {
             console.error('[reset_seen_profiles] Error:', err);
             bot.sendMessage(chatId, '❌ Failed to reset. Please try again.');

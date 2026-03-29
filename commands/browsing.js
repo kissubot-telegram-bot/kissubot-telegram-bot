@@ -103,7 +103,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   // ─────────────────────────────────────────────────────────────────────
   // Core browse function — shows next profile card
   // ─────────────────────────────────────────────────────────────────────
-  async function browseProfiles(chatId, telegramId) {
+  async function browseProfiles(chatId, telegramId, bypassSeen = false) {
     try {
       const user = await getCachedUserProfile(telegramId, User);
 
@@ -162,7 +162,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       // Build list of IDs to exclude: self + seen (liked/passed) + blocked + users who blocked them
       const blockedByMe = (currentUser.blocked || []).map(b => b.userId);
-      const seenIds = currentUser.seenProfiles || [];
+      const seenIds = bypassSeen ? [] : (currentUser.seenProfiles || []);
 
       let excludeIds = [...blockedByMe, ...seenIds];
 
@@ -217,6 +217,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       }
 
       const profiles = await profileQuery;
+
 
       // Increment swipe count for non-VIP male users after a profile is found
       if (isMaleNonVip && profiles.length > 0) {
