@@ -271,8 +271,6 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'kissubot_profiles',
-    allowed_formats: ['jpg', 'png', 'jpeg'],
-    faces: true,
   },
 });
 

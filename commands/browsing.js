@@ -697,6 +697,19 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         // ── 🔍 START BROWSE ───────────────────────────────────────────────
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
+
+        // ── 🔄 RESET SEEN PROFILES ────────────────────────────────────────
+      } else if (data === 'reset_seen_profiles') {
+        await User.findOneAndUpdate(
+          { telegramId: String(telegramId) },
+          { $set: { seenProfiles: [] } }
+        );
+        invalidateUserCache(String(telegramId));
+        await bot.sendMessage(chatId,
+          '🔄 *Browse history reset!*\n\nYou\'ll now see all profiles again.',
+          { parse_mode: 'Markdown' }
+        );
+        return browseProfiles(chatId, telegramId);
       }
       // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
       else if (data.startsWith('chat_gate_')) {
