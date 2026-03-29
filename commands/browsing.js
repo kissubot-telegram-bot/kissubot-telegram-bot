@@ -243,9 +243,11 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           profiles = await runQuery({ ...ageFilter });
         }
 
-        // 5th try: drop everything — show ANY other user with a name
+        // 5th try: drop everything including blocked/seen exclusion list
         if (profiles.length === 0) {
-          profiles = await runQuery({});
+          let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null } });
+          if (limit) q = q.limit(limit);
+          profiles = await q;
         }
       }
 
