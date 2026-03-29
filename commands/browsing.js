@@ -425,7 +425,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
     if (!data) return;
 
     // Skip callbacks handled by other modules
-    if (data.startsWith('report_') || data.startsWith('block_') || data.startsWith('onboard_')) return;
+    if (data.startsWith('report_') || data.startsWith('block_') || data.startsWith('onboard_') || data === 'reset_seen_profiles') return;
 
     try {
       await bot.answerCallbackQuery(query.id).catch(() => { });
@@ -698,18 +698,6 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
 
-        // ── 🔄 RESET SEEN PROFILES ────────────────────────────────────────
-      } else if (data === 'reset_seen_profiles') {
-        await User.findOneAndUpdate(
-          { telegramId: String(telegramId) },
-          { $set: { seenProfiles: [] } }
-        );
-        invalidateUserCache(String(telegramId));
-        await bot.sendMessage(chatId,
-          '🔄 *Browse history reset!*\n\nYou\'ll now see all profiles again.',
-          { parse_mode: 'Markdown' }
-        );
-        return browseProfiles(chatId, telegramId);
       }
       // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
       else if (data.startsWith('chat_gate_')) {

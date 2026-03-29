@@ -66,8 +66,8 @@ function showMainMenu(chatId, firstName) {
     reply_markup: {
       inline_keyboard: [
         [{ text: '👤 My Profile', callback_data: 'view_profile' }, { text: '🔍 Discover', callback_data: 'start_browse' }],
-        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '💬 Chat', callback_data: 'view_matches' }],
-        [{ text: '🆘 Support', callback_data: 'show_support' }, { text: '⚙️ Settings', callback_data: 'main_settings' }]
+        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '💬 Chat', callback_data: 'view_matches' }, { text: '⚙️ Settings', callback_data: 'main_settings' }],
+        [{ text: '🆘 Support', callback_data: 'show_support' }]
       ]
     }
   });

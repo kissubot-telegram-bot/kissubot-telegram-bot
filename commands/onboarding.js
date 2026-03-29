@@ -29,7 +29,7 @@ const PROMPTS = {
         text: `🎂 *Step 4 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 *Step 5 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. Lagos, London, New York):_`,
+        text: `📍 *Step 5 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
     },
     phone: {
         text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
