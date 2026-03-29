@@ -230,6 +230,16 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         profiles = await runQuery({ ...ageFilter, ...locationFilter });
       }
 
+      // 4th try: drop location filter
+      if (profiles.length === 0) {
+        profiles = await runQuery({ ...ageFilter });
+      }
+
+      // 5th try: drop everything — show ANY other user with a name
+      if (profiles.length === 0) {
+        profiles = await runQuery({});
+      }
+
 
       // Increment swipe count for non-VIP male users after a profile is found
       if (isMaleNonVip && profiles.length > 0) {
@@ -314,6 +324,45 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   // ─────────────────────────────────────────────────────────────────────
   bot.onText(/\/browse/, async (msg) => {
     await browseProfiles(msg.chat.id, msg.from.id);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // /debugbrowse — shows DB state to diagnose browse issues
+  // ─────────────────────────────────────────────────────────────────────
+  bot.onText(/\/debugbrowse/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    try {
+      const me = await User.findOne({ telegramId: String(telegramId) });
+      const meNum = await User.findOne({ telegramId: telegramId });
+      const totalUsers = await User.countDocuments({});
+      const otherUsers = await User.countDocuments({ telegramId: { $ne: String(telegramId) } });
+      const withName = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null } });
+      const withPhotos = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, photos: { $exists: true, $not: { $size: 0 } } });
+      const seenCount = me ? (me.seenProfiles || []).length : 'user not found';
+      const blockedCount = me ? (me.blocked || []).length : 0;
+      const lookingFor = me ? me.lookingFor : 'N/A';
+      const gender = me ? me.gender : 'N/A';
+
+      bot.sendMessage(chatId,
+        `🔍 *Browse Debug Info*\n\n` +
+        `*Your account:*\n` +
+        `• Found by string ID: ${me ? '✅' : '❌'}\n` +
+        `• Found by number ID: ${meNum ? '✅' : '❌'}\n` +
+        `• seenProfiles count: ${seenCount}\n` +
+        `• Blocked count: ${blockedCount}\n` +
+        `• Gender: ${gender}\n` +
+        `• lookingFor: ${lookingFor}\n\n` +
+        `*DB counts:*\n` +
+        `• Total users: ${totalUsers}\n` +
+        `• Other users: ${otherUsers}\n` +
+        `• Others with name: ${withName}\n` +
+        `• Others with name+photos: ${withPhotos}`,
+        { parse_mode: 'Markdown' }
+      );
+    } catch (err) {
+      bot.sendMessage(chatId, `❌ Debug error: ${err.message}`);
+    }
   });
 
   async function showMatches(chatId, telegramId) {
