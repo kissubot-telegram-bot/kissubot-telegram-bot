@@ -201,22 +201,34 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         ? { likes: { $not: { $elemMatch: { $eq: String(telegramId) } } } }
         : {};
 
-      // Query: exclude self, all excluded IDs, require complete profiles, apply all filters
-      let profileQuery = User.find({
-        telegramId: { $ne: String(telegramId), $nin: excludeIds },
-        name: { $exists: true, $ne: null },
+      // Query with progressive fallback if strict filters return nothing
+      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null } };
+      const limit = currentUser.isVip ? 0 : 10;
+
+      const runQuery = (extra) => {
+        let q = User.find({ ...baseExclude, ...extra });
+        if (limit) q = q.limit(limit);
+        return q;
+      };
+
+      // 1st try: full filters
+      let profiles = await runQuery({
         photos: { $exists: true, $not: { $size: 0 } },
-        ...ageFilter,
-        ...genderFilter,
-        ...locationFilter,
-        ...hideLikedFilter
+        ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
       });
 
-      if (!currentUser.isVip) {
-        profileQuery = profileQuery.limit(10);
+      // 2nd try: drop gender preference
+      if (profiles.length === 0 && Object.keys(genderFilter).length > 0) {
+        profiles = await runQuery({
+          photos: { $exists: true, $not: { $size: 0 } },
+          ...ageFilter, ...locationFilter, ...hideLikedFilter
+        });
       }
 
-      const profiles = await profileQuery;
+      // 3rd try: drop photos requirement too
+      if (profiles.length === 0) {
+        profiles = await runQuery({ ...ageFilter, ...locationFilter });
+      }
 
 
       // Increment swipe count for non-VIP male users after a profile is found
