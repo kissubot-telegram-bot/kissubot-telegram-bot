@@ -201,9 +201,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         ? { likes: { $not: { $elemMatch: { $eq: String(telegramId) } } } }
         : {};
 
-      // Query with progressive fallback if strict filters return nothing
-      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null } };
       const limit = currentUser.isVip ? 0 : 10;
+      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null } };
 
       const runQuery = (extra) => {
         let q = User.find({ ...baseExclude, ...extra });
@@ -211,33 +210,43 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         return q;
       };
 
-      // 1st try: full filters
-      let profiles = await runQuery({
-        photos: { $exists: true, $not: { $size: 0 } },
-        ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
-      });
+      let profiles;
 
-      // 2nd try: drop gender preference
-      if (profiles.length === 0 && Object.keys(genderFilter).length > 0) {
+      if (bypassSeen) {
+        // After reset: skip ALL filters, show any other user ignoring blocked list too
+        let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null } });
+        if (limit) q = q.limit(limit);
+        profiles = await q;
+      } else {
+        // Normal browse: full filters with progressive fallback
+        // 1st try: full filters
         profiles = await runQuery({
           photos: { $exists: true, $not: { $size: 0 } },
-          ...ageFilter, ...locationFilter, ...hideLikedFilter
+          ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
         });
-      }
 
-      // 3rd try: drop photos requirement too
-      if (profiles.length === 0) {
-        profiles = await runQuery({ ...ageFilter, ...locationFilter });
-      }
+        // 2nd try: drop gender preference
+        if (profiles.length === 0 && Object.keys(genderFilter).length > 0) {
+          profiles = await runQuery({
+            photos: { $exists: true, $not: { $size: 0 } },
+            ...ageFilter, ...locationFilter, ...hideLikedFilter
+          });
+        }
 
-      // 4th try: drop location filter
-      if (profiles.length === 0) {
-        profiles = await runQuery({ ...ageFilter });
-      }
+        // 3rd try: drop photos requirement too
+        if (profiles.length === 0) {
+          profiles = await runQuery({ ...ageFilter, ...locationFilter });
+        }
 
-      // 5th try: drop everything — show ANY other user with a name
-      if (profiles.length === 0) {
-        profiles = await runQuery({});
+        // 4th try: drop location filter
+        if (profiles.length === 0) {
+          profiles = await runQuery({ ...ageFilter });
+        }
+
+        // 5th try: drop everything — show ANY other user with a name
+        if (profiles.length === 0) {
+          profiles = await runQuery({});
+        }
       }
 
 
@@ -348,15 +357,23 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const withMalePhotos = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, gender: 'Male', name: { $exists: true, $ne: null }, photos: { $exists: true, $not: { $size: 0 } } });
       const withMalePhotosAge = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, gender: 'Male', name: { $exists: true, $ne: null }, photos: { $exists: true, $not: { $size: 0 } }, age: { $gte: 18, $lte: 99 } });
       const anyWithAge = await User.countDocuments({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, age: { $gte: 18, $lte: 99 } });
-      const me2 = me ? await User.findOne({ telegramId: String(telegramId) }) : null;
-      const ss = me2 ? (await require('axios').get(`http://localhost:${process.env.PORT || 3003}/search-settings/${telegramId}`).catch(() => ({ data: {} }))).data : {};
+
+      const blockedMeDocs = await User.find({ 'blocked.userId': String(telegramId) }).select('telegramId');
+      const blockedMeIds = blockedMeDocs.map(u => u.telegramId);
+      const blockedMeCount = blockedMeIds.length;
+
+      const fallback5 = await User.find({
+        telegramId: { $ne: String(telegramId), $nin: blockedMeIds },
+        name: { $exists: true, $ne: null }
+      }).limit(3).select('name gender age');
+      const fallback5Names = fallback5.map(p => `${p.name}(${p.gender},${p.age})`).join(', ') || 'NONE';
 
       bot.sendMessage(chatId,
         `🔍 *Browse Debug Info*\n\n` +
         `*Your account:*\n` +
         `• Found by string ID: ${me ? '✅' : '❌'}\n` +
         `• seenProfiles count: ${seenCount}\n` +
-        `• Blocked count: ${blockedCount}\n` +
+        `• You blocked: ${blockedCount} | Blocked you: ${blockedMeCount}\n` +
         `• Gender: ${gender} | lookingFor: ${lookingFor}\n\n` +
         `*DB counts:*\n` +
         `• Total users: ${totalUsers}\n` +
@@ -367,7 +384,9 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         `*Male profiles (your target):*\n` +
         `• Males with name: ${withMale}\n` +
         `• Males with name+photos: ${withMalePhotos}\n` +
-        `• Males with name+photos+age: ${withMalePhotosAge}`,
+        `• Males with name+photos+age: ${withMalePhotosAge}\n\n` +
+        `*Fallback query result (excl. blocked-you):*\n` +
+        `• Would return: ${fallback5.length > 0 ? '✅ ' + fallback5Names : '❌ 0 profiles'}`,
         { parse_mode: 'Markdown' }
       );
     } catch (err) {
