@@ -178,7 +178,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       const ageMin = ss.ageMin || 18;
       const ageMax = ss.ageMax || 99;
       const maxDistance = ss.maxDistance || 100000;
-      const hideLiked = ss.hideLiked !== false; // default true
+      const hideLiked = ss.hideLiked === true; // default false; seenProfiles already handles exclusion
 
       // Gender: searchSettings.genderPreference takes precedence over lookingFor
       const genderPref = (ss.genderPreference && ss.genderPreference !== 'Any')

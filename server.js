@@ -842,27 +842,13 @@ app.get('/likes/:telegramId', async (req, res) => {
       };
     }).sort((a, b) => b.likedAt - a.likedAt);
 
-    // Check if user is VIP to determine how many likes to show
-    const likesToShow = user.isVip ? likersWithTimestamp.length : Math.min(3, likersWithTimestamp.length);
-    const hasHiddenLikes = likersWithTimestamp.length > likesToShow;
-
-    // Get preview of likes for non-VIP (blurred/limited info)
-    const visibleLikes = user.isVip
-      ? likersWithTimestamp.slice(0, likesToShow)
-      : likersWithTimestamp.slice(0, likesToShow).map(liker => ({
-        ...liker,
-        name: liker.name.charAt(0) + '*'.repeat(liker.name.length - 1),
-        bio: 'Upgrade to VIP to see full profile',
-        profilePhoto: null // Hide photo for non-VIP
-      }));
-
     res.json({
-      likes: visibleLikes,
+      likes: likersWithTimestamp,
       totalLikes: likersWithTimestamp.length,
-      visibleLikes: likesToShow,
-      hasHiddenLikes,
+      visibleLikes: likersWithTimestamp.length,
+      hasHiddenLikes: false,
       isVip: user.isVip,
-      previewCount: user.isVip ? 0 : Math.max(0, likersWithTimestamp.length - 3)
+      previewCount: 0
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch likes' });

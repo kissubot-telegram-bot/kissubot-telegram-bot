@@ -31,37 +31,20 @@ function setupLikesCommands(bot, User) {
             if (!likers || likers.length === 0) {
                 bot.sendMessage(chatId, '💔 **No one has liked you yet.** Keep your profile updated and browse more to get noticed!');
             } else {
-                if (isVip) {
-                    let likersMessage = `💖 **Here's Who Liked You** 💖\n\n`;
-                    const keyboard = [];
-                    likers.forEach(liker => {
-                        likersMessage += `• **${liker.name}** (${liker.age}) - ${liker.onlineStatus}\n` +
-                            `  *Liked ${getTimeAgo(liker.likedAt)}*\n` +
-                            `  📍 ${liker.location}\n` +
-                            `  💬 "${liker.bio.substring(0, 50)}..."\n\n`;
-                        keyboard.push([{ text: `View ${liker.name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }]);
-                    });
-                    keyboard.push([{ text: '🔄 Refresh Likes', callback_data: 'refresh_likes' }]);
-                    bot.sendMessage(chatId, likersMessage, {
-                        parse_mode: 'Markdown',
-                        reply_markup: { inline_keyboard: keyboard }
-                    });
-                } else {
-                    const message = `💖 **You have ${likers.length} new like${likers.length > 1 ? 's' : ''}!**\n\n` +
-                        `Upgrade to VIP to see everyone who liked you, including their full profiles and photos.\n\n` +
-                        `Here's a sneak peek:\n` +
-                        `• You have a like from someone nearby!\n` +
-                        `• One of your likers is online right now.\n\n` +
-                        `Don't miss out on a potential match!`;
-                    bot.sendMessage(chatId, message, {
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: '💎 Upgrade to VIP to See All Likes', callback_data: 'upgrade_vip_likes' }],
-                                [{ text: '🔍 Browse Profiles', callback_data: 'browse_profiles' }]
-                            ]
-                        }
-                    });
-                }
+                let likersMessage = `💖 **Here's Who Liked You** 💖\n\n`;
+                const keyboard = [];
+                likers.forEach(liker => {
+                    likersMessage += `• **${liker.name}** (${liker.age}) - ${liker.onlineStatus}\n` +
+                        `  *Liked ${getTimeAgo(liker.likedAt)}*\n` +
+                        `  📍 ${liker.location}\n` +
+                        `  💬 "${liker.bio ? liker.bio.substring(0, 50) + '...' : 'No bio'}"\n\n`;
+                    keyboard.push([{ text: `View ${liker.name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }]);
+                });
+                keyboard.push([{ text: '🔄 Refresh Likes', callback_data: 'refresh_likes' }]);
+                bot.sendMessage(chatId, likersMessage, {
+                    parse_mode: 'Markdown',
+                    reply_markup: { inline_keyboard: keyboard }
+                });
             }
         } catch (error) {
             console.error('Error fetching likers:', error.message);

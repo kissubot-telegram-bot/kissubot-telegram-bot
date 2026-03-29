@@ -64,7 +64,7 @@ function setupSettingsCommands(bot, userStates, User) {
             const dist = p.maxDistance || 50;
             const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
             const gender = p.genderPreference || 'Any';
-            const hideLiked = p.hideLiked !== false;
+            const hideLiked = p.hideLiked === true;
 
             const searchMsg =
               `� *Search Preferences*\n\n` +
