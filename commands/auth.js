@@ -1,4 +1,4 @@
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KEYBOARD, DELETE_CONFIRM_KEYBOARD, DELETE_CONFIRM_KB_BUTTONS } = require('../keyboard');
 const userProfileCache = new Map();
 
 async function getCachedUserProfile(telegramId, User) {
@@ -40,10 +40,25 @@ function setupAuthCommands(bot, userStates, User) {
         await user.save();
         invalidateUserCache(telegramId);
 
-        const onboardingModule = require('./onboarding');
-        if (onboardingModule.startOnboarding) {
-          return await onboardingModule.startOnboarding(chatId, telegramId);
-        }
+        // Show Terms of Service first before onboarding begins
+        return bot.sendMessage(chatId,
+          `📜 *Welcome to KissuBot!*\n\nBefore we get started, please review and accept our Terms of Service and Privacy Policy.\n\n_By tapping "Accept", you agree to our terms._`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Accept & Continue', callback_data: 'accept_terms' },
+                  { text: '❌ Decline', callback_data: 'decline_terms' }
+                ],
+                [
+                  { text: '📖 Read Terms', url: `${process.env.WEBHOOK_URL}/docs/terms` },
+                  { text: '🔒 Read Privacy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }
+                ]
+              ]
+            }
+          }
+        );
       }
 
       // 2. Compute profile completeness from actual fields
@@ -61,12 +76,8 @@ function setupAuthCommands(bot, userStates, User) {
         const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
 
         return bot.sendMessage(chatId, incompleteMsg, {
-          reply_markup: {
-            inline_keyboard: [
-              ...dynamicButtons,
-              [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-            ]
-          }
+          parse_mode: 'Markdown',
+          reply_markup: PROFILE_KEYBOARD
         });
       }
 
@@ -158,26 +169,45 @@ function setupAuthCommands(bot, userStates, User) {
   // DELETE command - Delete user profile
   bot.onText(/\/delete/, (msg) => {
     const chatId = msg.chat.id;
-
-    const deleteWarningMsg = '🚨 **ARE YOU SURE?** 🚨\n\n' +
-      'This will permanently delete your profile, including all matches and data.\n\n' +
-      'This action CANNOT be undone.';
-
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🗑️ Yes, Delete My Profile', callback_data: 'confirm_delete' },
-            { text: '❌ No, Keep My Profile', callback_data: 'cancel_delete' }
-          ]
-        ]
-      }
-    };
-
-    bot.sendMessage(chatId, deleteWarningMsg, opts);
+    const telegramId = msg.from.id;
+    userStates.set(String(telegramId), { awaitingDeleteConfirm: true });
+    bot.sendMessage(chatId,
+      '🚨 *Are you sure you want to delete your profile?* 🚨\n\n' +
+      '⚠️ This will permanently erase *all your matches, messages, and data*.\n\n' +
+      '*This action CANNOT be undone.*',
+      { parse_mode: 'Markdown', reply_markup: DELETE_CONFIRM_KEYBOARD }
+    );
   });
 
-  // Callback query handler for deletion
+  // Delete confirmation message handler
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !DELETE_CONFIRM_KB_BUTTONS.includes(text)) return;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    const state = userStates.get(String(telegramId));
+    if (!state || !state.awaitingDeleteConfirm) return;
+
+    userStates.delete(String(telegramId));
+
+    if (text === '🗑️ Yes, Delete Forever') {
+      try {
+        await User.findOneAndDelete({ telegramId });
+        invalidateUserCache(telegramId);
+        bot.sendMessage(chatId,
+          '💔 *Profile Deleted*\n\nYour profile has been permanently deleted. We\'re sorry to see you go.\n\nTap /start anytime to create a new account.',
+          { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+        );
+      } catch (err) {
+        console.error('Delete profile error:', err);
+        bot.sendMessage(chatId, '❌ Failed to delete profile. Please try again or contact support.', { reply_markup: MAIN_KEYBOARD });
+      }
+    } else if (text === '💚 No, Keep My Account') {
+      bot.sendMessage(chatId, '✅ *Phew!* Your profile is safe! 😊', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+    }
+  });
+
+  // Callback query handler for deletion (legacy support)
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const telegramId = query.from.id;
@@ -187,13 +217,13 @@ function setupAuthCommands(bot, userStates, User) {
       try {
         await User.findOneAndDelete({ telegramId });
         invalidateUserCache(telegramId);
-        bot.sendMessage(chatId, '💔 Your profile has been permanently deleted. We\'re sorry to see you go.');
+        bot.sendMessage(chatId, '💔 Your profile has been permanently deleted.');
       } catch (err) {
         console.error('Delete profile error:', err);
         bot.sendMessage(chatId, '❌ Failed to delete profile. Please try again or contact support.');
       }
     } else if (data === 'cancel_delete') {
-      bot.sendMessage(chatId, '✅ Deletion cancelled. Your profile is safe!');
+      bot.sendMessage(chatId, '✅ Deletion cancelled. Your profile is safe!', { reply_markup: MAIN_KEYBOARD });
     }
   });
 }
@@ -222,17 +252,8 @@ async function handleRegister(bot, msg, User) {
     if (existingUser) {
       return bot.sendMessage(
         chatId,
-        `✅ **You're already registered!**\n\n` +
-        `Ready to find your match? Choose an action below:`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔍 Start Browsing', callback_data: 'browse_profiles' }],
-              [{ text: '👤 My Profile', callback_data: 'view_profile' }],
-              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-            ]
-          }
-        }
+        `✅ *You're already registered!*\n\nWelcome back! Choose an action from the menu below.`,
+        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
       );
     }
 

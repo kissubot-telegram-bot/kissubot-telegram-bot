@@ -13,8 +13,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
-                        [{ text: '🔒 Privacy Policy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                        [{ text: '📖 Read Terms', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
+                        [{ text: '🔒 Privacy Policy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -32,8 +32,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
-                        [{ text: '📜 Terms of Service', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                        [{ text: '📖 Read Privacy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
+                        [{ text: '📜 Terms of Service', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -52,11 +52,9 @@ function setupTermsCommands(bot, User) {
 
         if (data === 'accept_terms') {
             try {
-                // We now accept terms at the END of onboarding
                 let user = await User.findOne({ telegramId });
 
                 if (!user) {
-                    // Fallback just in case they manage to hit this without a profile
                     user = new User({
                         telegramId,
                         username: query.from.username || '',
@@ -69,26 +67,25 @@ function setupTermsCommands(bot, User) {
                 } else {
                     user.termsAccepted = true;
                     user.termsAcceptedAt = new Date();
-
-                    // Mark profile complete
-                    user.profileCompleted = true;
-                    user.onboardingStep = 'completed';
                     await user.save();
                 }
 
                 invalidateUserCache(telegramId);
                 await bot.answerCallbackQuery(query.id).catch(() => { });
 
-                return bot.sendMessage(chatId,
-                    `🎉 **Profile Complete!** 🎉\n\n` +
-                    `You're all set, **${user.name || 'friend'}**!\n\n` +
-                    `Your profile is live and you can start browsing matches 💕\n\n` +
-                    `👇 Use the buttons below to navigate!`,
-                    {
-                        parse_mode: 'Markdown',
-                        reply_markup: MAIN_KEYBOARD
-                    }
-                );
+                // If profile already complete, just show main menu
+                if (user.profileCompleted) {
+                    return bot.sendMessage(chatId,
+                        `✅ *Terms accepted!*\n\nWelcome back, ${user.name || 'friend'}! 💕`,
+                        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+                    );
+                }
+
+                // Otherwise start onboarding flow
+                const onboardingModule = require('./onboarding');
+                if (onboardingModule.startOnboarding) {
+                    return await onboardingModule.startOnboarding(chatId, telegramId);
+                }
             } catch (err) {
                 console.error('Accept terms error:', err);
                 bot.sendMessage(chatId, '❌ Something went wrong. Please try /start again.');
@@ -100,8 +97,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
-                            [{ text: '🔒 Privacy Policy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
+                            [{ text: '📖 Read Terms', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
+                            [{ text: '🔒 Privacy Policy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -115,8 +112,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }],
-                            [{ text: '📜 Terms of Service', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                            [{ text: '📖 Read Privacy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
+                            [{ text: '📜 Terms of Service', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -132,7 +129,7 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '� Read Terms Again', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } }],
+                            [{ text: '📖 Read Terms Again', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
                             [{ text: '🔙 Try Again', callback_data: 'main_menu' }]
                         ]
                     }

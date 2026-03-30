@@ -1,4 +1,5 @@
 const { invalidateUserCache } = require('./auth');
+const { MAIN_KEYBOARD, VIP_KEYBOARD, PERKS_KEYBOARD } = require('../keyboard');
 
 const PAYMENT_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN || '';
 
@@ -113,15 +114,15 @@ function setupPaymentCommands(bot, User) {
 
         await bot.sendMessage(chatId,
           `✅ *VIP Gift Sent!* 🎁\n\n*${recipient.name}* now has *${planName} VIP* until *${expiryStr}*!`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🏠 Main Menu', callback_data: 'main_menu' }]] } }
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
 
-        bot.sendMessage(recipientId,
+        bot.sendMessage(String(recipientId),
           `🎁 *You've been gifted VIP!* 👑\n\n` +
           `*${buyer?.name || 'Someone'}* gifted you *${planName} VIP* until *${expiryStr}*!\n\n` +
           `*Your new perks:*\n` +
           `• ♾️ Unlimited likes\n• 👀 See who liked you\n• 🚀 Priority browse\n• 🔍 Advanced filters`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
+          { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
         ).catch(() => {});
 
         console.log(`[Payment] ✅ Gift VIP (${days}d) fulfilled for recipient ${recipientId} by buyer ${buyerId}`);
@@ -159,15 +160,7 @@ function setupPaymentCommands(bot, User) {
           (product.bonus ? ` + *${product.bonus} bonus coins* free` : '') + `!\n` +
           `🪙 *New balance:* ${user.coins} coins\n\n` +
           `💡 Use coins for VIP, super likes, gifts & boosts.`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '👑 Get VIP', callback_data: 'manage_vip' }, { text: '🔍 Browse', callback_data: 'start_browse' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
-          }
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
 
       } else if (product.type === 'vip') {
@@ -189,15 +182,7 @@ function setupPaymentCommands(bot, User) {
           `• 🚀 Priority in browse queue\n` +
           `• 🔍 Advanced search filters\n` +
           `• ⭐ VIP badge on your profile`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
-          }
+          { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
         );
 
       } else if (product.type === 'boost') {
@@ -208,16 +193,9 @@ function setupPaymentCommands(bot, User) {
         await bot.sendMessage(chatId,
           `✅ *${product.count} Boost${product.count > 1 ? 's' : ''} Added!* 🚀\n\n` +
           `You now have *${user.boosts} boost${user.boosts !== 1 ? 's' : ''}* ready to use.\n\n` +
-          `Each boost makes your profile *10× more visible* for 30 minutes!`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🚀 Use a Boost', callback_data: 'boost_profile' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
-          }
+          `Each boost makes your profile *10× more visible* for 30 minutes!\n\n` +
+          `_Tap_ *🚀 My VIP Perks* _to activate a boost._`,
+          { parse_mode: 'Markdown', reply_markup: PERKS_KEYBOARD }
         );
       }
 

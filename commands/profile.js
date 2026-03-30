@@ -3,7 +3,7 @@ const axios = require('axios');
 const { API_BASE } = require('../config');
 const browsingModule = require('./browsing');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KEYBOARD, PROFILE_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KEYBOARD, PROFILE_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard');
 
 
 function setupProfileCommands(bot, userStates, User) {
@@ -82,7 +82,7 @@ function setupProfileCommands(bot, userStates, User) {
             ];
 
             bot.sendMessage(chatId, profileMsg, {
-              reply_markup: { inline_keyboard: buttons }
+              reply_markup: PROFILE_KEYBOARD
             });
 
           } catch (err) {
@@ -198,20 +198,16 @@ function setupProfileCommands(bot, userStates, User) {
               profileButtons.unshift([{ text: '📞 Add Phone Number ⭐ Required', callback_data: 'add_phone_number' }]);
             }
 
-            profileButtons.push([{ text: '💕 Start Browsing', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]);
-
-            const replyMarkup = { inline_keyboard: profileButtons };
-
             if (photos.length > 0) {
               await bot.sendPhoto(chatId, photos[0], {
                 caption: profileMsg,
                 parse_mode: 'Markdown',
-                reply_markup: replyMarkup
+                reply_markup: PROFILE_KEYBOARD
               });
             } else {
               await bot.sendMessage(chatId, profileMsg, {
                 parse_mode: 'Markdown',
-                reply_markup: replyMarkup
+                reply_markup: PROFILE_KEYBOARD
               });
             }
 
@@ -244,14 +240,8 @@ function setupProfileCommands(bot, userStates, User) {
               // No photos yet — go straight to upload
               userStates.set(telegramId, { action: 'uploading_photo' });
               await bot.sendMessage(chatId,
-                '📸 **Upload Your First Photo** 📸\n\n' +
-                'You have no photos yet. Send me a photo to add to your profile!\n\n' +
-                '💡 **Tips:**\n' +
-                '• Use high-quality, clear photos\n' +
-                '• Show your face clearly\n' +
-                '• Maximum 6 photos allowed\n\n' +
-                '📤 Send a photo now!',
-                { reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'view_my_profile' }]] } }
+                '📸 *Upload Your First Photo*\n\nYou have no photos yet. Send me a photo to add to your profile!\n\n💡 *Tips:* clear face, good lighting, max 6 photos.\n\n📤 Send a photo now, or tap *👤 My Profile* to cancel.',
+                { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
               );
             } else {
               // Show existing photos first
@@ -275,8 +265,8 @@ function setupProfileCommands(bot, userStates, User) {
               keyboard.push([{ text: '👤 Back to Profile', callback_data: 'view_my_profile' }]);
 
               await bot.sendMessage(chatId,
-                `📸 **Your Photos** \u2014 ${photoCount}/6 slots used${slotsLeft === 0 ? '\n\n⚠️ Photo limit reached. Delete one to add a new photo.' : `\n\n✨ You can add ${slotsLeft} more photo${slotsLeft > 1 ? 's' : ''}.`}`,
-                { reply_markup: { inline_keyboard: keyboard } }
+                `📸 *Your Photos* — ${photoCount}/6 slots used${slotsLeft === 0 ? '\n\n⚠️ Photo limit reached. Delete one to add a new photo.' : `\n\n✨ You can add ${slotsLeft} more photo${slotsLeft > 1 ? 's' : ''}.`}`,
+                { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
               );
             }
           } catch (err) {
@@ -289,8 +279,8 @@ function setupProfileCommands(bot, userStates, User) {
         case 'upload_more_photos':
           userStates.set(telegramId, { action: 'uploading_photo' });
           bot.sendMessage(chatId,
-            '📤 **Send Your Photo** 📤\n\nSend me a photo and I\'ll add it to your profile!\n\n💡 Tips: clear face, good lighting\n\n❌ /cancel to stop',
-            { reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'manage_photos' }]] } }
+            '📤 *Send Your Photo*\n\nSend me a photo to add to your profile!\n\n💡 Tips: clear face, good lighting.\n\nTap *👤 My Profile* to cancel.',
+            { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
           );
           break;
 
@@ -365,9 +355,7 @@ function setupProfileCommands(bot, userStates, User) {
               ];
 
               bot.sendMessage(chatId, profileMsg, {
-                reply_markup: {
-                  inline_keyboard: buttons
-                }
+                reply_markup: PROFILE_KEYBOARD
               });
             } catch (err) {
               console.error('Update location error:', err);
@@ -397,13 +385,8 @@ function setupProfileCommands(bot, userStates, User) {
               await user.save();
               invalidateUserCache(telegramId);
 
-              bot.sendMessage(chatId, `✅ **Photo Deleted!**\n\nYou now have ${user.photos.length} photo${user.photos.length === 1 ? '' : 's'}.`, {
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: '📸 View My Photos', callback_data: 'manage_photos' }],
-                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-                  ]
-                }
+              bot.sendMessage(chatId, `✅ *Photo Deleted!*\n\nYou now have ${user.photos.length} photo${user.photos.length === 1 ? '' : 's'}.`, {
+                parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
               });
             } catch (err) {
               console.error('Delete photo error:', err);
@@ -431,8 +414,7 @@ function setupProfileCommands(bot, userStates, User) {
 
     // Skip commands, non-text, no state, and nav keyboard buttons
     if (!text || text.startsWith('/') || !userStates.get(telegramId)) return;
-    if (MAIN_KB_BUTTONS.includes(text)) return;
-    if (PROFILE_KB_BUTTONS.includes(text)) return;
+    if (ALL_KB_BUTTONS.includes(text)) return;
 
     const userState = userStates.get(telegramId);
 
@@ -587,41 +569,23 @@ function setupProfileCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
             invalidateUserCache(telegramId);
             return bot.sendMessage(chatId,
-              `✅ *${fieldNames[field] || field} saved!*\n\n🎉 *Profile complete!*\nClick the button below to start browsing.`,
-              {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                  remove_keyboard: field === 'phone'
-                }
-              }
-            ).then(() => {
-              bot.sendMessage(chatId, 'Start your journey below 👇', {
-                reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
-              });
-            });
+              `✅ *${fieldNames[field] || field} saved!*\n\n🎉 *Profile complete!* Tap *🔍 Browse* to find your match!`,
+              { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+            );
           }
         }
 
         if (field === 'phone') {
           // Remove keyboard for contact share
           await bot.sendMessage(chatId, '✅ *Phone saved!*', { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
-          const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
           return bot.sendMessage(chatId,
             `Your profile is still incomplete. Complete it to start browsing:\n\n📋 *Missing:*\n${missing.map(m => m.msgText).join('\n')}`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  ...dynamicButtons,
-                  [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-                ]
-              }
-            }
+            { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
           );
         }
 
-        bot.sendMessage(chatId, `✅ **${fieldNames[field] || field} Updated!**\n\nYour ${field} has been saved.`, {
-          reply_markup: MAIN_KEYBOARD
+        bot.sendMessage(chatId, `✅ *${fieldNames[field] || field} Updated!*\n\nYour ${field} has been saved.`, {
+          parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
         });
       } catch (err) {
         console.error('Profile update error:', err);
@@ -742,9 +706,9 @@ function setupProfileCommands(bot, userStates, User) {
         const photos = user ? (user.photos || []) : [];
         if (photos.length === 0) {
           userStates.set(telegramId, { action: 'uploading_photo' });
-          return bot.sendMessage(chatId, '� *Upload Your First Photo*\n\nSend me a photo to add to your profile!', {
+          return bot.sendMessage(chatId, '📸 *Upload Your First Photo*\n\nSend me a photo to add to your profile!\n\nTap *👤 My Profile* to cancel.', {
             parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'view_my_profile' }]] }
+            reply_markup: PROFILE_KEYBOARD
           });
         }
         if (photos.length === 1) {
@@ -760,7 +724,7 @@ function setupProfileCommands(bot, userStates, User) {
         if (slotsLeft > 0) kb.push([{ text: `📤 Add Photo (${photos.length}/6)`, callback_data: 'upload_more_photos' }]);
         kb.push([{ text: '🗑️ Delete a Photo', callback_data: 'delete_photo_menu' }]);
         return bot.sendMessage(chatId, `📸 *Photos* — ${photos.length}/6 used`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: kb } });
+          { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD });
       } catch (err) {
         return bot.sendMessage(chatId, '❌ Failed to load photos. Please try again.');
       }
@@ -783,15 +747,7 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Just type \`/setname\` followed by a space and your desired name!`;
 
-    bot.sendMessage(chatId, helpMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD });
   });
 
   bot.onText(/\/setname (.+)/, async (msg, match) => {
@@ -806,13 +762,8 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setname] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Name Updated Successfully!**\n\n👤 Your name is now: **${name}**`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
-            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
-          ]
-        }
+      bot.sendMessage(chatId, `✅ *Name Updated!*\n\n👤 Your name is now: *${name}*`, {
+        parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
       });
     } catch (err) {
       console.error(`[/setname] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -839,15 +790,7 @@ function setupProfileCommands(bot, userStates, User) {
       `• No letters or special characters\n\n` +
       `💡 **Tip:** Just type \`/setage\` followed by your age in numbers!`;
 
-    bot.sendMessage(chatId, helpMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD });
   });
 
   bot.onText(/\/setage (.+)/, async (msg, match) => {
@@ -866,13 +809,8 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setage] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Age Updated Successfully!**\n\n🎂 Your age is now: **${age}**`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
-            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
-          ]
-        }
+      bot.sendMessage(chatId, `✅ *Age Updated!*\n\n🎂 Your age is now: *${age}*`, {
+        parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
       });
     } catch (err) {
       console.error(`[/setage] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -899,15 +837,7 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Be specific! Include city and country for better matches.`;
 
-    bot.sendMessage(chatId, helpMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD });
   });
 
   bot.onText(/\/setlocation (.+)/, async (msg, match) => {
@@ -922,13 +852,8 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setlocation] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Location Updated Successfully!**\n\n📍 Your location is now: **${location}**`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
-            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
-          ]
-        }
+      bot.sendMessage(chatId, `✅ *Location Updated!*\n\n📍 Your location is now: *${location}*`, {
+        parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
       });
     } catch (err) {
       console.error(`[/setlocation] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -955,15 +880,7 @@ function setupProfileCommands(bot, userStates, User) {
       `• Cannot be empty\n\n` +
       `💡 **Tip:** Make it interesting! Tell others about your hobbies and interests.`;
 
-    bot.sendMessage(chatId, helpMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, helpMsg, { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD });
   });
 
   bot.onText(/\/setbio (.+)/, async (msg, match) => {
@@ -982,13 +899,8 @@ function setupProfileCommands(bot, userStates, User) {
       console.log(`[/setbio] Success for user ${telegramId}`);
       // Invalidate cache so /profile shows updated data
       invalidateUserCache(telegramId);
-      bot.sendMessage(chatId, `✅ **Bio Updated Successfully!**\n\n💬 Your bio has been updated with your new description.`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '👤 View Profile', callback_data: 'view_my_profile' }],
-            [{ text: '✏️ Edit More', callback_data: 'edit_profile' }]
-          ]
-        }
+      bot.sendMessage(chatId, `✅ *Bio Updated!*\n\n💬 Your bio has been updated.`, {
+        parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
       });
     } catch (err) {
       console.error(`[/setbio] Error for user ${telegramId}:`, err.response?.data || err.message);
@@ -1055,19 +967,8 @@ function setupProfileCommands(bot, userStates, User) {
     // Set state so photo handler will process the next photo
     userStates.set(telegramId, { action: 'uploading_photo' });
 
-    bot.sendMessage(chatId, '📸 **PHOTO UPLOAD** 📸\n\n' +
-      'Send me a photo to add to your profile!\n\n' +
-      '📋 **Tips:**\n' +
-      '• Use high-quality photos\n' +
-      '• Show your face clearly\n' +
-      '• Maximum 6 photos allowed\n\n' +
-      '📤 Just send the photo as your next message!', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '❌ Cancel', callback_data: 'cancel_edit' }],
-          [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-        ]
-      }
+    bot.sendMessage(chatId, '📸 *Photo Upload*\n\nSend me a photo to add to your profile!\n\n� *Tips:* clear face, good lighting, max 6 photos.\n\nTap *� My Profile* to cancel.', {
+      parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD
     });
   });
   // ── Handle Telegram contact share (phone auto-fill button) ──────────
@@ -1101,31 +1002,15 @@ function setupProfileCommands(bot, userStates, User) {
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
         invalidateUserCache(telegramId);
         return bot.sendMessage(chatId,
-          '✅ *Phone saved!* 🎉 *Profile complete!*\n\nClick the button below to start browsing matches.',
-          {
-            parse_mode: 'Markdown',
-            reply_markup: { remove_keyboard: true }
-          }
-        ).then(() => {
-          bot.sendMessage(chatId, 'Start your journey below 👇', {
-            reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
-          });
-        });
+          '✅ *Phone saved!* 🎉 *Profile complete!* Tap *🔍 Browse* to find your match!',
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+        );
       }
 
       await bot.sendMessage(chatId, '✅ *Phone saved!*', { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
-      const dynamicButtons = missing.slice(0, 2).map(m => [{ text: m.btnText, callback_data: m.callback }]);
       return bot.sendMessage(chatId,
         `Your profile is still incomplete. Complete it to start browsing:\n\n📋 *Missing:*\n${missing.map(m => m.msgText).join('\n')}`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              ...dynamicButtons,
-              [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-            ]
-          }
-        }
+        { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
       );
     } catch (err) {
       console.error('Contact handler error:', err);
@@ -1186,31 +1071,16 @@ function setupProfileCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
             invalidateUserCache(telegramId);
             return bot.sendMessage(chatId,
-              `✅ **Photo Uploaded Successfully!** ✅\n\n🎉 *Profile complete!*\nClick the button below to start browsing.`,
-              {
-                parse_mode: 'Markdown',
-                reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] }
-              }
+              `✅ *Photo Uploaded!* 🎉 *Profile complete!* Tap *🔍 Browse* to start!`,
+              { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
             );
           }
         }
 
-        const successMsg = `✅ **Photo Uploaded Successfully!** ✅\n\n` +
-          `Your new photo has been added to your profile.\n\n` +
-          `📸 **Want to add more photos?**`;
-
-        const opts = {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📸 Add Another Photo', callback_data: 'add_another_photo' }],
-              [{ text: '👤 View Profile', callback_data: 'view_profile' }],
-              [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-              [{ text: '🔙 Back to Menu', callback_data: 'main_menu' }]
-            ]
-          }
-        };
-
-        bot.sendMessage(chatId, successMsg, opts);
+        bot.sendMessage(chatId,
+          `✅ *Photo Uploaded!*\n\nYour new photo has been added to your profile.`,
+          { parse_mode: 'Markdown', reply_markup: PROFILE_KEYBOARD }
+        );
       } catch (err) {
         console.error('Photo upload error:', err.response?.data || err.message);
         userStates.delete(telegramId);

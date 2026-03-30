@@ -92,11 +92,11 @@ const VIP_KEYBOARD = {
   keyboard: [
     [{ text: '👑 Get VIP' }, { text: '📊 My Subscription' }],
     [{ text: '💎 VIP Features' }, { text: '🎁 Gift VIP' }],
-    [{ text: '🏠 Main Menu' }]
+    [{ text: '🚀 My VIP Perks' }, { text: '🏠 Main Menu' }]
   ],
   resize_keyboard: true
 };
-const VIP_KB_BUTTONS = ['👑 Get VIP', '📊 My Subscription', '💎 VIP Features', '🎁 Gift VIP'];
+const VIP_KB_BUTTONS = ['👑 Get VIP', '📊 My Subscription', '💎 VIP Features', '🎁 Gift VIP', '🚀 My VIP Perks'];
 
 const GIFTS_KEYBOARD = {
   keyboard: [
@@ -106,6 +106,187 @@ const GIFTS_KEYBOARD = {
   resize_keyboard: true
 };
 const GIFTS_KB_BUTTONS = ['🎁 Send a Gift', '📨 My Sent Gifts', '📬 My Received Gifts'];
+
+// ── VIP Plan Selection (Stars payment) ──────────────────────────────────────
+const VIP_PLANS_KEYBOARD = {
+  keyboard: [
+    [{ text: '📆 1 Month — 749 ⭐' }],
+    [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)' }],
+    [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)' }],
+    [{ text: '🪙 Pay with Coins Instead' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const VIP_PLANS_KB_BUTTONS = [
+  '📆 1 Month — 749 ⭐',
+  '📅 6 Months — 2,490 ⭐  (save 44%)',
+  '🎯 1 Year — 3,490 ⭐  (save 58%)',
+  '🪙 Pay with Coins Instead'
+];
+
+// ── VIP Plan Selection (Coins payment) ──────────────────────────────────────
+const COIN_VIP_PLANS_KEYBOARD = {
+  keyboard: [
+    [{ text: '🪙 1 Month VIP — 1,000 coins' }],
+    [{ text: '🪙 6 Months VIP — 4,500 coins  (save 25%)' }],
+    [{ text: '🪙 1 Year VIP — 8,000 coins  (save 33%)' }],
+    [{ text: '⭐ Pay with Stars Instead' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const COIN_VIP_PLANS_KB_BUTTONS = [
+  '🪙 1 Month VIP — 1,000 coins',
+  '🪙 6 Months VIP — 4,500 coins  (save 25%)',
+  '🪙 1 Year VIP — 8,000 coins  (save 33%)',
+  '⭐ Pay with Stars Instead'
+];
+
+// ── Gift VIP Plans ───────────────────────────────────────────────────────────
+const GIFT_VIP_PLANS_KEYBOARD = {
+  keyboard: [
+    [{ text: '🎀 Gift 1 Month — 749 ⭐' }],
+    [{ text: '🎀 Gift 6 Months — 2,490 ⭐' }],
+    [{ text: '🎀 Gift 1 Year — 3,490 ⭐' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const GIFT_VIP_PLANS_KB_BUTTONS = [
+  '🎀 Gift 1 Month — 749 ⭐',
+  '🎀 Gift 6 Months — 2,490 ⭐',
+  '🎀 Gift 1 Year — 3,490 ⭐'
+];
+
+// ── Coins Store ──────────────────────────────────────────────────────────────
+const COINS_STORE_KEYBOARD = {
+  keyboard: [
+    [{ text: '🪙 100 Coins — 75 ⭐' }, { text: '🪙 500 Coins — 299 ⭐' }],
+    [{ text: '💰 1,000 Coins — 499 ⭐' }, { text: '🏆 5,000 Coins — 1,999 ⭐' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const COINS_STORE_KB_BUTTONS = [
+  '🪙 100 Coins — 75 ⭐',
+  '🪙 500 Coins — 299 ⭐',
+  '💰 1,000 Coins — 499 ⭐',
+  '🏆 5,000 Coins — 1,999 ⭐'
+];
+
+// ── Boosts Store ─────────────────────────────────────────────────────────────
+const BOOSTS_STORE_KEYBOARD = {
+  keyboard: [
+    [{ text: '🚀 1 Boost — 149 ⭐' }],
+    [{ text: '⚡ 5 Boosts — 499 ⭐  (save 33%)' }],
+    [{ text: '💥 10 Boosts — 749 ⭐  (save 50%)' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const BOOSTS_STORE_KB_BUTTONS = [
+  '🚀 1 Boost — 149 ⭐',
+  '⚡ 5 Boosts — 499 ⭐  (save 33%)',
+  '💥 10 Boosts — 749 ⭐  (save 50%)'
+];
+
+// ── VIP Perks Panel ──────────────────────────────────────────────────────────
+const PERKS_KEYBOARD = {
+  keyboard: [
+    [{ text: '🚀 Activate Boost' }, { text: '👻 Toggle Invisible' }],
+    [{ text: '💎 VIP' }]
+  ],
+  resize_keyboard: true
+};
+const PERKS_KB_BUTTONS = ['🚀 Activate Boost', '👻 Toggle Invisible'];
+
+// ── Gift Type Picker ─────────────────────────────────────────────────────────
+const GIFT_TYPE_KEYBOARD = {
+  keyboard: [
+    [{ text: '🌹 Rose — 5 coins' }, { text: '💖 Heart — 10 coins' }],
+    [{ text: '🍫 Chocolate — 15 coins' }, { text: '🌺 Flowers — 20 coins' }],
+    [{ text: '💎 Diamond — 50 coins' }],
+    [{ text: '🔙 Back to Gifts' }]
+  ],
+  resize_keyboard: true
+};
+const GIFT_TYPE_KB_BUTTONS = [
+  '🌹 Rose — 5 coins', '💖 Heart — 10 coins',
+  '🍫 Chocolate — 15 coins', '🌺 Flowers — 20 coins',
+  '💎 Diamond — 50 coins', '🔙 Back to Gifts'
+];
+
+// ── Report Reasons (during browse) ───────────────────────────────────────────
+const REPORT_REASONS_KEYBOARD = {
+  keyboard: [
+    [{ text: '🔞 Inappropriate' }, { text: '🤖 Spam / Bot' }],
+    [{ text: '🎭 Fake Profile' }, { text: '😡 Harassment' }],
+    [{ text: '📝 Other Reason' }, { text: '⛔ Block User' }],
+    [{ text: '🔙 Cancel Report' }]
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true
+};
+const REPORT_REASONS_KB_BUTTONS = [
+  '🔞 Inappropriate', '🤖 Spam / Bot',
+  '🎭 Fake Profile', '😡 Harassment',
+  '📝 Other Reason', '⛔ Block User',
+  '🔙 Cancel Report'
+];
+
+// ── Delete Profile Confirmation ───────────────────────────────────────────────
+const DELETE_CONFIRM_KEYBOARD = {
+  keyboard: [
+    [{ text: '🗑️ Yes, Delete Forever' }],
+    [{ text: '💚 No, Keep My Account' }]
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true
+};
+const DELETE_CONFIRM_KB_BUTTONS = ['🗑️ Yes, Delete Forever', '💚 No, Keep My Account'];
+
+// ── Photos Management ─────────────────────────────────────────────────────────
+const PHOTOS_KEYBOARD = {
+  keyboard: [
+    [{ text: '📤 Add a Photo' }, { text: '🗑️ Delete a Photo' }],
+    [{ text: '👤 My Profile' }]
+  ],
+  resize_keyboard: true
+};
+const PHOTOS_KB_BUTTONS = ['📤 Add a Photo', '🗑️ Delete a Photo'];
+
+// ── Priority Boost Confirmation ───────────────────────────────────────────────
+const PRIORITY_CONFIRM_KEYBOARD = {
+  keyboard: [
+    [{ text: '🚀 Yes, Boost Me!' }],
+    [{ text: '💰 Buy Coins' }, { text: '🔙 No Thanks' }]
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true
+};
+const PRIORITY_CONFIRM_KB_BUTTONS = ['🚀 Yes, Boost Me!', '💰 Buy Coins', '🔙 No Thanks'];
+
+// ── Skip Screenshot (report flow) ─────────────────────────────────────────────
+const SKIP_SCREENSHOT_KEYBOARD = {
+  keyboard: [
+    [{ text: '⏭️ Skip Screenshot' }],
+    [{ text: '🔙 Cancel Report' }]
+  ],
+  resize_keyboard: true,
+  one_time_keyboard: true
+};
+const SKIP_SCREENSHOT_KB_BUTTONS = ['⏭️ Skip Screenshot'];
+
+// ── Story Success ─────────────────────────────────────────────────────────────
+const STORY_KEYBOARD = {
+  keyboard: [
+    [{ text: '📸 Add Another Story' }, { text: '👀 View My Stories' }],
+    [{ text: '🏠 Main Menu' }]
+  ],
+  resize_keyboard: true
+};
+const STORY_KB_BUTTONS = ['📸 Add Another Story', '👀 View My Stories'];
 
 /** All Reply Keyboard button texts across every menu — used as a guard in field-saving handlers */
 const ALL_KB_BUTTONS = [
@@ -117,9 +298,24 @@ const ALL_KB_BUTTONS = [
   ...REPORT_KB_BUTTONS,
   ...VIP_KB_BUTTONS,
   ...GIFTS_KB_BUTTONS,
+  ...VIP_PLANS_KB_BUTTONS,
+  ...COIN_VIP_PLANS_KB_BUTTONS,
+  ...GIFT_VIP_PLANS_KB_BUTTONS,
+  ...COINS_STORE_KB_BUTTONS,
+  ...BOOSTS_STORE_KB_BUTTONS,
+  ...PERKS_KB_BUTTONS,
+  ...GIFT_TYPE_KB_BUTTONS,
+  ...REPORT_REASONS_KB_BUTTONS,
+  ...DELETE_CONFIRM_KB_BUTTONS,
+  ...PHOTOS_KB_BUTTONS,
+  ...PRIORITY_CONFIRM_KB_BUTTONS,
+  ...SKIP_SCREENSHOT_KB_BUTTONS,
+  ...STORY_KB_BUTTONS,
   '🏠 Main Menu',
   '⚙️ Back to Settings',
-  '🆘 Back to Help'
+  '🆘 Back to Help',
+  '🔙 Back',
+  "Let's Go! 🚀"
 ];
 
 module.exports = {
@@ -131,5 +327,18 @@ module.exports = {
   REPORT_KEYBOARD, REPORT_KB_BUTTONS,
   VIP_KEYBOARD, VIP_KB_BUTTONS,
   GIFTS_KEYBOARD, GIFTS_KB_BUTTONS,
+  VIP_PLANS_KEYBOARD, VIP_PLANS_KB_BUTTONS,
+  COIN_VIP_PLANS_KEYBOARD, COIN_VIP_PLANS_KB_BUTTONS,
+  GIFT_VIP_PLANS_KEYBOARD, GIFT_VIP_PLANS_KB_BUTTONS,
+  COINS_STORE_KEYBOARD, COINS_STORE_KB_BUTTONS,
+  BOOSTS_STORE_KEYBOARD, BOOSTS_STORE_KB_BUTTONS,
+  PERKS_KEYBOARD, PERKS_KB_BUTTONS,
+  GIFT_TYPE_KEYBOARD, GIFT_TYPE_KB_BUTTONS,
+  REPORT_REASONS_KEYBOARD, REPORT_REASONS_KB_BUTTONS,
+  DELETE_CONFIRM_KEYBOARD, DELETE_CONFIRM_KB_BUTTONS,
+  PHOTOS_KEYBOARD, PHOTOS_KB_BUTTONS,
+  PRIORITY_CONFIRM_KEYBOARD, PRIORITY_CONFIRM_KB_BUTTONS,
+  SKIP_SCREENSHOT_KEYBOARD, SKIP_SCREENSHOT_KB_BUTTONS,
+  STORY_KEYBOARD, STORY_KB_BUTTONS,
   ALL_KB_BUTTONS
 };

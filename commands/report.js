@@ -13,16 +13,25 @@
  */
 
 const { invalidateUserCache } = require('./auth');
+const { MAIN_KEYBOARD, REPORT_REASONS_KEYBOARD, SKIP_SCREENSHOT_KEYBOARD } = require('../keyboard');
 
 const GENERAL_REPORT_CALLBACKS = ['report_user', 'report_content', 'report_bug'];
 
 const REPORT_REASONS = [
-    { label: '🔞 Inappropriate content', key: 'inappropriate' },
+    { label: '🔞 Inappropriate', key: 'inappropriate' },
     { label: '🤖 Spam / Bot', key: 'spam' },
-    { label: '🎭 Fake profile', key: 'fake' },
+    { label: '🎭 Fake Profile', key: 'fake' },
     { label: '😡 Harassment', key: 'harassment' },
-    { label: '📝 Other', key: 'other' },
+    { label: '📝 Other Reason', key: 'other' },
 ];
+
+const REASON_KEY_MAP = {
+    '🔞 Inappropriate': 'inappropriate',
+    '🤖 Spam / Bot':    'spam',
+    '🎭 Fake Profile':  'fake',
+    '😡 Harassment':    'harassment',
+    '📝 Other Reason':  'other',
+};
 
 function setupReportCommands(bot, userStates, User, Report, browseNext) {
 
@@ -39,74 +48,97 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
 
         await bot.answerCallbackQuery(query.id).catch(() => { });
 
-        // Build reason keyboard
-        const reasonButtons = REPORT_REASONS.map(r => ([{
-            text: r.label,
-            callback_data: `report_reason_${r.key}_${targetId}`
-        }]));
-        reasonButtons.push([{ text: '⛔ Block this user', callback_data: `block_from_report_${targetId}` }]);
-        reasonButtons.push([{ text: '🔙 Cancel', callback_data: 'start_browse' }]);
+        userStates.set(telegramId, { awaitingReportReason: true, reportTargetId: targetId });
 
         await bot.sendMessage(chatId,
             `🚩 *Report Profile*\n\nWhy are you reporting this user?\nYou can also block them without reporting.`,
-            {
-                parse_mode: 'Markdown',
-                reply_markup: { inline_keyboard: reasonButtons }
-            }
+            { parse_mode: 'Markdown', reply_markup: REPORT_REASONS_KEYBOARD }
         );
     });
 
-    // ── 🚩 REPORT: Reason selected → ask for optional screenshot ────────
+    // ── 🚩 REPORT: Reason via legacy callback (still supported) ─────────
     bot.on('callback_query', async (query) => {
         const data = query.data;
         if (!data.startsWith('report_reason_')) return;
 
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
-
-        // Parse: report_reason_<reason>_<targetId>
         const withoutPrefix = data.replace('report_reason_', '');
         const firstUnderscore = withoutPrefix.indexOf('_');
         const reason = withoutPrefix.substring(0, firstUnderscore);
         const targetId = withoutPrefix.substring(firstUnderscore + 1);
 
         await bot.answerCallbackQuery(query.id).catch(() => { });
-
-        // Store pending report in userStates
-        userStates.set(telegramId, {
-            awaitingReportScreenshot: true,
-            pendingReport: { targetId, reason }
-        });
+        userStates.set(telegramId, { awaitingReportScreenshot: true, pendingReport: { targetId, reason } });
 
         await bot.sendMessage(chatId,
-            `📸 **Optional Screenshot**\n\nSend a screenshot as evidence, or tap **Skip** to submit now.`,
-            {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [[
-                        { text: '⏭️ Skip Screenshot', callback_data: `report_skip_${targetId}` }
-                    ]]
-                }
-            }
+            `📸 *Optional Screenshot*\n\nSend a screenshot as evidence, or tap *⏭️ Skip Screenshot* to submit now.`,
+            { parse_mode: 'Markdown', reply_markup: SKIP_SCREENSHOT_KEYBOARD }
         );
     });
 
-    // ── 🚩 REPORT: Skip screenshot → save report immediately ────────────
+    // ── 🚩 REPORT: Skip screenshot via legacy callback ──────────────────
     bot.on('callback_query', async (query) => {
         const data = query.data;
         if (!data.startsWith('report_skip_')) return;
 
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
-        const targetId = data.replace('report_skip_', '');
-
         await bot.answerCallbackQuery(query.id).catch(() => { });
-
         const state = userStates.get(telegramId);
         const reason = state?.pendingReport?.reason || 'other';
+        const targetId = state?.pendingReport?.targetId || data.replace('report_skip_', '');
         userStates.delete(telegramId);
-
         await saveReport(bot, chatId, telegramId, targetId, reason, null, User, Report, browseNext);
+    });
+
+    // ── 🚩 REPORT: Reply keyboard reason selection & skip ────────────────
+    bot.on('message', async (msg) => {
+        const text = msg.text;
+        if (!text) return;
+        const chatId = msg.chat.id;
+        const telegramId = msg.from.id;
+        const state = userStates.get(telegramId);
+        if (!state) return;
+
+        // Handle reason selection
+        if (state.awaitingReportReason) {
+            if (text === '🔙 Cancel Report') {
+                userStates.delete(telegramId);
+                bot.sendMessage(chatId, '✅ Report cancelled.', { reply_markup: MAIN_KEYBOARD });
+                return;
+            }
+            if (text === '⛔ Block User') {
+                const targetId = state.reportTargetId;
+                userStates.delete(telegramId);
+                if (targetId) await performBlock(bot, chatId, telegramId, targetId, User, browseNext);
+                return;
+            }
+            const reason = REASON_KEY_MAP[text];
+            if (!reason) return;
+            const targetId = state.reportTargetId;
+            userStates.set(telegramId, { awaitingReportScreenshot: true, pendingReport: { targetId, reason } });
+            await bot.sendMessage(chatId,
+                `📸 *Optional Screenshot*\n\nSend a screenshot as evidence, or tap *⏭️ Skip Screenshot* to submit now.`,
+                { parse_mode: 'Markdown', reply_markup: SKIP_SCREENSHOT_KEYBOARD }
+            );
+            return;
+        }
+
+        // Handle skip screenshot
+        if (state.awaitingReportScreenshot && text === '⏭️ Skip Screenshot') {
+            const { targetId, reason } = state.pendingReport;
+            userStates.delete(telegramId);
+            await saveReport(bot, chatId, telegramId, targetId, reason, null, User, Report, browseNext);
+            return;
+        }
+
+        // Handle cancel during screenshot wait
+        if (state.awaitingReportScreenshot && text === '🔙 Cancel Report') {
+            userStates.delete(telegramId);
+            bot.sendMessage(chatId, '✅ Report cancelled.', { reply_markup: MAIN_KEYBOARD });
+            return;
+        }
     });
 
     // ── 🚩 REPORT: Photo received as screenshot ─────────────────────────
@@ -215,10 +247,7 @@ async function performBlock(bot, chatId, telegramId, targetId, User, browseNext)
 
         await bot.sendMessage(chatId,
             `⛔ *Blocked.*\n\nYou won't see this person again.`,
-            {
-                parse_mode: 'Markdown',
-                reply_markup: { inline_keyboard: [[{ text: '➡️ Next Profile', callback_data: 'start_browse' }]] }
-            }
+            { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
     } catch (err) {
         console.error('[Block] Error:', err);
@@ -247,13 +276,8 @@ async function saveReport(bot, chatId, reporterId, reportedId, reason, screensho
         ).catch(() => { });
 
         await bot.sendMessage(chatId,
-            `✅ **Report Submitted**\n\nThank you for keeping KissuBot safe.\nOur team will review this report shortly.`,
-            {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [[{ text: '➡️ Next Profile', callback_data: 'start_browse' }]]
-                }
-            }
+            `✅ *Report Submitted*\n\nThank you for keeping KissuBot safe.\nOur team will review this report shortly.`,
+            { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
     } catch (err) {
         console.error('[Report] Save error:', err);

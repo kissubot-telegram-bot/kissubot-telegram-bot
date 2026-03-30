@@ -15,7 +15,7 @@
 
 const { invalidateUserCache } = require('./auth');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard');
 
 const PROMPTS = {
     gender: {
@@ -68,18 +68,8 @@ function setupOnboardingCommands(bot, userStates, User) {
                     await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
                 }
                 return bot.sendMessage(chatId,
-                    `🎉 **Your profile is already complete!**\n\n` +
-                    `You're all set and ready to find your perfect match. 💕\n\n` +
-                    `Use the menu below or /browse to start matching!`,
-                    {
-                        parse_mode: 'Markdown',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-                            ]
-                        }
-                    }
+                    `🎉 *Your profile is already complete!*\n\nYou're all set and ready to find your perfect match. 💕\n\nUse the menu below or /browse to start matching!`,
+                    { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
                 );
             }
         }
@@ -241,8 +231,7 @@ function setupOnboardingCommands(bot, userStates, User) {
 
         // Skip commands and all nav keyboard buttons — let other handlers deal with them
         if (msg.text && msg.text.startsWith('/')) return;
-        if (msg.text && MAIN_KB_BUTTONS.includes(msg.text)) return;
-        if (msg.text && PROFILE_KB_BUTTONS.includes(msg.text)) return;
+        if (msg.text && ALL_KB_BUTTONS.includes(msg.text)) return;
 
         if (!state || !state.onboarding) {
             // Handle "Let's Go!" when onboarding state was set but user just sees the welcome
@@ -370,11 +359,12 @@ function setupOnboardingCommands(bot, userStates, User) {
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
-                            remove_keyboard: true,
-                            inline_keyboard: [
-                                [{ text: '⏭️ Skip Bio', callback_data: 'onboard_next_photo' }],
-                                [{ text: '🚫 Cancel Setup', callback_data: 'onboard_cancel' }]
-                            ]
+                            keyboard: [
+                                [{ text: '⏭️ Skip Bio' }],
+                                [{ text: '🚫 Cancel Setup' }]
+                            ],
+                            resize_keyboard: true,
+                            one_time_keyboard: true
                         }
                     }
                 );
@@ -395,34 +385,20 @@ function setupOnboardingCommands(bot, userStates, User) {
 
                 user.photos = [photoFileId];
                 user.profilePhoto = photoFileId;
-                // DO NOT mark complete yet. They must accept terms first.
-                // user.profileCompleted = true; // Moved to terms.js
-                // user.onboardingStep = 'completed'; // Moved to terms.js
                 await user.save();
 
+                // Mark profile complete
+                await User.findOneAndUpdate(
+                    { telegramId },
+                    { profileCompleted: true, onboardingStep: 'completed' }
+                );
                 userStates.delete(telegramId);
                 invalidateUserCache(telegramId);
 
-                const termsMsg = `🎉 **Profile Almost Ready!** 🎉\n\n` +
-                    `💕 Your journey to find love is about to start!\n\n` +
-                    `**Before we finish, please review & accept our terms:**\n\n` +
-                    `By clicking "Accept", you agree to our Terms of Service and Privacy Policy.`;
-
-                return bot.sendMessage(chatId, termsMsg, {
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [
-                                { text: '✅ Accept & Finish', callback_data: 'accept_terms' },
-                                { text: '❌ Decline', callback_data: 'decline_terms' }
-                            ],
-                            [
-                                { text: '📖 Read Terms', web_app: { url: `${process.env.WEBHOOK_URL}/docs/terms` } },
-                                { text: '🔒 Read Privacy', web_app: { url: `${process.env.WEBHOOK_URL}/docs/privacy` } }
-                            ]
-                        ]
-                    }
-                });
+                return bot.sendMessage(chatId,
+                    `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nUse the menu below to start browsing!`,
+                    { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+                );
             }
 
             // ── TEXT steps ─────────────────────────────────────────────────
@@ -526,7 +502,7 @@ function setupOnboardingCommands(bot, userStates, User) {
             }
 
             if (step === 'bio') {
-                const skip = input.toLowerCase() === 'skip';
+                const skip = input.toLowerCase() === 'skip' || input === '⏭️ Skip Bio';
                 if (!skip && input.length > 200) {
                     return bot.sendMessage(chatId, '❌ Bio must be under 200 characters. Try again (or type Skip):');
                 }

@@ -58,31 +58,9 @@ function setupSettingsCommands(bot, userStates, User) {
 
         case 'settings_search':
         case 'back_to_search':
-        case 'search_settings': {
-          try {
-            const user = await getCachedUserProfile(telegramId, User);
-            const p = user.searchSettings || {};
-            const ageMin = p.ageMin || 18;
-            const ageMax = p.ageMax || 99;
-            const dist = p.maxDistance || 50;
-            const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
-            const gender = p.genderPreference || 'Any';
-            const hideLiked = p.hideLiked === true;
-
-            const searchMsg =
-              `� *Search Preferences*\n\n` +
-              `🎂 *Age Range:* ${ageMin}–${ageMax}\n` +
-              `📍 *Distance:* ${distLabel}\n` +
-              `👥 *Gender:* ${gender}\n` +
-              `🚫 *Hide Already Liked:* ${hideLiked ? '✅ On' : '❌ Off'}\n\n` +
-              `Tap a setting to change it:`;
-
-            await sendSearchMenu(bot, chatId, telegramId, User);
-          } catch (err) {
-            bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
-          }
+        case 'search_settings':
+          await sendSearchMenu(bot, chatId, telegramId, User);
           break;
-        }
 
         case 'set_age_range':
           bot.sendMessage(chatId, '🎂 *Set Age Range*\n\nChoose your preferred age range:', {
@@ -285,32 +263,18 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           break;
 
         case 'set_location_pref':
-          const locationMsg = `🌍 **LOCATION PREFERENCES** 🌍\n\n` +
-            `📍 **Choose your preferred search area:**\n\n` +
-            `• Current City - Search in your current location\n` +
-            `• Nearby Cities - Include surrounding areas\n` +
-            `• Specific City - Choose a different city\n` +
-            `• Anywhere - No location restrictions`;
-
-          bot.editMessageText(locationMsg, {
-            chat_id: chatId,
-            message_id: query.message.message_id,
+          bot.sendMessage(chatId, `🌍 *Location Preferences*\n\nChoose your preferred search area:`, {
+            parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '📍 Current City', callback_data: 'location_current' },
-                  { text: '🏙️ Nearby Cities', callback_data: 'location_nearby' }
-                ],
-                [
-                  { text: '🌆 Specific City', callback_data: 'location_specific' },
-                  { text: '🌍 Anywhere', callback_data: 'location_anywhere' }
-                ],
-                [
-                  { text: '🔙 Back to Search', callback_data: 'back_to_search' }
-                ]
-              ]
+              keyboard: [
+                [{ text: '📍 Current City' }, { text: '🏙️ Nearby Cities' }],
+                [{ text: '🌆 Specific City' }, { text: '🌍 Anywhere' }],
+                [{ text: '🔙 Back to Search' }]
+              ],
+              resize_keyboard: true, one_time_keyboard: true
             }
           });
+          userStates.set(telegramId, { settingPicker: 'location' });
           break;
 
         case 'location_current':
@@ -366,10 +330,10 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
     }
   });
   // SETTINGS command
-  bot.onText(//settings/, (msg) => sendSettingsMenu(bot, msg.chat.id));
+  bot.onText(/\/settings/, (msg) => sendSettingsMenu(bot, msg.chat.id));
 
   // SEARCH settings command
-  bot.onText(//(search|searchsettings)/, (msg) => sendSearchMenu(bot, msg.chat.id, msg.from.id, User));
+  bot.onText(/\/(search|searchsettings)/, (msg) => sendSearchMenu(bot, msg.chat.id, msg.from.id, User));
 
   // ── Settings Reply Keyboard handler ──────────────────────────────────
   bot.on('message', async (msg) => {
@@ -548,6 +512,15 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.genderPreference': gender, lookingFor: gender === 'Any' ? 'Both' : gender } });
         invalidateUserCache(String(telegramId));
         await bot.sendMessage(chatId, `✅ *Gender preference set to ${gender}.*`, { parse_mode: 'Markdown' });
+        return sendSearchMenu(bot, chatId, telegramId, User);
+      }
+      if (picker === 'location') {
+        if (text === '🔙 Back to Search') return sendSearchMenu(bot, chatId, telegramId, User);
+        const locationMap = { '📍 Current City': 'current_city', '🏙️ Nearby Cities': 'nearby_cities', '🌆 Specific City': 'specific_city', '🌍 Anywhere': null };
+        if (!(text in locationMap)) return;
+        const locationPreference = locationMap[text];
+        await axios.post(`${API_BASE}/search-settings/${telegramId}`, { locationPreference }).catch(() => {});
+        await bot.sendMessage(chatId, `✅ *Location preference updated to ${text.replace(/[^\w\s]/gu, '').trim() || 'Anywhere'}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
     } catch (err) {

@@ -1,7 +1,7 @@
 const { bot, userStates } = require('./server');
 const axios = require('axios');
 const { API_BASE } = require('./config');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS, ALL_KB_BUTTONS } = require('./keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS, ALL_KB_BUTTONS, PROFILE_KEYBOARD } = require('./keyboard');
 require('dotenv').config();
 
 // Import command modules
@@ -133,25 +133,10 @@ bot.on('photo', async (msg) => {
 
       userStates.delete(telegramId);
 
-      const successMsg = `✅ **Story Posted!** ✅\n\n` +
-        `Your story has been shared with your matches!\n\n` +
-        `👀 **Your story will be visible for 24 hours.**`;
-
-      const opts = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📸 Add Another Story', callback_data: 'add_story' },
-              { text: '👀 View My Stories', callback_data: 'view_my_stories' }
-            ],
-            [
-              { text: '🔙 Back to Menu', callback_data: 'main_menu' }
-            ]
-          ]
-        }
-      };
-
-      bot.sendMessage(chatId, successMsg, opts);
+      bot.sendMessage(chatId,
+        `✅ *Story Posted!*\n\nYour story has been shared with your matches!\n\n👀 Your story will be visible for 24 hours.`,
+        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+      );
     } catch (err) {
       console.error('Story upload error:', err.response?.data || err.message);
       userStates.delete(telegramId);
@@ -187,25 +172,10 @@ bot.on('video', async (msg) => {
 
     userStates.delete(telegramId);
 
-    const successMsg = `✅ **Video Story Posted!** ✅\n\n` +
-      `Your video story has been shared with your matches!\n\n` +
-      `👀 **Your story will be visible for 24 hours.**`;
-
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '📹 Add Another Story', callback_data: 'add_story' },
-            { text: '👀 View My Stories', callback_data: 'view_my_stories' }
-          ],
-          [
-            { text: '🔙 Back to Menu', callback_data: 'main_menu' }
-          ]
-        ]
-      }
-    };
-
-    bot.sendMessage(chatId, successMsg, opts);
+    bot.sendMessage(chatId,
+      `✅ *Video Story Posted!*\n\nYour video story has been shared with your matches!\n\n👀 Your story will be visible for 24 hours.`,
+      { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+    );
   } catch (err) {
     console.error('Video story upload error:', err.response?.data || err.message);
     userStates.delete(telegramId);

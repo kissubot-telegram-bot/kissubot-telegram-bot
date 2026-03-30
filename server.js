@@ -64,37 +64,117 @@ app.get('/docs/terms', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Terms of Service - KissuBot</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; color: var(--tg-theme-text-color, #000); background: var(--tg-theme-bg-color, #fff); }
-        h1 { color: #ff4b4b; }
-        h2 { font-size: 1.2rem; margin-top: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.7; padding: 20px; color: #222; background: #fff; }
+        h1 { color: #e63950; font-size: 1.6rem; margin-bottom: 4px; }
+        h2 { font-size: 1.05rem; margin-top: 24px; color: #e63950; }
+        .meta { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+        .container { max-width: 640px; margin: 0 auto; }
+        hr { border: none; border-top: 1px solid #eee; margin: 18px 0; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 4px; }
+        a { color: #e63950; }
+        p { margin: 8px 0; }
       </style>
-      <script src="https://telegram.org/js/telegram-web-app.js"></script>
     </head>
     <body>
       <div class="container">
         <h1>Terms of Service</h1>
-        <p>Welcome to KissuBot! By using our service, you agree to these terms.</p>
-        <h2>1. Eligibility</h2>
-        <p>You must be at least 18 years old to use KissuBot. By registering, you confirm you meet this requirement.</p>
-        <h2>2. Acceptable Use</h2>
-        <p>You agree to treat others with respect. Harassment, spam, nudity, and illegal content are strictly prohibited and will result in a ban.</p>
-        <h2>3. Safety & Liability</h2>
-        <p>KissuBot does not conduct background checks on users. You interact with others at your own risk. Always prioritize your safety when meeting people online or offline.</p>
-        <h2>4. Account Termination</h2>
-        <p>We reserve the right to suspend or terminate accounts that violate our community guidelines without notice.</p>
+        <p class="meta">Effective Date: 18 March 2026 &nbsp;|&nbsp; Last Updated: 18 March 2026</p>
+        <p>Welcome to KissuBot ("we," "our," or "us"). These Terms of Service ("Terms") govern your use of our Telegram bot, services, and platform (collectively, the "Service").</p>
+        <p>By accessing or using KissuBot, you agree to be bound by these Terms. If you do not agree, do not use the Service.</p>
+
+        <hr>
+        <h2>1. ELIGIBILITY</h2>
+        <ul>
+          <li>You must be at least 18 years old to use KissuBot.</li>
+          <li>By using the Service, you confirm that you are 18 years or older and have the legal capacity to enter into this agreement.</li>
+        </ul>
+        <p>We reserve the right to suspend or terminate accounts that violate this requirement.</p>
+
+        <hr>
+        <h2>2. DESCRIPTION OF SERVICE</h2>
+        <p>KissuBot is a Telegram-based platform that allows users to create profiles, discover and match with other users, communicate through the platform, and access premium features through paid subscriptions.</p>
+        <p>We may modify, update, or discontinue any part of the Service at any time.</p>
+
+        <hr>
+        <h2>3. USER ACCOUNTS</h2>
+        <p>You agree to provide accurate and truthful information, keep your account secure, and be responsible for all activity under your account.</p>
+        <p>We are not responsible for any loss or damage resulting from unauthorized account access.</p>
+
+        <hr>
+        <h2>4. USER CONDUCT</h2>
+        <p>You agree NOT to:</p>
+        <ul>
+          <li>Use the Service for illegal purposes</li>
+          <li>Harass, abuse, or harm other users</li>
+          <li>Share false, misleading, or fraudulent information</li>
+          <li>Upload inappropriate, explicit, or offensive content</li>
+          <li>Impersonate another person</li>
+          <li>Attempt to scam or exploit other users</li>
+        </ul>
+        <p>We reserve the right to remove content or suspend accounts that violate these rules.</p>
+
+        <hr>
+        <h2>5. USER CONTENT</h2>
+        <p>You are responsible for all content you share, including profile information, photos, and messages. By using KissuBot, you grant us a limited license to display and use your content for operating and improving the Service.</p>
+        <p>We do not guarantee the accuracy or authenticity of user content.</p>
+
+        <hr>
+        <h2>6. MATCHING AND INTERACTIONS</h2>
+        <p>KissuBot does not guarantee matches, responses from other users, or compatibility/outcomes of interactions. You are solely responsible for your interactions with other users. Always exercise caution when communicating or meeting others.</p>
+
+        <hr>
+        <h2>7. PAYMENTS AND SUBSCRIPTIONS</h2>
+        <ul>
+          <li>All purchases are final and non-refundable, unless required by law</li>
+          <li>Subscription benefits are activated upon successful payment</li>
+          <li>We reserve the right to change pricing at any time</li>
+        </ul>
+        <p>Failure of payment may result in loss of premium access.</p>
+
+        <hr>
+        <h2>8. TERMINATION</h2>
+        <p>We may suspend or terminate your access if you violate these Terms, engage in harmful or abusive behavior, or we are required to do so by law. You may stop using the Service at any time.</p>
+
+        <hr>
+        <h2>9. DISCLAIMERS</h2>
+        <p>The Service is provided "as is" and "as available." We do not guarantee continuous availability, error-free operation, or that the Service will meet your expectations. Use the Service at your own risk.</p>
+
+        <hr>
+        <h2>10. LIMITATION OF LIABILITY</h2>
+        <p>To the fullest extent permitted by law, KissuBot shall not be liable for indirect or consequential damages, loss of data, profits, or opportunities, or any interactions between users.</p>
+
+        <hr>
+        <h2>11. PRIVACY</h2>
+        <p>Your use of the Service is also governed by our <a href="/docs/privacy">Privacy Policy</a>, which explains how we collect and use your data.</p>
+
+        <hr>
+        <h2>12. CHANGES TO TERMS</h2>
+        <p>We may update these Terms at any time. Continued use of the Service after updates means you accept the revised Terms.</p>
+
+        <hr>
+        <h2>13. GOVERNING LAW</h2>
+        <p>These Terms shall be governed by and interpreted in accordance with the laws of USA, Delaware.</p>
+
+        <hr>
+        <h2>14. CONTACT</h2>
+        <p>For questions or support:</p>
+        <ul>
+          <li>Email: <a href="mailto:spprtksbt@gmail.com">spprtksbt@gmail.com</a></li>
+          <li>Telegram: <a href="https://t.me/kissuSupport">@kissuSupport</a></li>
+        </ul>
+
+        <hr>
+        <h2>15. ACCEPTANCE</h2>
+        <p>By using KissuBot, you acknowledge that you have read, understood, and agree to these Terms of Service.</p>
         <br><br>
       </div>
-      <script>
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-      </script>
     </body>
     </html>
   `);
 });
 
-// Privacy HTML View
+// Privacy Policy HTML View
 app.get('/docs/privacy', (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -104,29 +184,134 @@ app.get('/docs/privacy', (req, res) => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Privacy Policy - KissuBot</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; color: var(--tg-theme-text-color, #000); background: var(--tg-theme-bg-color, #fff); }
-        h1 { color: #ff4b4b; }
-        h2 { font-size: 1.2rem; margin-top: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.7; padding: 20px; color: #222; background: #fff; }
+        h1 { color: #e63950; font-size: 1.6rem; margin-bottom: 4px; }
+        h2 { font-size: 1.05rem; margin-top: 24px; color: #e63950; }
+        h3 { font-size: 0.95rem; margin-top: 14px; color: #555; }
+        .meta { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+        .container { max-width: 640px; margin: 0 auto; }
+        hr { border: none; border-top: 1px solid #eee; margin: 18px 0; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 4px; }
+        a { color: #e63950; }
+        p { margin: 8px 0; }
       </style>
-      <script src="https://telegram.org/js/telegram-web-app.js"></script>
     </head>
     <body>
       <div class="container">
         <h1>Privacy Policy</h1>
-        <p>Your privacy is important to us. Here is how we handle your data.</p>
-        <h2>1. Data Collection</h2>
-        <p>We collect the information you provide during onboarding: your name, age, location, photos, phone number, and bio. We also store your Telegram ID to link your account.</p>
-        <h2>2. Data Usage</h2>
-        <p>Your public profile (name, age, location, photos, bio) is visible to other users. Your phone number is kept completely private and is strictly used for account verification/security—it is never shown to other users.</p>
-        <h2>3. Data Deletion</h2>
-        <p>You can delete your account and all associated data at any time from the profile settings menu. Deleting your account removes all your data from our servers.</p>
+        <p class="meta">Effective Date: 18 March 2026 &nbsp;|&nbsp; Last Updated: 18 March 2026</p>
+        <p>Welcome to KissuBot ("we," "our," or "us"). This Privacy Policy explains how we collect, use, store, and protect your information when you use our Telegram bot and services (the "Service").</p>
+        <p>By using KissuBot, you agree to the practices described in this Privacy Policy.</p>
+
+        <hr>
+        <h2>1. INFORMATION WE COLLECT</h2>
+        <h3>🔹 a. Personal Information</h3>
+        <ul>
+          <li>Name or username</li>
+          <li>Age and gender</li>
+          <li>Location</li>
+          <li>Profile photos</li>
+          <li>Bio or profile description</li>
+        </ul>
+        <h3>🔹 b. Telegram Data</h3>
+        <ul>
+          <li>Telegram User ID</li>
+          <li>Telegram username</li>
+          <li>Messages and interactions within the bot</li>
+        </ul>
+        <h3>🔹 c. Usage Data</h3>
+        <ul>
+          <li>Activity within the bot (matches, swipes, chats)</li>
+          <li>Log data (timestamps, actions performed)</li>
+          <li>Device or connection information (if available)</li>
+        </ul>
+        <h3>🔹 d. Payment Information</h3>
+        <ul>
+          <li>Transaction details (subscription status, purchase history)</li>
+        </ul>
+        <p><em>Note: We do NOT store sensitive payment details such as card numbers. Payments are processed through third-party providers (e.g., Telegram, crypto platforms).</em></p>
+
+        <hr>
+        <h2>2. HOW WE USE YOUR INFORMATION</h2>
+        <p>We use your information to:</p>
+        <ul>
+          <li>Provide and operate the Service</li>
+          <li>Create and manage user profiles</li>
+          <li>Enable matching and communication between users</li>
+          <li>Process payments and subscriptions</li>
+          <li>Improve features, performance, and user experience</li>
+          <li>Detect and prevent fraud, abuse, or illegal activity</li>
+          <li>Communicate updates, promotions, or important notices</li>
+        </ul>
+
+        <hr>
+        <h2>3. HOW YOUR INFORMATION IS SHARED</h2>
+        <p>We do <strong>NOT</strong> sell your personal data.</p>
+        <h3>🔹 With Other Users</h3>
+        <ul>
+          <li>Your profile (photos, name, age, bio) is visible to other users</li>
+          <li>Messages are shared with users you interact with</li>
+        </ul>
+        <h3>🔹 With Service Providers</h3>
+        <ul>
+          <li>Hosting providers</li>
+          <li>Payment processors</li>
+          <li>Analytics tools</li>
+        </ul>
+        <h3>🔹 Legal Requirements</h3>
+        <p>We may disclose information if required by law or to protect our rights, prevent fraud or abuse, or comply with legal obligations.</p>
+
+        <hr>
+        <h2>4. DATA RETENTION</h2>
+        <p>We retain your data as long as your account is active, as needed to provide the Service, and to comply with legal obligations.</p>
+        <p>You may request deletion of your account and data at any time.</p>
+
+        <hr>
+        <h2>5. DATA SECURITY</h2>
+        <p>We take reasonable measures to protect your data, including secure servers, access controls, and monitoring for unauthorized activity.</p>
+        <p>However, no system is 100% secure. Use the Service at your own risk.</p>
+
+        <hr>
+        <h2>6. YOUR RIGHTS</h2>
+        <p>Depending on your location, you may have the right to:</p>
+        <ul>
+          <li>Access your personal data</li>
+          <li>Correct inaccurate information</li>
+          <li>Request deletion of your data</li>
+          <li>Withdraw consent</li>
+        </ul>
+        <p>To exercise these rights, contact us using the details below.</p>
+
+        <hr>
+        <h2>7. AGE RESTRICTION</h2>
+        <p>KissuBot is strictly for users 18 years and older. We do not knowingly collect data from individuals under 18. If we become aware of such data, it will be removed immediately.</p>
+
+        <hr>
+        <h2>8. THIRD-PARTY SERVICES</h2>
+        <p>Our Service may rely on third-party platforms such as Telegram and payment providers (e.g., crypto or Telegram payments). These services have their own privacy policies, and we are not responsible for their practices.</p>
+
+        <hr>
+        <h2>9. INTERNATIONAL USE</h2>
+        <p>Your data may be processed and stored in different countries. By using the Service, you consent to such transfers.</p>
+
+        <hr>
+        <h2>10. CHANGES TO THIS POLICY</h2>
+        <p>We may update this Privacy Policy at any time. We will notify users of significant changes where appropriate. Continued use of the Service means you accept the updated policy.</p>
+
+        <hr>
+        <h2>11. CONTACT US</h2>
+        <p>If you have any questions or requests regarding this Privacy Policy:</p>
+        <ul>
+          <li>Email: <a href="mailto:spprtksbt@gmail.com">spprtksbt@gmail.com</a></li>
+          <li>Telegram: <a href="https://t.me/kissuSupport">@kissuSupport</a></li>
+        </ul>
+
+        <hr>
+        <h2>12. CONSENT</h2>
+        <p>By using KissuBot, you acknowledge that you have read, understood, and agreed to this Privacy Policy.</p>
         <br><br>
       </div>
-      <script>
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-      </script>
     </body>
     </html>
   `);
@@ -459,7 +644,7 @@ setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot);
 setupSettingsCommands(bot, userStates, User);
 setupPremiumCommands(bot, User, userStates);
-setupGiftCommands(bot, User);
+setupGiftCommands(bot, User, userStates);
 setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);
 setupLikesCommands(bot, User, Like);

@@ -19,7 +19,7 @@ const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require
 const { canLike, recordLike } = require('./antiSpam');
 const { requireBrowseAccess, requireMatchesAccess, incrementMaleSwipeCount, getMaleSwipeCount } = require('./genderGate');
 const axios = require('axios');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, VIP_KEYBOARD, COINS_STORE_KEYBOARD } = require('../keyboard');
 
 // Try to load API_BASE from config (optional — stats calls are fire-and-forget)
 let API_BASE = '';
@@ -467,12 +467,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         text: `💬 Chat with ${other.name}`,
         callback_data: `chat_gate_${other.telegramId}`
       }]));
-      matchButtons.push([{ text: '🔍 Browse More', callback_data: 'start_browse' }, { text: '🏠 Menu', callback_data: 'main_menu' }]);
 
       bot.sendMessage(chatId, matchMsg, {
         parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: matchButtons }
       });
+      bot.sendMessage(chatId, '_ _', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
 
     } catch (err) {
       console.error('[Matches] Error:', err);
@@ -507,22 +507,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       }
 
       await bot.sendMessage(
-        otherTelegramId,
+        String(otherTelegramId),
         `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
         `*${myUser.name}* liked you back!\n\n` +
-        `💡 *Conversation starter:*\n${starter}`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '💬 Open Chat', callback_data: `chat_gate_${myUser.telegramId}` },
-                { text: '🔍 Keep Swiping', callback_data: 'start_browse' }
-              ],
-              [{ text: '💌 All Matches', callback_data: 'view_matches' }]
-            ]
-          }
-        }
+        `💡 *Conversation starter:*\n${starter}\n\n_Tap_ *💕 Matches* _to start chatting!_`,
+        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
       );
     } catch (e) {
       // User may have blocked the bot — ignore silently
@@ -590,22 +579,15 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         await bot.sendPhoto(chatId, toPhoto).catch(() => {});
       }
       await bot.sendMessage(chatId,
-        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
+        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}\n\n_Tap_ *💕 Matches* _to open a chat!_`,
         {
           parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` }, { text: '🔍 Keep Swiping', callback_data: 'start_browse' }],
-              [{ text: '💌 All Matches', callback_data: 'view_matches' }]
-            ]
-          }
+          reply_markup: MAIN_KEYBOARD
         }
       );
       notifyMatchedUser(targetTelegramId, fromUser, toUser);
     } else {
-      await bot.sendMessage(chatId, randomFrom(LIKE_LINES),
-        { reply_markup: { inline_keyboard: [[{ text: '💌 Matches', callback_data: 'view_matches' }]] } }
-      );
+      await bot.sendMessage(chatId, randomFrom(LIKE_LINES), { reply_markup: MAIN_KEYBOARD });
       await browseProfiles(chatId, telegramId);
     }
   }
@@ -620,10 +602,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       );
       invalidateUserCache(String(telegramId));
     }
-    const skipKeyboard = fromUser && fromUser.isVip
-      ? { reply_markup: { inline_keyboard: [[{ text: '↩️ Undo Skip', callback_data: `undo_skip_${targetTelegramId}` }]] } }
-      : {};
-    await bot.sendMessage(chatId, randomFrom(PASS_LINES), skipKeyboard);
+    await bot.sendMessage(chatId, randomFrom(PASS_LINES), { reply_markup: MAIN_KEYBOARD });
     await browseProfiles(chatId, telegramId);
   }
 
@@ -638,7 +617,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
     if (!useFreeSuperLike && (fromUser.coins || 0) < 10) {
       return bot.sendMessage(chatId,
         `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n_VIP free super likes today: ${freeSLUsed}/${FREE_SL_LIMIT}_` : ''}`,
-        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💰 Buy Coins', callback_data: 'buy_coins' }, { text: '🔍 Browse', callback_data: 'start_browse' }]] } }
+        { parse_mode: 'Markdown', reply_markup: COINS_STORE_KEYBOARD }
       );
     }
     const toUser = await User.findOne({ telegramId: targetTelegramId });
@@ -660,7 +639,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
     try {
       await bot.sendMessage(String(targetTelegramId),
         `⭐ *Someone Super Liked You!*\n\n*${fromUser.name}* thinks you're special!\n\nBrowse their profile to see if you're interested! 💕`,
-        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }]] } }
+        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
       );
     } catch (e) { /* user may have blocked bot */ }
     await bot.sendMessage(chatId, `⭐ Super Like sent to *${toUser.name}*! They've been notified.`, { parse_mode: 'Markdown' });
@@ -740,7 +719,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         if (!userDoc || !userDoc.isVip) {
           return bot.sendMessage(chatId,
             '🔒 *VIP Feature*\n\nUndo Skip is available for VIP members only.',
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👑 Subscribe', callback_data: 'manage_vip' }]] } }
+            { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
           );
         }
         await User.findOneAndUpdate(
@@ -767,18 +746,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         // ── 💬 CHAT ───────────────────────────────────────────────────────
       } else if (data.startsWith('chat_') && !data.startsWith('chat_gate_')) {
         const targetTelegramId = data.replace('chat_', '');
-        bot.sendMessage(chatId,
-          '💬 *Open a direct chat:*',
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` }],
-                [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
-              ]
-            }
-          }
-        );
+        bot.emit('callback_query', { id: 'kb', message: { chat: { id: chatId }, message_id: 0 }, from: query.from, data: `chat_gate_${targetTelegramId}` });
 
         // ── 💔 UNMATCH ────────────────────────────────────────────────────
       } else if (data.startsWith('unmatch_')) {
@@ -793,10 +761,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           invalidateUserCache(telegramId);
           invalidateUserCache(targetTelegramId);
 
-          bot.sendMessage(chatId, '💔 *Unmatched.*\n\nYou can always find new matches!', {
-            parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]] }
-          });
+          bot.sendMessage(chatId, '💔 *Unmatched.*\n\nYou can always find new matches!', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
         } else {
           bot.sendMessage(chatId, '❌ Failed to unmatch. Please try again.');
         }

@@ -1,4 +1,5 @@
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
+const { MAIN_KEYBOARD, VIP_KEYBOARD, PERKS_KEYBOARD, PERKS_KB_BUTTONS, COINS_STORE_KEYBOARD } = require('../keyboard');
 
 const BOOST_COST_COINS = 50;        // coins to activate a boost
 const BOOST_DURATION_HOURS = 24;    // hours a boost lasts
@@ -36,15 +37,7 @@ function setupVipPerksCommands(bot, User) {
         `🪙 500 coins/month\n` +
         `💌 View & chat with matches\n` +
         `👑 VIP badge on your profile`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-            ]
-          }
-        }
+        { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
       );
     }
 
@@ -78,16 +71,7 @@ function setupVipPerksCommands(bot, User) {
       `↩️ *Undo Skip:* ✅ Available\n` +
       `💌 *Matches & Chat:* ✅ Unlocked`;
 
-    bot.sendMessage(chatId, perksMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: boostBtnLabel, callback_data: 'activate_boost' }],
-          [{ text: user.invisibleMode ? '👁️ Turn Off Invisible Mode' : '👻 Turn On Invisible Mode', callback_data: 'toggle_invisible' }],
-          [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, perksMsg, { parse_mode: 'Markdown', reply_markup: PERKS_KEYBOARD });
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -110,7 +94,7 @@ function setupVipPerksCommands(bot, User) {
         if (!user.isVip) {
           return bot.sendMessage(chatId,
             '🔒 *VIP Feature*\n\nProfile boost is available for VIP members only.',
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👑 Subscribe', callback_data: 'manage_vip' }]] } }
+            { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
           );
         }
 
@@ -118,7 +102,7 @@ function setupVipPerksCommands(bot, User) {
         if (user.boostExpiresAt && user.boostExpiresAt > now) {
           return bot.sendMessage(chatId,
             `🚀 *Boost Already Active*\n\nYour boost expires ${formatTimeLeft(user.boostExpiresAt)}.`,
-            { parse_mode: 'Markdown' }
+            { parse_mode: 'Markdown', reply_markup: PERKS_KEYBOARD }
           );
         }
 
@@ -134,14 +118,14 @@ function setupVipPerksCommands(bot, User) {
           invalidateUserCache(String(telegramId));
           return bot.sendMessage(chatId,
             `🚀 *Boost Activated!*\n\nYour profile will appear first for the next *${BOOST_DURATION_HOURS} hours*!\n\n_Next free boost available in ${FREE_BOOST_INTERVAL_DAYS} days._`,
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
+            { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
           );
         }
 
         if ((user.coins || 0) < BOOST_COST_COINS) {
           return bot.sendMessage(chatId,
             `❌ *Not Enough Coins*\n\nYou need *${BOOST_COST_COINS} coins* to activate a boost.\n\nYour balance: ${user.coins || 0} coins`,
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💰 Buy Coins', callback_data: 'buy_coins' }]] } }
+            { parse_mode: 'Markdown', reply_markup: COINS_STORE_KEYBOARD }
           );
         }
 
@@ -152,7 +136,7 @@ function setupVipPerksCommands(bot, User) {
         invalidateUserCache(String(telegramId));
         bot.sendMessage(chatId,
           `🚀 *Boost Activated!*\n\n-${BOOST_COST_COINS} coins\n\nYour profile will appear first for the next *${BOOST_DURATION_HOURS} hours*! 🔥`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
 
       // ── 👻 TOGGLE INVISIBLE MODE ─────────────────────────────────────
@@ -164,7 +148,7 @@ function setupVipPerksCommands(bot, User) {
         if (!user.isVip) {
           return bot.sendMessage(chatId,
             '🔒 *VIP Feature*\n\nInvisible mode is available for VIP members only.',
-            { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👑 Subscribe', callback_data: 'manage_vip' }]] } }
+            { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
           );
         }
 
@@ -179,15 +163,7 @@ function setupVipPerksCommands(bot, User) {
           ? `👻 *Invisible Mode ON*\n\nYou can now browse profiles without updating your "last active" status. Others won't see when you're online.`
           : `👁️ *Invisible Mode OFF*\n\nYour activity status is now visible again.`;
 
-        bot.sendMessage(chatId, statusMsg, {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: newMode ? '👁️ Turn Off Invisible Mode' : '👻 Turn On Invisible Mode', callback_data: 'toggle_invisible' }],
-              [{ text: '👑 My VIP Perks', callback_data: 'show_vip_perks' }]
-            ]
-          }
-        });
+        bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown', reply_markup: PERKS_KEYBOARD });
 
       // ── 👑 SHOW VIP PERKS PANEL ──────────────────────────────────────
       } else if (data === 'show_vip_perks') {
@@ -197,6 +173,20 @@ function setupVipPerksCommands(bot, User) {
 
     } catch (err) {
       console.error('[VIP Perks] Error:', err);
+    }
+  });
+
+  // ── Reply keyboard handlers for Perks panel ──────────────────────────
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !PERKS_KB_BUTTONS.includes(text)) return;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    if (text === '🚀 Activate Boost') {
+      bot.emit('callback_query', { id: 'kb', message: { chat: { id: chatId }, message_id: 0 }, from: msg.from, data: 'activate_boost' });
+    } else if (text === '👻 Toggle Invisible') {
+      bot.emit('callback_query', { id: 'kb', message: { chat: { id: chatId }, message_id: 0 }, from: msg.from, data: 'toggle_invisible' });
     }
   });
 }

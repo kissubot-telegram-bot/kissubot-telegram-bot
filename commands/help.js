@@ -32,21 +32,14 @@ function setupHelpCommands(bot) {
     bot.sendMessage(chatId,
       `🆘 *Support Center*\n\n` +
       `Our team is ready to help you! 🙌\n\n` +
-      `💬 *Telegram:* @kissSupport\n` +
-      `📧 *Email:* spprtksbt@gmail.com\n` +
+      `🤖 *Support Bot:* @KissuSupportBot\n` +
+      `� *Channel:* @kissuSupport\n` +
       `⏰ *Response time:* 24–48 hours\n\n` +
       `📋 *Please include:*\n` +
       `• Your username: @${msg.from.username || 'N/A'}\n` +
       `• A clear description of the issue\n` +
       `• Screenshots if possible`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
-          ]
-        }
-      }
+      { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
     );
   });
 
@@ -120,20 +113,13 @@ function setupHelpCommands(bot) {
         return bot.sendMessage(chatId,
           `🆘 *Contact Support*\n\n` +
           `Our team responds within 24–48 hours.\n\n` +
-          `💬 *Telegram:* @kissSupport\n` +
-          `📧 *Email:* spprtksbt@gmail.com\n\n` +
+          `🤖 *Support Bot:* @KissuSupportBot\n` +
+          `� *Channel:* @kissuSupport\n\n` +
           `📋 *When contacting us, please include:*\n` +
           `• Your Telegram username\n` +
           `• A description of the problem\n` +
           `• Screenshots if available`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
-              ]
-            }
-          }
+          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
         );
 
       case '🚨 Report Center':
@@ -163,18 +149,11 @@ function setupHelpCommands(bot) {
 
     bot.sendMessage(chatId,
       `${t.emoji} *${t.title}*\n\n${t.detail}\n\n` +
-      `📧 *Send your report to:* spprtksbt@gmail.com\n` +
-      `💬 *Or message:* @kissSupport\n\n` +
+      `🤖 *Contact:* @KissuSupportBot\n` +
+      `💬 *Channel:* @kissuSupport\n\n` +
       `Please include your Telegram username so we can follow up.\n` +
       `⏰ We review all reports within 24 hours.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
-          ]
-        }
-      }
+      { parse_mode: 'Markdown', reply_markup: REPORT_KEYBOARD }
     );
   });
 }
