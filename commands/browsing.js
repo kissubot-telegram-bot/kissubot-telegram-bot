@@ -19,29 +19,27 @@ const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require
 const { canLike, recordLike } = require('./antiSpam');
 const { requireBrowseAccess, requireMatchesAccess, incrementMaleSwipeCount, getMaleSwipeCount } = require('./genderGate');
 const axios = require('axios');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
 
 // Try to load API_BASE from config (optional — stats calls are fire-and-forget)
 let API_BASE = '';
 try { API_BASE = require('../config').API_BASE; } catch (e) { }
 
-function setupBrowsingCommands(bot, User, Match, Like) {
+function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
   // ─────────────────────────────────────────────────────────────────────
-  // Build the 4-button inline keyboard for a profile card
+  // Reply Keyboard for browsing actions (profileId stored in userStates)
   // ─────────────────────────────────────────────────────────────────────
-  function buildProfileKeyboard(profileId) {
-    return {
-      inline_keyboard: [
-        [
-          { text: '❤️ Like', callback_data: `like_${profileId}` },
-          { text: '❌ Skip', callback_data: `pass_${profileId}` }
-        ],
-        [
-          { text: '🚩 Report', callback_data: `report_${profileId}` },
-          { text: '⭐ Super Like (10🪙)', callback_data: `superlike_${profileId}` }
-        ]
-      ]
-    };
+  const BROWSE_KEYBOARD = {
+    keyboard: [
+      [{ text: '❤️ Like' }, { text: '❌ Skip' }],
+      [{ text: '⭐ Super Like' }, { text: '🚩 Report' }]
+    ],
+    resize_keyboard: true
+  };
+
+  function buildProfileKeyboard() {
+    return BROWSE_KEYBOARD;
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -202,7 +200,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         : {};
 
       const limit = currentUser.isVip ? 0 : 10;
-      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null } };
+      const testFilter = currentUser.isDevMode ? {} : { isTestAccount: { $ne: true } };
+      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null }, ...testFilter };
 
       const runQuery = (extra) => {
         let q = User.find({ ...baseExclude, ...extra });
@@ -214,7 +213,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
       if (bypassSeen) {
         // After reset: skip ALL filters, show any other user ignoring blocked list too
-        let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null } });
+        let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, ...testFilter });
         if (limit) q = q.limit(limit);
         profiles = await q;
       } else {
@@ -245,7 +244,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
         // 5th try: drop everything including blocked/seen exclusion list
         if (profiles.length === 0) {
-          let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null } });
+          let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, ...testFilter });
           if (limit) q = q.limit(limit);
           profiles = await q;
         }
@@ -272,6 +271,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       }
 
       if (!profiles || profiles.length === 0) {
+        if (userStates) userStates.delete(String(telegramId));
         return bot.sendMessage(chatId,
           '🌙 *You\'ve seen everyone for now!*\n\n' +
           'New people join Kissubot every day — check back soon 💕\n\n' +
@@ -281,12 +281,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           '• Update your profile to attract more matches',
           {
             parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '⚙️ Search Settings', callback_data: 'settings_search' }, { text: '🔄 Reset History', callback_data: 'reset_seen_profiles' }],
-                [{ text: '💕 View Matches', callback_data: 'view_matches' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
+            reply_markup: MAIN_KEYBOARD
           }
         );
       }
@@ -298,7 +293,12 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         ? boostedProfiles[Math.floor(Math.random() * boostedProfiles.length)]
         : profiles[Math.floor(Math.random() * profiles.length)];
       const caption = buildProfileCaption(profile, telegramId);
-      const keyboard = buildProfileKeyboard(profile.telegramId);
+      const keyboard = buildProfileKeyboard();
+
+      // Store current profile so Reply Keyboard buttons know who to act on
+      if (userStates) {
+        userStates.set(String(telegramId), { browsing: { profileId: String(profile.telegramId) } });
+      }
 
       // VIP viewers see all photos as media group; non-VIP sees only first photo
       if (currentUser.isVip && profile.photos && profile.photos.length > 1) {
@@ -335,6 +335,34 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   // ─────────────────────────────────────────────────────────────────────
   bot.onText(/\/browse/, async (msg) => {
     await browseProfiles(msg.chat.id, msg.from.id);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // /devmode — toggle dev mode (allows seeing test accounts in browse)
+  // ─────────────────────────────────────────────────────────────────────
+  bot.onText(/\/devmode/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = String(msg.from.id);
+    try {
+      const user = await User.findOne({ telegramId });
+      if (!user) return bot.sendMessage(chatId, '❌ User not found.');
+      const newState = !user.isDevMode;
+      const vipUpdate = newState
+        ? { isDevMode: true, isVip: true }
+        : { isDevMode: false, isVip: false };
+      await User.findOneAndUpdate({ telegramId }, { $set: vipUpdate });
+      const { invalidateUserCache } = require('./auth');
+      invalidateUserCache(telegramId);
+      bot.sendMessage(chatId,
+        `🛠 *Dev Mode ${newState ? 'ON' : 'OFF'}*\n\n` +
+        (newState
+          ? '✅ Test accounts visible in browse\n👑 VIP granted for free testing'
+          : '🚫 Test accounts hidden\n👑 VIP removed'),
+        { parse_mode: 'Markdown' }
+      );
+    } catch (err) {
+      bot.sendMessage(chatId, `❌ Error: ${err.message}`);
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -410,12 +438,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           '💞 *No Matches Yet*\n\nKeep browsing to find your perfect match! 💕',
           {
             parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }, { text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
+            reply_markup: MAIN_KEYBOARD
           }
         );
       }
@@ -507,6 +530,54 @@ function setupBrowsingCommands(bot, User, Match, Like) {
   }
 
   // ─────────────────────────────────────────────────────────────────────
+  // Reply Keyboard handler — Like / Skip / Super Like / Report
+  // ─────────────────────────────────────────────────────────────────────
+  const BROWSE_BUTTONS = ['❤️ Like', '❌ Skip', '⭐ Super Like', '🚩 Report'];
+
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !BROWSE_BUTTONS.includes(text)) return;
+    if (MAIN_KB_BUTTONS.includes(text)) return;
+
+    const chatId = msg.chat.id;
+    const telegramId = String(msg.from.id);
+
+    const state = userStates && userStates.get(telegramId);
+    if (!state || !state.browsing || !state.browsing.profileId) {
+      // No active browse session — start one
+      return browseProfiles(chatId, msg.from.id);
+    }
+
+    const targetTelegramId = state.browsing.profileId;
+
+    if (text === '❤️ Like') {
+      bot.emit('callback_query', {
+        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
+        from: { id: msg.from.id, first_name: msg.from.first_name },
+        data: `like_${targetTelegramId}`
+      });
+    } else if (text === '❌ Skip') {
+      bot.emit('callback_query', {
+        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
+        from: { id: msg.from.id, first_name: msg.from.first_name },
+        data: `pass_${targetTelegramId}`
+      });
+    } else if (text === '⭐ Super Like') {
+      bot.emit('callback_query', {
+        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
+        from: { id: msg.from.id, first_name: msg.from.first_name },
+        data: `superlike_${targetTelegramId}`
+      });
+    } else if (text === '🚩 Report') {
+      bot.emit('callback_query', {
+        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
+        from: { id: msg.from.id, first_name: msg.from.first_name },
+        data: `report_${targetTelegramId}`
+      });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
   // Callback query handler
   // ─────────────────────────────────────────────────────────────────────
   bot.on('callback_query', async (query) => {
@@ -541,8 +612,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
 
         if (!fromUser || !toUser) return bot.sendMessage(chatId, '❌ User not found.');
 
-        // Remove buttons immediately (fast UX)
-        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+        // Clear browsing state (action taken)
+        if (userStates) userStates.delete(String(telegramId));
 
         // Record the like and mark profile as seen
         if (!toUser.likes.includes(String(telegramId))) {
@@ -635,8 +706,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
       } else if (data.startsWith('pass_')) {
         const targetTelegramId = data.replace('pass_', '');
 
-        // Remove buttons instantly
-        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+        // Clear browsing state (action taken)
+        if (userStates) userStates.delete(String(telegramId));
 
         // Record pass so we don't show this profile again
         const fromUser = await User.findOne({ telegramId });
@@ -673,7 +744,8 @@ function setupBrowsingCommands(bot, User, Match, Like) {
         const undoProfile = await User.findOne({ telegramId: String(targetId) });
         if (!undoProfile) return bot.sendMessage(chatId, '❌ Profile no longer available.');
         const undoCaption = buildProfileCaption(undoProfile, telegramId);
-        const undoKeyboard = buildProfileKeyboard(undoProfile.telegramId);
+        const undoKeyboard = buildProfileKeyboard();
+        if (userStates) userStates.set(String(telegramId), { browsing: { profileId: String(undoProfile.telegramId) } });
         await bot.sendMessage(chatId, '↩️ *Undone! Here they are again:*', { parse_mode: 'Markdown' });
         if (undoProfile.photos && undoProfile.photos.length > 0) {
           await bot.sendPhoto(chatId, undoProfile.photos[0], { caption: undoCaption, parse_mode: 'Markdown', reply_markup: undoKeyboard });
@@ -716,7 +788,7 @@ function setupBrowsingCommands(bot, User, Match, Like) {
           fromUser.coins -= 10;
           await fromUser.save();
         }
-        bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId }).catch(() => { });
+        if (userStates) userStates.delete(String(telegramId));
 
         if (Like) {
           await Like.findOneAndUpdate(

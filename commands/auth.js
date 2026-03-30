@@ -1,3 +1,4 @@
+const { MAIN_KEYBOARD } = require('../keyboard');
 const userProfileCache = new Map();
 
 async function getCachedUserProfile(telegramId, User) {
@@ -92,6 +93,8 @@ function setupAuthCommands(bot, userStates, User) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
+    if (msg.text && MAIN_KB_BUTTONS.includes(msg.text)) return;
+
     if (userRegistrationData[userId] && userRegistrationData[userId].promptingForLocation) {
       const location = msg.text;
       if (!location) {
@@ -119,12 +122,7 @@ function setupAuthCommands(bot, userStates, User) {
           `4️⃣ Upload photos`;
 
         bot.sendMessage(chatId, welcomeMsg, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '✏️ Setup Profile', callback_data: 'edit_profile' }],
-              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-            ]
-          }
+          reply_markup: MAIN_KEYBOARD
         });
       } catch (err) {
         console.error('[/register] Full Error:', err);

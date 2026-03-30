@@ -402,6 +402,10 @@ const userSchema = new mongoose.Schema({
   // Profile boosts purchased via Telegram Payments
   boosts: { type: Number, default: 0 },
 
+  // Dev / Test flags
+  isTestAccount: { type: Boolean, default: false }, // Hidden from normal users; visible only in devMode
+  isDevMode: { type: Boolean, default: false },      // Can see test accounts during browse
+
   // Anti-spam
   lastLikeAt: { type: Date },
 
@@ -450,7 +454,7 @@ setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
 setupOnboardingCommands(bot, userStates, User);
-setupBrowsingCommands(bot, User, Match, Like);
+setupBrowsingCommands(bot, User, Match, Like, userStates);
 setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot);
 setupSettingsCommands(bot, userStates, User);

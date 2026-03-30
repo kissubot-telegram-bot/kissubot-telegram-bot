@@ -1,6 +1,7 @@
 const { bot, userStates } = require('./server');
 const axios = require('axios');
 const { API_BASE } = require('./config');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('./keyboard');
 require('dotenv').config();
 
 // Import command modules
@@ -63,13 +64,7 @@ function showMainMenu(chatId, firstName) {
 
   bot.sendMessage(chatId, mainMenuMsg, {
     parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '👤 My Profile', callback_data: 'view_profile' }, { text: '🔍 Discover', callback_data: 'start_browse' }],
-        [{ text: '💕 Matches', callback_data: 'view_matches' }, { text: '💬 Chat', callback_data: 'view_matches' }, { text: '⚙️ Settings', callback_data: 'main_settings' }],
-        [{ text: '🆘 Support', callback_data: 'show_support' }]
-      ]
-    }
+    reply_markup: MAIN_KEYBOARD
   });
 }
 
@@ -224,8 +219,9 @@ bot.on('message', async (msg) => {
   const telegramId = msg.from.id;
   const text = msg.text;
 
-  // Skip if it's a command
+  // Skip commands and main nav keyboard buttons
   if (text && text.startsWith('/')) return;
+  if (text && MAIN_KB_BUTTONS.includes(text)) return;
 
   // Handle user states
   if (userStates.has(telegramId)) {
@@ -985,6 +981,30 @@ bot.on('callback_query', async (query) => {
 
     console.error('Callback query error:', err.response?.data || err.message);
     bot.sendMessage(chatId, '❌ Something went wrong. Please try again later.');
+  }
+});
+
+// ── Main Reply Keyboard routing ─────────────────────────────────────────
+// This handler fires last (bot.js is loaded last by server.js).
+// Onboarding/profile state handlers return early for MAIN_KB_BUTTONS,
+// so these reach here cleanly.
+bot.on('message', (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text;
+  if (!text) return;
+
+  const routes = {
+    '🔍 Discover':    '/browse',
+    '💕 Matches':     '/matches',
+    '👤 My Profile':  '/profile',
+    '⚙️ Settings':    '/settings',
+    '💎 VIP':         '/vip',
+    '🆘 Help':        '/help'
+  };
+
+  const cmd = routes[text];
+  if (cmd) {
+    bot.emit('message', { ...msg, text: cmd });
   }
 });
 

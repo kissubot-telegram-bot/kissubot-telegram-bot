@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
+const { MAIN_KB_BUTTONS } = require('../keyboard');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
@@ -702,6 +703,7 @@ function setupPremiumCommands(bot, User, userStates) {
   // Gift VIP: capture recipient input
   bot.on('message', async (msg) => {
     if (!msg.text || msg.text.startsWith('/')) return;
+    if (MAIN_KB_BUTTONS.includes(msg.text)) return;
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
     if (!userStates) return;

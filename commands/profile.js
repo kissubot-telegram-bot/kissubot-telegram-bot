@@ -2,20 +2,8 @@ const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require
 const axios = require('axios');
 const { API_BASE } = require('../config');
 const browsingModule = require('./browsing');
-
-// US States for location selection (USA only)
-const US_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
-  'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
-  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
-  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
-  'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
-  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
-  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
-];
+const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
 
 
 function setupProfileCommands(bot, userStates, User) {
@@ -105,50 +93,42 @@ function setupProfileCommands(bot, userStates, User) {
         case 'edit_name':
           userStates.set(telegramId, { editing: 'name' });
           bot.sendMessage(chatId, '📝 **Edit Name**\n\nPlease enter your new name:', {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
-              ]]
-            }
+            reply_markup: { remove_keyboard: true }
           });
           break;
 
         case 'edit_age':
           userStates.set(telegramId, { editing: 'age' });
           bot.sendMessage(chatId, '🎂 **Edit Age**\n\nPlease enter your age (18-100):', {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
-              ]]
-            }
+            reply_markup: { remove_keyboard: true }
           });
           break;
 
         case 'edit_gender':
+          userStates.set(telegramId, { editing: 'gender' });
           bot.sendMessage(chatId, '👤 **Edit Gender**\n\nHow do you identify?', {
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '👨 Male', callback_data: 'set_gender_Male' },
-                  { text: '👩 Female', callback_data: 'set_gender_Female' }
-                ],
-                [{ text: '🚫 Cancel', callback_data: 'cancel_edit' }]
-              ]
+              keyboard: [
+                [{ text: '👨 Male' }, { text: '👩 Female' }],
+                [{ text: '� Cancel' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: true
             }
           });
           break;
 
         case 'edit_lookingFor':
+          userStates.set(telegramId, { editing: 'lookingFor' });
           bot.sendMessage(chatId, '👀 **Edit Preferences**\n\nWho would you like to meet?', {
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: 'Men', callback_data: 'set_lookingFor_Male' },
-                  { text: 'Women', callback_data: 'set_lookingFor_Female' }
-                ],
-                [{ text: 'Everyone', callback_data: 'set_lookingFor_Both' }],
-                [{ text: '🚫 Cancel', callback_data: 'cancel_edit' }]
-              ]
+              keyboard: [
+                [{ text: 'Men' }, { text: 'Women' }],
+                [{ text: 'Everyone' }],
+                [{ text: '🚫 Cancel' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: true
             }
           });
           break;
@@ -170,33 +150,20 @@ function setupProfileCommands(bot, userStates, User) {
           break;
 
         case 'edit_location':
-          // Show US state selection
-          const stateButtons = [];
-          for (let i = 0; i < US_STATES.length; i += 3) {
-            stateButtons.push(
-              US_STATES.slice(i, i + 3).map(state => ({
-                text: state,
-                callback_data: `select_state_${state}`
-              }))
-            );
-          }
-          stateButtons.push([{ text: '🔙 Cancel', callback_data: 'edit_profile' }]);
-
-          bot.sendMessage(chatId, '📍 **Select Your State** 📍\n\nKissuBot is currently available in the USA only.\n\nPlease select your state:', {
-            reply_markup: {
-              inline_keyboard: stateButtons
+          userStates.set(telegramId, { editing: 'location_search' });
+          bot.sendMessage(chatId,
+            '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Lagos_',
+            {
+              parse_mode: 'Markdown',
+              reply_markup: { remove_keyboard: true }
             }
-          });
+          );
           break;
 
         case 'edit_bio':
           userStates.set(telegramId, { editing: 'bio' });
           bot.sendMessage(chatId, '💭 **Edit Bio**\n\nPlease enter your bio (max 500 characters):', {
-            reply_markup: {
-              inline_keyboard: [[
-                { text: '🚫 Cancel', callback_data: 'cancel_edit' }
-              ]]
-            }
+            reply_markup: { remove_keyboard: true }
           });
           break;
 
@@ -262,12 +229,7 @@ function setupProfileCommands(bot, userStates, User) {
           // Cancel editing and clear user state
           userStates.delete(telegramId);
           bot.sendMessage(chatId, '❌ **Edit Cancelled**\n\nNo changes were made.', {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
-              ]
-            }
+            reply_markup: MAIN_KEYBOARD
           });
           break;
 
@@ -340,12 +302,9 @@ function setupProfileCommands(bot, userStates, User) {
               await User.findOneAndUpdate({ telegramId }, { gender });
               invalidateUserCache(telegramId);
               bot.answerCallbackQuery(query.id).catch(() => { });
+              userStates.delete(telegramId);
               bot.sendMessage(chatId, `✅ Gender updated to ${gender}.`, {
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: '👤 Back to Profile', callback_data: 'edit_profile' }]
-                  ]
-                }
+                reply_markup: MAIN_KEYBOARD
               });
             } catch (err) {
               bot.sendMessage(chatId, '❌ Failed to save. Please try again.');
@@ -359,12 +318,9 @@ function setupProfileCommands(bot, userStates, User) {
               await User.findOneAndUpdate({ telegramId }, { lookingFor });
               invalidateUserCache(telegramId);
               bot.answerCallbackQuery(query.id).catch(() => { });
+              userStates.delete(telegramId);
               bot.sendMessage(chatId, `✅ Preferences updated to ${lookingFor === 'Both' ? 'Everyone' : lookingFor}.`, {
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: '👤 Back to Profile', callback_data: 'edit_profile' }]
-                  ]
-                }
+                reply_markup: MAIN_KEYBOARD
               });
             } catch (err) {
               bot.sendMessage(chatId, '❌ Failed to save. Please try again.');
@@ -473,8 +429,9 @@ function setupProfileCommands(bot, userStates, User) {
     const telegramId = msg.from.id;
     const text = msg.text;
 
-    // Skip if it's a command or callback
+    // Skip commands, non-text, no state, and main nav keyboard buttons
     if (!text || text.startsWith('/') || !userStates.get(telegramId)) return;
+    if (MAIN_KB_BUTTONS.includes(text)) return;
 
     const userState = userStates.get(telegramId);
 
@@ -482,6 +439,103 @@ function setupProfileCommands(bot, userStates, User) {
       try {
         const field = userState.editing;
         let value = text.trim();
+
+        // ── LOCATION SEARCH: show city list with Reply Keyboard ──────────
+        if (field === 'location_search') {
+          if (value.length < 2 || value.length > 100) {
+            return bot.sendMessage(chatId, '❌ Please enter a city name (2–100 characters):');
+          }
+          const cities = await searchCities(value);
+          if (cities.length === 0) {
+            await User.findOneAndUpdate({ telegramId }, { location: value });
+            invalidateUserCache(telegramId);
+            userStates.delete(telegramId);
+            return bot.sendMessage(chatId,
+              `✅ *${value}* saved as your location!`,
+              { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+            );
+          }
+          userStates.set(telegramId, { editing: 'location_pick', cities });
+          return bot.sendMessage(chatId,
+            `📍 *Select your city from the list:*\n\n${formatCityList(cities)}\n\n👇👇👇 Press the number button`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: buildCityKeyboard(cities)
+            }
+          );
+        }
+
+        // ── LOCATION PICK: handle number or Back from Reply Keyboard ─────
+        if (field === 'location_pick') {
+          const cities = userState.cities || [];
+          if (value === '⬅️ Back') {
+            userStates.set(telegramId, { editing: 'location_search' });
+            return bot.sendMessage(chatId,
+              '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Lagos_',
+              { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+            );
+          }
+          const idx = parseInt(value, 10) - 1;
+          if (isNaN(idx) || idx < 0 || idx >= cities.length) {
+            return bot.sendMessage(chatId, `❌ Please press one of the numbered buttons (1–${cities.length}):`);
+          }
+          const chosen = cities[idx].label;
+          await User.findOneAndUpdate({ telegramId }, { location: chosen });
+          invalidateUserCache(telegramId);
+          userStates.delete(telegramId);
+          return bot.sendMessage(chatId,
+            `✅ *${chosen}* saved as your location!`,
+            { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+          );
+        }
+
+        // ── GENDER edit via Reply Keyboard ──────────────────────────────
+        if (field === 'gender') {
+          if (value === '🚫 Cancel') {
+            userStates.delete(telegramId);
+            return bot.sendMessage(chatId, '❌ Edit cancelled.', { reply_markup: MAIN_KEYBOARD });
+          }
+          const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female' };
+          const gender = genderMap[value];
+          if (!gender) {
+            return bot.sendMessage(chatId, '❌ Please press one of the buttons:', {
+              reply_markup: {
+                keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '🚫 Cancel' }]],
+                resize_keyboard: true, one_time_keyboard: true
+              }
+            });
+          }
+          await User.findOneAndUpdate({ telegramId }, { gender });
+          invalidateUserCache(telegramId);
+          userStates.delete(telegramId);
+          return bot.sendMessage(chatId, `✅ *Gender updated to ${gender}!*`, {
+            parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD
+          });
+        }
+
+        // ── LOOKING FOR edit via Reply Keyboard ──────────────────────────
+        if (field === 'lookingFor') {
+          if (value === '🚫 Cancel') {
+            userStates.delete(telegramId);
+            return bot.sendMessage(chatId, '❌ Edit cancelled.', { reply_markup: MAIN_KEYBOARD });
+          }
+          const lookingForMap = { 'Men': 'Male', 'Women': 'Female', 'Everyone': 'Both' };
+          const lookingFor = lookingForMap[value];
+          if (!lookingFor) {
+            return bot.sendMessage(chatId, '❌ Please press one of the buttons:', {
+              reply_markup: {
+                keyboard: [[{ text: 'Men' }, { text: 'Women' }], [{ text: 'Everyone' }], [{ text: '🚫 Cancel' }]],
+                resize_keyboard: true, one_time_keyboard: true
+              }
+            });
+          }
+          await User.findOneAndUpdate({ telegramId }, { lookingFor });
+          invalidateUserCache(telegramId);
+          userStates.delete(telegramId);
+          return bot.sendMessage(chatId, `✅ *Preferences updated!*`, {
+            parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD
+          });
+        }
 
         // Validate input based on field
         if (field === 'age') {
@@ -566,12 +620,7 @@ function setupProfileCommands(bot, userStates, User) {
         }
 
         bot.sendMessage(chatId, `✅ **${fieldNames[field] || field} Updated!**\n\nYour ${field} has been saved.`, {
-          reply_markup: {
-            inline_keyboard: [[
-              { text: '👤 View Profile', callback_data: 'edit_profile' },
-              { text: '🏠 Main Menu', callback_data: 'main_menu' }
-            ]]
-          }
+          reply_markup: MAIN_KEYBOARD
         });
       } catch (err) {
         console.error('Profile update error:', err);
@@ -600,7 +649,8 @@ function setupProfileCommands(bot, userStates, User) {
         `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
         `💭 *Bio:* ${user.bio || '_(not set)_'}\n` +
         `📸 *Photos:* ${photoCount}/6\n` +
-        `✨ *Status:* ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}`;
+        `✨ *Status:* ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n` +
+        `👑 *VIP:* ${user.isVip ? '✅ Active' : '❌ Not subscribed'}`;
 
       const phoneButtonLabel = user.phone
         ? '📞 Update Phone'

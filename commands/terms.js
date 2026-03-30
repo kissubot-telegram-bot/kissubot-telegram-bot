@@ -1,5 +1,6 @@
 const { getCachedUserProfile, invalidateUserCache } = require('./auth');
 const path = require('path');
+const { MAIN_KEYBOARD } = require('../keyboard');
 
 const TERMS_PDF = path.join(__dirname, '..', 'docs', 'terms-of-service.pdf');
 const PRIVACY_PDF = path.join(__dirname, '..', 'docs', 'privacy-policy.pdf');
@@ -81,15 +82,11 @@ function setupTermsCommands(bot, User) {
                 return bot.sendMessage(chatId,
                     `🎉 **Profile Complete!** 🎉\n\n` +
                     `You're all set, **${user.name || 'friend'}**!\n\n` +
-                    `Your profile is live and you can start browsing matches 💕`,
+                    `Your profile is live and you can start browsing matches 💕\n\n` +
+                    `👇 Use the buttons below to navigate!`,
                     {
                         parse_mode: 'Markdown',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [{ text: '🔍 Start Browsing', callback_data: 'start_browse' }],
-                                [{ text: '👤 View My Profile', callback_data: 'view_my_profile' }]
-                            ]
-                        }
+                        reply_markup: MAIN_KEYBOARD
                     }
                 );
             } catch (err) {
