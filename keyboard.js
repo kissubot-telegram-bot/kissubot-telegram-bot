@@ -9,9 +9,10 @@
 
 const MAIN_KEYBOARD = {
   keyboard: [
-    [{ text: '🔍 Discover' }, { text: '💕 Matches' }],
-    [{ text: '👤 My Profile' }, { text: '⚙️ Settings' }],
-    [{ text: '💎 VIP' }, { text: '🆘 Help' }]
+    [{ text: '🔍 Discover' }],
+    [{ text: '💕 Matches' }, { text: '👤 My Profile' }],
+    [{ text: '⚙️ Settings' }, { text: '💎 VIP' }],
+    [{ text: '🆘 Help' }]
   ],
   resize_keyboard: true,
   persistent: true
