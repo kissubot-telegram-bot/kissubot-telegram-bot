@@ -1,7 +1,7 @@
 const { bot, userStates } = require('./server');
 const axios = require('axios');
 const { API_BASE } = require('./config');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS } = require('./keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS, ALL_KB_BUTTONS } = require('./keyboard');
 require('dotenv').config();
 
 // Import command modules
@@ -219,10 +219,9 @@ bot.on('message', async (msg) => {
   const telegramId = msg.from.id;
   const text = msg.text;
 
-  // Skip commands and nav keyboard buttons
+  // Skip commands and all nav keyboard buttons
   if (text && text.startsWith('/')) return;
-  if (text && MAIN_KB_BUTTONS.includes(text)) return;
-  if (text && PROFILE_KB_BUTTONS.includes(text)) return;
+  if (text && ALL_KB_BUTTONS.includes(text)) return;
 
   // Handle user states
   if (userStates.has(telegramId)) {
@@ -983,6 +982,15 @@ bot.on('callback_query', async (query) => {
     console.error('Callback query error:', err.response?.data || err.message);
     bot.sendMessage(chatId, '❌ Something went wrong. Please try again later.');
   }
+});
+
+// ── Central '🏠 Main Menu' handler ─────────────────────────────────────
+bot.on('message', (msg) => {
+  if (msg.text !== '🏠 Main Menu') return;
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  userStates.delete(telegramId);
+  bot.sendMessage(chatId, '🏠 *Main Menu*', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
 });
 
 // ── Main Reply Keyboard routing ─────────────────────────────────────────

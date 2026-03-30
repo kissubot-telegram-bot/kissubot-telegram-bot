@@ -1,10 +1,50 @@
 const axios = require('axios');
 const { getCachedUserProfile } = require('./auth');
+const {
+  MAIN_KEYBOARD, SETTINGS_KEYBOARD, SETTINGS_KB_BUTTONS,
+  SEARCH_KEYBOARD, SEARCH_KB_BUTTONS
+} = require('../keyboard');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
+function sendSettingsMenu(bot, chatId) {
+  bot.sendMessage(chatId,
+    `⚙️ *Settings*\n\n` +
+    `Customise your KissuBot experience!\n\n` +
+    `👤 Profile Info — view & edit your details\n` +
+    `🔍 Search Preferences — control who you see\n` +
+    `🔔 Notifications — manage alerts\n` +
+    `🔒 Privacy — control your visibility`,
+    { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+  );
+}
+
+async function sendSearchMenu(bot, chatId, telegramId, User) {
+  try {
+    const user = await getCachedUserProfile(telegramId, User);
+    const p = user.searchSettings || {};
+    const ageMin = p.ageMin || 18;
+    const ageMax = p.ageMax || 99;
+    const dist = p.maxDistance || 50;
+    const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
+    const gender = p.genderPreference || 'Any';
+    const hideLiked = p.hideLiked === true;
+    bot.sendMessage(chatId,
+      `🔍 *Search Preferences*\n\n` +
+      `🎂 *Age Range:* ${ageMin}–${ageMax}\n` +
+      `📍 *Distance:* ${distLabel}\n` +
+      `👥 *Gender:* ${gender}\n` +
+      `🚫 *Hide Already Liked:* ${hideLiked ? '✅ On' : '❌ Off'}\n\n` +
+      `Tap a button to change a setting:`,
+      { parse_mode: 'Markdown', reply_markup: SEARCH_KEYBOARD }
+    );
+  } catch (err) {
+    bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
+  }
+}
+
 function setupSettingsCommands(bot, userStates, User) {
-  // Callback query handlers
+  // Callback query handlers (kept for backward compatibility with inline flows)
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const telegramId = query.from.id;
@@ -13,49 +53,12 @@ function setupSettingsCommands(bot, userStates, User) {
     try {
       switch (data) {
         case 'main_settings':
-          const settingsMsg = `⚙️ **SETTINGS MENU** ⚙️\n\n` +
-            `Customize your Kissubot experience!\n\n` +
-            `👤 **Profile Settings**\n` +
-            `• Edit your profile information\n` +
-            `• Manage your photos\n` +
-            `• Privacy controls\n\n` +
-            `🔍 **Search Settings**\n` +
-            `• Age range preferences\n` +
-            `• Distance radius\n` +
-            `• Advanced filters (VIP)\n\n` +
-            `🔔 **Notification Settings**\n` +
-            `• Match notifications\n` +
-            `• Message alerts\n` +
-            `• Like notifications\n\n` +
-            `❓ **Help & Support**\n` +
-            `• Contact support\n` +
-            `• Report issues\n` +
-            `• Account management`;
-
-          const buttons = [
-            [
-              { text: '👤 Profile Info', callback_data: 'settings_profile' },
-              { text: '🔍 Search Preferences', callback_data: 'settings_search' }
-            ],
-            [
-              { text: '🔔 Notifications', callback_data: 'settings_notifications' },
-              { text: '🔒 Privacy', callback_data: 'settings_privacy' }
-            ],
-            [
-              { text: '❓ Help Center', callback_data: 'show_help' },
-              { text: '🏠 Main Menu', callback_data: 'main_menu' }
-            ]
-          ];
-
-          bot.sendMessage(chatId, settingsMsg, {
-            reply_markup: {
-              inline_keyboard: buttons
-            }
-          });
+          sendSettingsMenu(bot, chatId);
           break;
 
         case 'settings_search':
-        case 'back_to_search': {
+        case 'back_to_search':
+        case 'search_settings': {
           try {
             const user = await getCachedUserProfile(telegramId, User);
             const p = user.searchSettings || {};
@@ -74,19 +77,7 @@ function setupSettingsCommands(bot, userStates, User) {
               `🚫 *Hide Already Liked:* ${hideLiked ? '✅ On' : '❌ Off'}\n\n` +
               `Tap a setting to change it:`;
 
-            bot.sendMessage(chatId, searchMsg, {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: `🎂 Age Range (${ageMin}–${ageMax})`, callback_data: 'set_age_range' },
-                   { text: `📍 Distance (${distLabel})`, callback_data: 'set_distance' }],
-                  [{ text: `👥 Gender (${gender})`, callback_data: 'set_gender_pref' }],
-                  [{ text: `🚫 Hide Liked: ${hideLiked ? '✅ On' : '❌ Off'} — tap to toggle`, callback_data: 'toggle_hide_liked' }],
-                  [{ text: '🔄 Reset Browse History', callback_data: 'reset_seen_profiles' }],
-                  [{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]
-                ]
-              }
-            });
+            await sendSearchMenu(bot, chatId, telegramId, User);
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
           }
@@ -95,72 +86,47 @@ function setupSettingsCommands(bot, userStates, User) {
 
         case 'set_age_range':
           bot.sendMessage(chatId, '🎂 *Set Age Range*\n\nChoose your preferred age range:', {
+            parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '18–25', callback_data: 'age_range_18_25' },
-                  { text: '26–35', callback_data: 'age_range_26_35' }
-                ],
-                [
-                  { text: '36–45', callback_data: 'age_range_36_45' },
-                  { text: '46–55', callback_data: 'age_range_46_55' }
-                ],
-                [
-                  { text: '18–35', callback_data: 'age_range_18_35' },
-                  { text: '25–45', callback_data: 'age_range_25_45' }
-                ],
-                [
-                  { text: '🔙 Back', callback_data: 'back_to_search' }
-                ]
-              ]
-            },
-            parse_mode: 'Markdown'
+              keyboard: [
+                [{ text: '18–25' }, { text: '26–35' }],
+                [{ text: '36–45' }, { text: '46–55' }],
+                [{ text: '18–35' }, { text: '25–45' }],
+                [{ text: '➡️ Any Age' }]
+              ],
+              resize_keyboard: true, one_time_keyboard: true
+            }
           });
+          userStates.set(telegramId, { settingPicker: 'age_range' });
           break;
 
         case 'set_distance':
-          bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum distance for matches:', {
+          bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum distance:', {
+            parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '10 km', callback_data: 'distance_10' },
-                  { text: '25 km', callback_data: 'distance_25' }
-                ],
-                [
-                  { text: '50 km', callback_data: 'distance_50' },
-                  { text: '100 km', callback_data: 'distance_100' }
-                ],
-                [
-                  { text: '250 km', callback_data: 'distance_250' },
-                  { text: 'Unlimited', callback_data: 'distance_unlimited' }
-                ],
-                [
-                  { text: '🔙 Back', callback_data: 'back_to_search' }
-                ]
-              ]
-            },
-            parse_mode: 'Markdown'
+              keyboard: [
+                [{ text: '10 km' }, { text: '25 km' }],
+                [{ text: '50 km' }, { text: '100 km' }],
+                [{ text: '250 km' }, { text: '🌍 Unlimited' }]
+              ],
+              resize_keyboard: true, one_time_keyboard: true
+            }
           });
+          userStates.set(telegramId, { settingPicker: 'distance' });
           break;
 
         case 'set_gender_pref':
           bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
+            parse_mode: 'Markdown',
             reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '👨 Men', callback_data: 'gender_male' },
-                  { text: '👩 Women', callback_data: 'gender_female' }
-                ],
-                [
-                  { text: '👥 Everyone', callback_data: 'gender_any' }
-                ],
-                [
-                  { text: '🔙 Back', callback_data: 'back_to_search' }
-                ]
-              ]
-            },
-            parse_mode: 'Markdown'
+              keyboard: [
+                [{ text: '👨 Men' }, { text: '👩 Women' }],
+                [{ text: '👥 Everyone' }]
+              ],
+              resize_keyboard: true, one_time_keyboard: true
+            }
           });
+          userStates.set(telegramId, { settingPicker: 'gender' });
           break;
 
         // Age range selections
@@ -186,10 +152,8 @@ function setupSettingsCommands(bot, userStates, User) {
               { $set: { 'searchSettings.ageMin': ageMin, 'searchSettings.ageMax': ageMax } }
             );
             invalidateUserCache(String(telegramId));
-            await bot.sendMessage(chatId, `✅ *Age range set to ${ageMin}–${ageMax}.*\nBrowse will now show profiles in this range.`, {
-              parse_mode: 'Markdown',
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
-            });
+            await sendSearchMenu(bot, chatId, telegramId, User);
+            await bot.sendMessage(chatId, `✅ *Age range set to ${ageMin}–${ageMax}.*`, { parse_mode: 'Markdown' });
           } catch (err) {
             console.error('Set age range error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to update age range. Please try again.');
@@ -220,10 +184,8 @@ function setupSettingsCommands(bot, userStates, User) {
             );
             invalidateUserCache(String(telegramId));
             const label = data === 'distance_unlimited' ? 'Unlimited' : `${maxDistance} km`;
-            await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*\nBrowse will now prefer profiles in this range.`, {
-              parse_mode: 'Markdown',
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
-            });
+            await sendSearchMenu(bot, chatId, telegramId, User);
+            await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*`, { parse_mode: 'Markdown' });
           } catch (err) {
             console.error('Set distance error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to update distance. Please try again.');
@@ -245,10 +207,8 @@ function setupSettingsCommands(bot, userStates, User) {
               { $set: { 'searchSettings.genderPreference': genderPreference, lookingFor: genderPreference === 'Any' ? 'Both' : genderPreference } }
             );
             invalidateUserCache(String(telegramId));
-            await bot.sendMessage(chatId, `✅ *Gender preference set to ${genderPreference}.*`, {
-              parse_mode: 'Markdown',
-              reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] }
-            });
+            await sendSearchMenu(bot, chatId, telegramId, User);
+            await bot.sendMessage(chatId, `✅ *Gender preference set to ${genderPreference}.*`, { parse_mode: 'Markdown' });
           } catch (err) {
             console.error('Set gender preference error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to update gender preference. Please try again.');
@@ -266,9 +226,9 @@ function setupSettingsCommands(bot, userStates, User) {
             );
             invalidateUserCache(String(telegramId));
             await bot.sendMessage(chatId,
-              `✅ *Hide Already Liked* is now *${!current ? '✅ On' : '❌ Off'}*.\n\n` +
-              (!current ? 'Profiles you\u2019ve already liked won\u2019t appear in browse.' : 'Already-liked profiles may appear again in browse.'),
-              { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Search Settings', callback_data: 'back_to_search' }]] } }
+              `✅ *Hide Already Liked* is now *${!current ? '✅ On' : '❌ Off'}*.
+${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may appear again.'}`,
+              { parse_mode: 'Markdown' }
             );
           } catch (err) {
             bot.sendMessage(chatId, '❌ Failed to update. Please try again.');
@@ -299,60 +259,29 @@ function setupSettingsCommands(bot, userStates, User) {
         }
 
         case 'settings_notifications':
-          const notifMsg = `🔔 **NOTIFICATION SETTINGS** 🔔\n\n` +
-            `Notification features are currently being optimized!\n\n` +
-            `Stay tuned for controls over:\n` +
-            `• Match and message alerts\n` +
-            `• Like and story notifications\n` +
-            `• Marketing updates`;
-
-          bot.sendMessage(chatId, notifMsg, {
-            reply_markup: {
-              inline_keyboard: [[{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]]
-            }
-          });
+          bot.sendMessage(chatId,
+            `🔔 *Notifications*\n\nNotification controls are coming soon!\n\n_You'll be able to manage match alerts, message notifications, and more._`,
+            { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+          );
           break;
 
         case 'settings_privacy':
-          const privacyMsg = `🔒 **PRIVACY SETTINGS** 🔒\n\n` +
-            `Privacy controls are coming soon!\n\n` +
-            `You will be able to manage:\n` +
-            `• Profile visibility\n` +
-            `• Last seen status\n` +
-            `• Who can see your stories\n` +
-            `• Blocked users list`;
-
-          bot.sendMessage(chatId, privacyMsg, {
-            reply_markup: {
-              inline_keyboard: [[{ text: '🔙 Back to Settings', callback_data: 'main_settings' }]]
-            }
-          });
+          bot.sendMessage(chatId,
+            `🔒 *Privacy Settings*\n\nPrivacy controls are coming soon!\n\n_You'll be able to manage profile visibility, last seen, and blocked users._`,
+            { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+          );
           break;
 
         case 'settings_help':
-          // Redirect to help menu
-          bot.emit('callback_query', {
-            id: query.id,
-            from: query.from,
-            message: query.message,
-            data: 'show_help'
-          });
+          bot.sendMessage(chatId, '🤖 Loading Help Center...', { reply_markup: { remove_keyboard: true } });
           break;
 
         case 'premium_filters':
         case 'vip_filters':
-          bot.sendMessage(chatId, '💎 **PREMIUM FILTERS** 💎\n\n👑 VIP members get access to:\n\n• Education level filter\n• Profession filter\n• Interests matching\n• Verified profiles only\n• Recent activity filter\n\nUpgrade to VIP to unlock these features!', {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '👑 Get VIP', callback_data: 'manage_vip' }
-                ],
-                [
-                  { text: '🔙 Back to Settings', callback_data: 'back_to_search' }
-                ]
-              ]
-            }
-          });
+          bot.sendMessage(chatId,
+            `💎 *VIP Filters*\n\n👑 Upgrade to unlock:\n• Education filter\n• Profession filter\n• Verified profiles only\n• Recent activity filter`,
+            { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+          );
           break;
 
         case 'set_location_pref':
@@ -437,87 +366,193 @@ function setupSettingsCommands(bot, userStates, User) {
     }
   });
   // SETTINGS command
-  bot.onText(/\/settings/, (msg) => {
-    const chatId = msg.chat.id;
-    const settingsMsg = `⚙️ **SETTINGS MENU** ⚙️\n\n` +
-      `Customize your Kissubot experience!\n\n` +
-      `👤 **Profile Settings**\n` +
-      `• Edit your profile information\n` +
-      `• Manage your photos\n` +
-      `• Privacy controls\n\n` +
-      `🔍 **Search Settings**\n` +
-      `• Age range preferences\n` +
-      `• Distance radius\n` +
-      `• Advanced filters (VIP)\n\n` +
-      `🔔 **Notification Settings**\n` +
-      `• Match notifications\n` +
-      `• Message alerts\n` +
-      `• Like notifications\n\n` +
-      `❓ **Help & Support**\n` +
-      `• Contact support\n` +
-      `• Report issues\n` +
-      `• Account management`;
-
-    const buttons = [
-      [
-        { text: '👤 Profile Settings', callback_data: 'settings_profile' },
-        { text: '🔍 Search Settings', callback_data: 'settings_search' }
-      ],
-      [
-        { text: '🔔 Notifications', callback_data: 'settings_notifications' },
-        { text: '🔒 Privacy', callback_data: 'settings_privacy' }
-      ],
-      [
-        { text: '❓ Help & Support', callback_data: 'settings_help' }
-      ]
-    ];
-
-    bot.sendMessage(chatId, settingsMsg, {
-      reply_markup: {
-        inline_keyboard: buttons
-      }
-    });
-  });
+  bot.onText(//settings/, (msg) => sendSettingsMenu(bot, msg.chat.id));
 
   // SEARCH settings command
-  bot.onText(/\/(search|searchsettings)/, async (msg) => {
+  bot.onText(//(search|searchsettings)/, (msg) => sendSearchMenu(bot, msg.chat.id, msg.from.id, User));
+
+  // ── Settings Reply Keyboard handler ──────────────────────────────────
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !SETTINGS_KB_BUTTONS.includes(text)) return;
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 
-    try {
-      const user = await getCachedUserProfile(telegramId, User);
-      const preferences = user.searchSettings || {};
+    switch (text) {
+      case '👤 Profile Info':
+        bot.processUpdate({
+          update_id: 0,
+          message: {
+            message_id: msg.message_id || 0, from: msg.from, chat: msg.chat,
+            date: msg.date || Math.floor(Date.now() / 1000),
+            text: '/profile',
+            entities: [{ offset: 0, length: 8, type: 'bot_command' }]
+          }
+        });
+        break;
 
-      const searchMsg = `🔍 **SEARCH SETTINGS** 🔍\n\n` +
-        `📊 **Current Preferences:**\n` +
-        `• **Age Range:** ${preferences.ageMin || 18} - ${preferences.ageMax || 35}\n` +
-        `• **Distance:** ${preferences.maxDistance || 50} km\n` +
-        `• **Gender:** ${preferences.genderPreference || 'Any'}\n\n` +
-        `⚙️ **Adjust your search preferences:**`;
+      case '🔍 Search Preferences':
+        await sendSearchMenu(bot, chatId, telegramId, User);
+        break;
 
-      const opts = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '🎂 Age Range', callback_data: 'set_age_range' },
-              { text: '📍 Distance', callback_data: 'set_distance' }
+      case '🔔 Notifications':
+        bot.sendMessage(chatId,
+          `🔔 *Notifications*\n\nControls are coming soon! You’ll be able to manage:\n• Match alerts • Message notifications • Like alerts`,
+          { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+        );
+        break;
+
+      case '🔒 Privacy':
+        bot.sendMessage(chatId,
+          `🔒 *Privacy Settings*\n\nComing soon! You’ll control:\n• Profile visibility • Last seen status • Blocked users`,
+          { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
+        );
+        break;
+
+      case '❓ Help Center':
+        bot.processUpdate({
+          update_id: 0,
+          message: {
+            message_id: msg.message_id || 0, from: msg.from, chat: msg.chat,
+            date: msg.date || Math.floor(Date.now() / 1000),
+            text: '/help',
+            entities: [{ offset: 0, length: 5, type: 'bot_command' }]
+          }
+        });
+        break;
+    }
+  });
+
+  // ── Search Settings Reply Keyboard handler ───────────────────────────
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !SEARCH_KB_BUTTONS.includes(text)) return;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    if (text === '⚙️ Back to Settings') {
+      return sendSettingsMenu(bot, chatId);
+    }
+
+    switch (text) {
+      case '🎂 Age Range':
+        return bot.sendMessage(chatId, '🎂 *Set Age Range*\n\nChoose your preferred age range:', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [
+              [{ text: '18–25' }, { text: '26–35' }],
+              [{ text: '36–45' }, { text: '46–55' }],
+              [{ text: '18–35' }, { text: '25–45' }],
+              [{ text: '➡️ Any Age' }]
             ],
-            [
-              { text: '👥 Gender Preference', callback_data: 'set_gender_pref' }
+            resize_keyboard: true, one_time_keyboard: true
+          }
+        }).then(() => userStates.set(telegramId, { settingPicker: 'age_range' }));
+
+      case '📍 Distance':
+        return bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum match distance:', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [
+              [{ text: '10 km' }, { text: '25 km' }],
+              [{ text: '50 km' }, { text: '100 km' }],
+              [{ text: '250 km' }, { text: '🌍 Unlimited' }]
             ],
-            [
-              { text: '⭐ Advanced Filters (VIP)', callback_data: 'vip_filters' }
+            resize_keyboard: true, one_time_keyboard: true
+          }
+        }).then(() => userStates.set(telegramId, { settingPicker: 'distance' }));
+
+      case '👥 Gender Preference':
+        return bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [
+              [{ text: '👨 Men' }, { text: '👩 Women' }],
+              [{ text: '👥 Everyone' }]
             ],
-            [
-              { text: '🔙 Back to Settings', callback_data: 'main_settings' }
-            ]
-          ]
+            resize_keyboard: true, one_time_keyboard: true
+          }
+        }).then(() => userStates.set(telegramId, { settingPicker: 'gender' }));
+
+      case '🚫 Toggle Hide Liked':
+        try {
+          const { invalidateUserCache } = require('./auth');
+          const user = await User.findOne({ telegramId: String(telegramId) });
+          const current = user?.searchSettings?.hideLiked !== false;
+          await User.findOneAndUpdate(
+            { telegramId: String(telegramId) },
+            { $set: { 'searchSettings.hideLiked': !current } }
+          );
+          invalidateUserCache(String(telegramId));
+          await bot.sendMessage(chatId,
+            `✅ *Hide Already Liked* is now *${!current ? '✅ On' : '❌ Off'}*.`,
+            { parse_mode: 'Markdown' }
+          );
+          return sendSearchMenu(bot, chatId, telegramId, User);
+        } catch (err) {
+          bot.sendMessage(chatId, '❌ Failed to update. Please try again.');
         }
-      };
+        break;
 
-      bot.sendMessage(chatId, searchMsg, opts);
+      case '🔄 Reset Browse History':
+        try {
+          const { invalidateUserCache } = require('./auth');
+          const { browseProfiles } = require('./browsing');
+          await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { seenProfiles: [] } });
+          invalidateUserCache(String(telegramId));
+          await bot.sendMessage(chatId, `🔄 *Browse history cleared!* Loading fresh profiles...`, { parse_mode: 'Markdown' });
+          await browseProfiles(chatId, telegramId, true);
+        } catch (err) {
+          bot.sendMessage(chatId, '❌ Failed to reset. Please try again.');
+        }
+        break;
+    }
+  });
+
+  // ── Settings picker handler (age range, distance, gender selection) ─────
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    if (!text) return;
+    const state = userStates.get(telegramId);
+    if (!state || !state.settingPicker) return;
+    const picker = state.settingPicker;
+    userStates.delete(telegramId);
+    const { invalidateUserCache } = require('./auth');
+
+    try {
+      if (picker === 'age_range') {
+        const rangeMap = { '18–25': [18,25], '26–35': [26,35], '36–45': [36,45], '46–55': [46,55], '18–35': [18,35], '25–45': [25,45], '➡️ Any Age': [18,99] };
+        const range = rangeMap[text];
+        if (!range) return;
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.ageMin': range[0], 'searchSettings.ageMax': range[1] } });
+        invalidateUserCache(String(telegramId));
+        await bot.sendMessage(chatId, `✅ *Age range set to ${range[0]}–${range[1]}.*`, { parse_mode: 'Markdown' });
+        return sendSearchMenu(bot, chatId, telegramId, User);
+      }
+      if (picker === 'distance') {
+        const distMap = { '10 km': 10, '25 km': 25, '50 km': 50, '100 km': 100, '250 km': 250, '🌍 Unlimited': 100000 };
+        const dist = distMap[text];
+        if (!dist) return;
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.maxDistance': dist } });
+        invalidateUserCache(String(telegramId));
+        const label = dist >= 100000 ? 'Unlimited' : `${dist} km`;
+        await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*`, { parse_mode: 'Markdown' });
+        return sendSearchMenu(bot, chatId, telegramId, User);
+      }
+      if (picker === 'gender') {
+        const genderMap = { '👨 Men': 'Male', '👩 Women': 'Female', '👥 Everyone': 'Any' };
+        const gender = genderMap[text];
+        if (!gender) return;
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.genderPreference': gender, lookingFor: gender === 'Any' ? 'Both' : gender } });
+        invalidateUserCache(String(telegramId));
+        await bot.sendMessage(chatId, `✅ *Gender preference set to ${gender}.*`, { parse_mode: 'Markdown' });
+        return sendSearchMenu(bot, chatId, telegramId, User);
+      }
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
+      console.error('[SettingsPicker] Error:', err);
+      bot.sendMessage(chatId, '❌ Failed to save setting. Please try again.');
     }
   });
 }

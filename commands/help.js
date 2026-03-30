@@ -1,181 +1,182 @@
-const axios = require('axios');
+const { MAIN_KEYBOARD, HELP_KEYBOARD, HELP_KB_BUTTONS, REPORT_KEYBOARD, REPORT_KB_BUTTONS } = require('../keyboard');
 
-const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+function sendHelpMenu(bot, chatId) {
+  bot.sendMessage(chatId,
+    `🤖 *Help Center* 🤖\n\n` +
+    `Choose a topic below — I'm here to help! 💬\n\n` +
+    `💡 *Tip:* Add more photos to get 3× more matches!`,
+    { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
+  );
+}
+
+function sendReportMenu(bot, chatId) {
+  bot.sendMessage(chatId,
+    `🚨 *Report Center* 🚨\n\n` +
+    `Help us keep KissuBot safe for everyone.\n\n` +
+    `🔒 All reports are *confidential* and reviewed within 24 hours.`,
+    { parse_mode: 'Markdown', reply_markup: REPORT_KEYBOARD }
+  );
+}
 
 function setupHelpCommands(bot) {
-  // Callback query handlers
-  bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const telegramId = query.from.id;
-    const data = query.data;
 
-    try {
-      switch (data) {
-        case 'email_support':
-          bot.sendMessage(chatId,
-            `� *Email Support*\n\nSend your request to:\n📮 *spprtksbt@gmail.com*\n\n📋 *Please include:*\n• Your username: @${query.from.username || 'N/A'}\n• Your user ID: \`${telegramId}\`\n• Detailed description of your issue\n• Screenshots if relevant\n\n⏰ *Response time:* 24-48 hours`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }],
-                  [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
-                ]
-              }
-            }
-          );
-          break;
+  // ── /help command ──────────────────────────────────────────────────────
+  bot.onText(/\/help/, (msg) => sendHelpMenu(bot, msg.chat.id));
 
-        case 'contact_support': {
-          const supportMsg =
-            `🆘 *Support Center*\n\n` +
-            `Our support team is here to help!\n\n` +
-            `💬 *Telegram:* @kissSupport\n` +
-            `📧 *Email:* spprtksbt@gmail.com\n` +
-            `⏰ Response time: 24\u201348 hours\n\n` +
-            `💬 *Common Issues:*\n` +
-            `• Profile visibility\n` +
-            `• Payment / VIP problems\n` +
-            `• Technical difficulties\n` +
-            `• Account recovery\n` +
-            `• Report violations`;
+  // ── /report command ────────────────────────────────────────────────────
+  bot.onText(/\/report/, (msg) => sendReportMenu(bot, msg.chat.id));
 
-          bot.sendMessage(chatId, supportMsg, {
+  // ── /contact command ───────────────────────────────────────────────────
+  bot.onText(/\/contact/, (msg) => {
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId,
+      `🆘 *Support Center*\n\n` +
+      `Our team is ready to help you! 🙌\n\n` +
+      `💬 *Telegram:* @kissSupport\n` +
+      `📧 *Email:* spprtksbt@gmail.com\n` +
+      `⏰ *Response time:* 24–48 hours\n\n` +
+      `📋 *Please include:*\n` +
+      `• Your username: @${msg.from.username || 'N/A'}\n` +
+      `• A clear description of the issue\n` +
+      `• Screenshots if possible`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
+          ]
+        }
+      }
+    );
+  });
+
+  // ── Help Reply Keyboard handler ────────────────────────────────────────
+  bot.on('message', (msg) => {
+    const text = msg.text;
+    if (!text || !HELP_KB_BUTTONS.includes(text)) return;
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    switch (text) {
+      case '👤 Profile Help':
+        return bot.sendMessage(chatId,
+          `👤 *Profile Help*\n\n` +
+          `*How to set up a great profile:*\n\n` +
+          `📝 Use /profile → tap *📝 Edit Name* to set your name\n` +
+          `🎂 Set your age via *🎂 Edit Age*\n` +
+          `📍 Add your city via *📍 Edit Location*\n` +
+          `💬 Write a fun bio via *💬 Edit Bio*\n` +
+          `📸 Upload up to 6 photos via *📸 Photos*\n` +
+          `📞 Add your phone via *📞 Phone* (required)\n\n` +
+          `💡 *Profiles with photos get 5× more matches!*`,
+          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
+        );
+
+      case '🔍 Browsing Help':
+        return bot.sendMessage(chatId,
+          `🔍 *Browsing Help*\n\n` +
+          `*How browsing works:*\n\n` +
+          `❤️ *Like* — you like this person\n` +
+          `❌ *Skip* — pass on this profile\n` +
+          `⭐ *Super Like* — stand out! Uses 1 coin\n` +
+          `🚩 *Report* — flag inappropriate behaviour\n\n` +
+          `💘 *When both of you like each other → It's a Match!*\n\n` +
+          `⚙️ Adjust who you see via *⚙️ Settings → 🔍 Search Preferences*`,
+          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
+        );
+
+      case '👑 VIP & Coins':
+        return bot.sendMessage(chatId,
+          `👑 *VIP & Coins*\n\n` +
+          `*VIP benefits:*\n` +
+          `• 👀 See who liked you\n` +
+          `• 🔝 Priority in browse queue\n` +
+          `• 💌 Unlimited matches\n` +
+          `• 🎭 Advanced filters\n` +
+          `• 📊 Profile analytics\n\n` +
+          `*Coins are used for:*\n` +
+          `• ⭐ Super Likes\n` +
+          `• 🚀 Priority Boosts\n` +
+          `• 🎁 Sending gifts to matches\n\n` +
+          `Tap *💎 VIP* on the main menu to get started!`,
+          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
+        );
+
+      case '📱 Stories Help':
+        return bot.sendMessage(chatId,
+          `📱 *Stories Help*\n\n` +
+          `*What are Stories?*\n` +
+          `Share moments with your matches! Photos & videos that expire in 24 hours.\n\n` +
+          `*How to post:*\n` +
+          `1️⃣ Type /stories\n` +
+          `2️⃣ Tap *Post a Story*\n` +
+          `3️⃣ Send a photo or video\n` +
+          `4️⃣ Add a caption (optional)\n\n` +
+          `📊 *Track views & engagement* in your story analytics!`,
+          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
+        );
+
+      case '📞 Contact Support':
+        return bot.sendMessage(chatId,
+          `🆘 *Contact Support*\n\n` +
+          `Our team responds within 24–48 hours.\n\n` +
+          `💬 *Telegram:* @kissSupport\n` +
+          `📧 *Email:* spprtksbt@gmail.com\n\n` +
+          `📋 *When contacting us, please include:*\n` +
+          `• Your Telegram username\n` +
+          `• A description of the problem\n` +
+          `• Screenshots if available`,
+          {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '� Message @kissSupport', url: 'https://t.me/kissSupport' }],
-                [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
+                [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
               ]
             }
-          });
-          break;
-        }
+          }
+        );
 
-        case 'show_help':
-        case 'help_menu':
-          const helpText = `🤖 **KISSUBOT HELP CENTER** 🤖\n\n` +
-            `Need help finding your way around KissuBot? Choose a category below for more information:\n\n` +
-            `💡 **Tip:** Complete your profile and add multiple photos to get more matches! 💕`;
-
-          bot.sendMessage(chatId, helpText, {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '👤 Profile Help', callback_data: 'help_profile' },
-                  { text: '🔍 Browsing Help', callback_data: 'help_browsing' }
-                ],
-                [
-                  { text: '👑 VIP & Coins', callback_data: 'help_premium' },
-                  { text: '📱 Stories Help', callback_data: 'help_stories' }
-                ],
-                [
-                  { text: '📞 Contact Support', callback_data: 'contact_support' },
-                  { text: '🚨 Report Center', callback_data: 'report_menu' }
-                ],
-                [
-                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
-                ]
-              ]
-            },
-            parse_mode: 'Markdown'
-          });
-          break;
-      }
-    } catch (err) {
-      console.error('Help callback error:', err);
-      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
+      case '🚨 Report Center':
+        return sendReportMenu(bot, chatId);
     }
   });
 
-  // HELP command
-  bot.onText(/\/help/, (msg) => {
+  // ── Report Reply Keyboard handler ──────────────────────────────────────
+  bot.on('message', (msg) => {
+    const text = msg.text;
+    if (!text || !REPORT_KB_BUTTONS.includes(text)) return;
     const chatId = msg.chat.id;
-    const helpText = `🤖 **KISSUBOT HELP CENTER** 🤖\n\n` +
-      `Need help finding your way around KissuBot? Choose a category below for more information:\n\n` +
-      `💡 **Tip:** Complete your profile and add multiple photos to get more matches! 💕`;
 
-    bot.sendMessage(chatId, helpText, {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '👤 Profile Help', callback_data: 'help_profile' },
-            { text: '🔍 Browsing Help', callback_data: 'help_browsing' }
-          ],
-          [
-            { text: '👑 VIP & Coins', callback_data: 'help_premium' },
-            { text: '📱 Stories Help', callback_data: 'help_stories' }
-          ],
-          [
-            { text: '📞 Contact Support', callback_data: 'contact_support' },
-            { text: '🚨 Report Center', callback_data: 'report_menu' }
-          ],
-          [
-            { text: '🏠 Main Menu', callback_data: 'main_menu' }
-          ]
-        ]
-      },
-      parse_mode: 'Markdown'
-    });
-  });
+    if (text === '🆘 Back to Help') {
+      return sendHelpMenu(bot, chatId);
+    }
 
-  // REPORT command
-  bot.onText(/\/report/, (msg) => {
-    const chatId = msg.chat.id;
-    const reportMsg = `🚨 **REPORT CENTER** 🚨\n\n` +
-      `Help us keep Kissubot safe for everyone!\n\n` +
-      `📋 **What would you like to report?**\n\n` +
-      `• **User Report** - Inappropriate behavior\n` +
-      `• **Content Report** - Inappropriate photos/messages\n` +
-      `• **Bug Report** - Technical issues\n` +
-      `• **Feature Request** - Suggest improvements\n\n` +
-      `🔒 **All reports are confidential and reviewed by our team.**`;
-
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '👤 Report User', callback_data: 'report_user' },
-            { text: '📸 Report Content', callback_data: 'report_content' }
-          ],
-          [
-            { text: '🐛 Report Bug', callback_data: 'report_bug' },
-            { text: '💡 Feature Request', callback_data: 'feature_request' }
-          ],
-          [
-            { text: '🔙 Back to Help', callback_data: 'show_help' }
-          ]
-        ]
-      }
+    const topics = {
+      '👤 Report a User':  { emoji: '👤', title: 'Report a User',     detail: 'Please describe the user\'s behaviour and include their Telegram username if possible.' },
+      '📸 Report Content': { emoji: '📸', title: 'Inappropriate Content', detail: 'Describe the content and which profile it appeared on.' },
+      '🐛 Report Bug':     { emoji: '🐛', title: 'Bug Report',         detail: 'Describe what happened, what you expected, and the steps to reproduce it.' },
+      '💡 Feature Request':{ emoji: '💡', title: 'Feature Request',    detail: 'Tell us your idea — we read every suggestion!' },
     };
 
-    bot.sendMessage(chatId, reportMsg, opts);
-  });
+    const t = topics[text];
+    if (!t) return;
 
-  // CONTACT command
-  bot.onText(/\/contact/, (msg) => {
-    const chatId = msg.chat.id;
-    const contactMsg =
-      `🆘 *Support Center*\n\n` +
-      `💬 *Telegram:* @kissSupport\n` +
-      `� *Email:* spprtksbt@gmail.com\n\n` +
-      `📋 *When contacting us, please include:*\n` +
-      `• Your username: @${msg.from.username || 'N/A'}\n` +
-      `• Description of the issue\n` +
-      `• Screenshots if applicable\n\n` +
-      `🙏 Thank you for using Kissubot!`;
-
-    bot.sendMessage(chatId, contactMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '� Message @kissSupport', url: 'https://t.me/kissSupport' }],
-          [{ text: '🚨 Report Issue', callback_data: 'report_menu' }],
-          [{ text: '🔙 Back to Help', callback_data: 'show_help' }]
-        ]
+    bot.sendMessage(chatId,
+      `${t.emoji} *${t.title}*\n\n${t.detail}\n\n` +
+      `📧 *Send your report to:* spprtksbt@gmail.com\n` +
+      `💬 *Or message:* @kissSupport\n\n` +
+      `Please include your Telegram username so we can follow up.\n` +
+      `⏰ We review all reports within 24 hours.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '💬 Message @kissSupport', url: 'https://t.me/kissSupport' }]
+          ]
+        }
       }
-    });
+    );
   });
 }
 
-module.exports = { setupHelpCommands };
+module.exports = { setupHelpCommands, sendHelpMenu };
