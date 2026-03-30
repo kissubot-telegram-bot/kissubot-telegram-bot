@@ -33,7 +33,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   const BROWSE_KEYBOARD = {
     keyboard: [
       [{ text: '❤️ Like' }, { text: '❌ Skip' }],
-      [{ text: '⭐ Super Like' }, { text: '🚩 Report' }],
+      [{ text: '⭐ Super Like' }, { text: '🎁 Gift' }],
       [{ text: '🏠 Main Menu' }]
     ],
     resize_keyboard: true
@@ -669,9 +669,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // Reply Keyboard handler — Like / Skip / Super Like / Report
+  // Reply Keyboard handler — Like / Skip / Super Like / Gift
   // ─────────────────────────────────────────────────────────────────────
-  const BROWSE_BUTTONS = ['❤️ Like', '❌ Skip', '⭐ Super Like', '🚩 Report'];
+  const BROWSE_BUTTONS = ['❤️ Like', '❌ Skip', '⭐ Super Like', '🎁 Gift'];
 
   bot.on('message', async (msg) => {
     const text = msg.text;
@@ -694,13 +694,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         await handleSkip(chatId, telegramId, targetTelegramId);
       } else if (text === '⭐ Super Like') {
         await handleSuperLike(chatId, telegramId, targetTelegramId);
-      } else if (text === '🚩 Report') {
-        // Delegate to report.js via callback_query (report flow needs callback context)
+      } else if (text === '🎁 Gift') {
         bot.emit('callback_query', {
-          id: 'kb_report',
+          id: 'kb_gift',
           message: { chat: { id: chatId }, message_id: 0, from: msg.from },
           from: msg.from,
-          data: `report_${targetTelegramId}`
+          data: `gift_to_${targetTelegramId}`
         });
       }
     } catch (err) {
