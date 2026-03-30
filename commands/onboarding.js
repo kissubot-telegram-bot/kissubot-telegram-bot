@@ -15,7 +15,7 @@
 
 const { invalidateUserCache } = require('./auth');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS } = require('../keyboard');
 
 const PROMPTS = {
     gender: {
@@ -239,8 +239,10 @@ function setupOnboardingCommands(bot, userStates, User) {
         const telegramId = msg.from.id;
         const state = userStates.get(telegramId);
 
-        // Skip main keyboard nav buttons — let bot.js handle them
+        // Skip commands and all nav keyboard buttons — let other handlers deal with them
+        if (msg.text && msg.text.startsWith('/')) return;
         if (msg.text && MAIN_KB_BUTTONS.includes(msg.text)) return;
+        if (msg.text && PROFILE_KB_BUTTONS.includes(msg.text)) return;
 
         if (!state || !state.onboarding) {
             // Handle "Let's Go!" when onboarding state was set but user just sees the welcome

@@ -27,4 +27,23 @@ const MAIN_KB_BUTTONS = [
   '🆘 Help'
 ];
 
-module.exports = { MAIN_KEYBOARD, MAIN_KB_BUTTONS };
+const PROFILE_KEYBOARD = {
+  keyboard: [
+    [{ text: '📝 Edit Name' }, { text: '🎂 Edit Age' }],
+    [{ text: '👤 Edit Gender' }, { text: '👀 Looking For' }],
+    [{ text: '📍 Edit Location' }, { text: '💬 Edit Bio' }],
+    [{ text: '📞 Phone' }, { text: '📸 Photos' }],
+    [{ text: '🔙 Back' }]
+  ],
+  resize_keyboard: true
+};
+
+const PROFILE_KB_BUTTONS = [
+  '📝 Edit Name', '🎂 Edit Age',
+  '👤 Edit Gender', '👀 Looking For',
+  '📍 Edit Location', '💬 Edit Bio',
+  '📞 Phone', '📸 Photos',
+  '🔙 Back'
+];
+
+module.exports = { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KEYBOARD, PROFILE_KB_BUTTONS };

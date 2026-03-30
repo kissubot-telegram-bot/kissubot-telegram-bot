@@ -76,7 +76,11 @@ function setupAuthCommands(bot, userStates, User) {
       }
 
       // Profile complete - show main menu
-      showMainMenu(chatId, msg.from.first_name);
+      const firstName = msg.from.first_name;
+      bot.sendMessage(chatId,
+        `💘 **KISSUBOT** 💘\n\n${firstName ? `Hey ${firstName}! 👋` : 'Welcome back! 👋'}\n\nWhat would you like to do today?`,
+        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+      );
 
     } catch (err) {
       console.error('Start command error:', err);

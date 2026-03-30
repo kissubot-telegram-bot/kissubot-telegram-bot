@@ -1,7 +1,7 @@
 const { bot, userStates } = require('./server');
 const axios = require('axios');
 const { API_BASE } = require('./config');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('./keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS } = require('./keyboard');
 require('dotenv').config();
 
 // Import command modules
@@ -219,9 +219,10 @@ bot.on('message', async (msg) => {
   const telegramId = msg.from.id;
   const text = msg.text;
 
-  // Skip commands and main nav keyboard buttons
+  // Skip commands and nav keyboard buttons
   if (text && text.startsWith('/')) return;
   if (text && MAIN_KB_BUTTONS.includes(text)) return;
+  if (text && PROFILE_KB_BUTTONS.includes(text)) return;
 
   // Handle user states
   if (userStates.has(telegramId)) {
@@ -985,11 +986,8 @@ bot.on('callback_query', async (query) => {
 });
 
 // ── Main Reply Keyboard routing ─────────────────────────────────────────
-// This handler fires last (bot.js is loaded last by server.js).
-// Onboarding/profile state handlers return early for MAIN_KB_BUTTONS,
-// so these reach here cleanly.
+// Uses processUpdate so bot.onText handlers fire reliably.
 bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
   const text = msg.text;
   if (!text) return;
 
@@ -1004,7 +1002,17 @@ bot.on('message', (msg) => {
 
   const cmd = routes[text];
   if (cmd) {
-    bot.emit('message', { ...msg, text: cmd });
+    bot.processUpdate({
+      update_id: 0,
+      message: {
+        message_id: msg.message_id || 0,
+        from: msg.from,
+        chat: msg.chat,
+        date: msg.date || Math.floor(Date.now() / 1000),
+        text: cmd,
+        entities: [{ offset: 0, length: cmd.length, type: 'bot_command' }]
+      }
+    });
   }
 });
 
@@ -1050,4 +1058,4 @@ console.log('📱 Bot ready to receive messages...');
 //   chat: { id: 12345 }
 // });
 
-module.exports = bot;
+module.exports = { bot, showMainMenu };

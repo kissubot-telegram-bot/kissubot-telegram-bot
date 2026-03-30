@@ -3,7 +3,7 @@ const axios = require('axios');
 const { API_BASE } = require('../config');
 const browsingModule = require('./browsing');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KEYBOARD, PROFILE_KB_BUTTONS } = require('../keyboard');
 
 
 function setupProfileCommands(bot, userStates, User) {
@@ -152,7 +152,7 @@ function setupProfileCommands(bot, userStates, User) {
         case 'edit_location':
           userStates.set(telegramId, { editing: 'location_search' });
           bot.sendMessage(chatId,
-            '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Lagos_',
+            '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Paris_',
             {
               parse_mode: 'Markdown',
               reply_markup: { remove_keyboard: true }
@@ -429,9 +429,10 @@ function setupProfileCommands(bot, userStates, User) {
     const telegramId = msg.from.id;
     const text = msg.text;
 
-    // Skip commands, non-text, no state, and main nav keyboard buttons
+    // Skip commands, non-text, no state, and nav keyboard buttons
     if (!text || text.startsWith('/') || !userStates.get(telegramId)) return;
     if (MAIN_KB_BUTTONS.includes(text)) return;
+    if (PROFILE_KB_BUTTONS.includes(text)) return;
 
     const userState = userStates.get(telegramId);
 
@@ -471,7 +472,7 @@ function setupProfileCommands(bot, userStates, User) {
           if (value === '⬅️ Back') {
             userStates.set(telegramId, { editing: 'location_search' });
             return bot.sendMessage(chatId,
-              '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Lagos_',
+              '📍 *Edit Location*\n\nType your city name and I\'ll find it for you:\n_e.g. London, New York, Paris_',
               { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
             );
           }
@@ -636,158 +637,133 @@ function setupProfileCommands(bot, userStates, User) {
 
     try {
       const user = await getCachedUserProfile(telegramId, User);
+      if (!user) return bot.sendMessage(chatId, '❌ User not found. Please use /start to register.');
       const photos = user.photos || [];
       const photoCount = photos.length;
 
       const profileMsg =
-        `� *Your Dating Profile* �\n\n` +
+        `💖 *Your Profile*\n\n` +
         `📝 *Name:* ${user.name || 'Not set'}\n` +
         `👤 *Gender:* ${user.gender || 'Not set'}\n` +
         `👀 *Looking For:* ${user.lookingFor || 'Not set'}\n` +
         `🎂 *Age:* ${user.age || 'Not set'}\n` +
         `📍 *Location:* ${user.location || 'Not set'}\n` +
-        `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Not added — required'}\n` +
+        `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Required'}\n` +
         `💭 *Bio:* ${user.bio || '_(not set)_'}\n` +
         `📸 *Photos:* ${photoCount}/6\n` +
         `✨ *Status:* ${user.profileCompleted ? '✅ Complete' : '⚠️ Incomplete'}\n` +
         `👑 *VIP:* ${user.isVip ? '✅ Active' : '❌ Not subscribed'}`;
 
-      const phoneButtonLabel = user.phone
-        ? '📞 Update Phone'
-        : '📞 Add Phone Number ⭐ Required';
-
-      const replyMarkup = {
-        inline_keyboard: [
-          [{ text: '✏️ Edit Name', callback_data: 'edit_name' }, { text: '🎂 Edit Age', callback_data: 'edit_age' }],
-          [{ text: '👤 Edit Gender', callback_data: 'edit_gender' }, { text: '👀 Looking For', callback_data: 'edit_lookingFor' }],
-          [{ text: '📍 Edit Location', callback_data: 'edit_location' }, { text: '💬 Edit Bio', callback_data: 'edit_bio' }],
-          [{ text: phoneButtonLabel, callback_data: 'add_phone_number' }],
-          [{ text: '📸 Manage Photos', callback_data: 'manage_photos' }],
-          [{ text: '🔙 Back to Main Menu', callback_data: 'main_menu' }]
-        ]
-      };
-
       if (photos.length > 0) {
         await bot.sendPhoto(chatId, photos[0], {
           caption: profileMsg,
           parse_mode: 'Markdown',
-          reply_markup: replyMarkup
+          reply_markup: PROFILE_KEYBOARD
         });
       } else {
         await bot.sendMessage(chatId, profileMsg, {
           parse_mode: 'Markdown',
-          reply_markup: replyMarkup
+          reply_markup: PROFILE_KEYBOARD
         });
       }
 
     } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /register first.');
+      bot.sendMessage(chatId, '❌ Failed to load your profile. Please try /start first.');
     }
   });
 
-  // Handle Telegram contact share (phone number)
-  bot.on('contact', async (msg) => {
+  // ── Profile Reply Keyboard button handler ──────────────────────────────
+  bot.on('message', async (msg) => {
+    const text = msg.text;
+    if (!text || !PROFILE_KB_BUTTONS.includes(text)) return;
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-    const contact = msg.contact;
 
-    // Only accept if the contact is the user themselves
-    if (String(contact.user_id) !== String(telegramId)) {
-      return bot.sendMessage(chatId, '❌ Please share your own phone number, not someone else\'s.');
+    if (text === '🔙 Back') {
+      userStates.delete(telegramId);
+      return bot.sendMessage(chatId, '🏠 Main menu', { reply_markup: MAIN_KEYBOARD });
     }
-
-    try {
-      const phone = contact.phone_number;
-      await User.findOneAndUpdate({ telegramId: String(telegramId) }, { phone });
-      invalidateUserCache(telegramId);
-
-      await bot.sendMessage(chatId,
-        `✅ **Phone number saved!**\n\nYour number has been added to your profile.`,
+    if (text === '📝 Edit Name') {
+      userStates.set(telegramId, { editing: 'name' });
+      return bot.sendMessage(chatId, '📝 *Edit Name*\n\nEnter your new name:',
+        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+    }
+    if (text === '🎂 Edit Age') {
+      userStates.set(telegramId, { editing: 'age' });
+      return bot.sendMessage(chatId, '🎂 *Edit Age*\n\nEnter your age (18–100):',
+        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+    }
+    if (text === '👤 Edit Gender') {
+      userStates.set(telegramId, { editing: 'gender' });
+      return bot.sendMessage(chatId, '👤 *Edit Gender*\n\nHow do you identify?', {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '� Cancel' }]],
+          resize_keyboard: true, one_time_keyboard: true
+        }
+      });
+    }
+    if (text === '👀 Looking For') {
+      userStates.set(telegramId, { editing: 'lookingFor' });
+      return bot.sendMessage(chatId, '� *Looking For*\n\nWho would you like to meet?', {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          keyboard: [[{ text: 'Men' }, { text: 'Women' }], [{ text: 'Everyone' }], [{ text: '🚫 Cancel' }]],
+          resize_keyboard: true, one_time_keyboard: true
+        }
+      });
+    }
+    if (text === '📍 Edit Location') {
+      userStates.set(telegramId, { editing: 'location_search' });
+      return bot.sendMessage(chatId, '📍 *Edit Location*\n\nType your city name:\n_e.g. London, New York_',
+        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+    }
+    if (text === '💬 Edit Bio') {
+      userStates.set(telegramId, { editing: 'bio' });
+      return bot.sendMessage(chatId, '💬 *Edit Bio*\n\nEnter your bio (max 500 chars):',
+        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
+    }
+    if (text === '� Phone') {
+      userStates.set(telegramId, { editing: 'phone' });
+      return bot.sendMessage(chatId,
+        '📞 *Phone Number*\n\n📱 *Mobile:* Tap the Share button below.\n💻 *Desktop:* Type your number with country code e.g. `+12345678900`',
         {
-          reply_markup: { remove_keyboard: true }
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [[{ text: '📞 Share My Phone Number', request_contact: true }]],
+            one_time_keyboard: true, resize_keyboard: true
+          }
         }
       );
-
-      // Check if profile is now complete
-      const updatedUser = await getCachedUserProfile(telegramId, User);
-      const missing = [];
-      if (!updatedUser.name) missing.push('name');
-      if (!updatedUser.age) missing.push('age');
-      if (!updatedUser.location) missing.push('location');
-      if (!updatedUser.phone) missing.push('phone');
-      if (!updatedUser.photos || updatedUser.photos.length === 0) missing.push('photo');
-
-      if (missing.length === 0) {
-        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { profileCompleted: true });
-        invalidateUserCache(telegramId);
-        bot.sendMessage(chatId,
-          '🎉 **Profile Complete!** You can now browse and match with others.',
-          { reply_markup: { inline_keyboard: [[{ text: '🔍 Start Browsing', callback_data: 'start_browse' }]] } }
-        );
-      } else {
-        bot.sendMessage(chatId,
-          `📋 Still missing: ${missing.join(', ')}. Use /profile to complete your profile.`,
-          { reply_markup: { inline_keyboard: [[{ text: '👤 Edit Profile', callback_data: 'edit_profile' }]] } }
-        );
-      }
-    } catch (err) {
-      console.error('Contact handler error:', err);
-      bot.sendMessage(chatId, '❌ Failed to save phone number. Please try again.');
     }
-  });
-
-  // PHOTOS command - Show existing photos and offer upload
-  bot.onText(/\/photos/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-
-    try {
-      const user = await getCachedUserProfile(telegramId, User);
-      const photos = user.photos || [];
-      const photoCount = photos.length;
-      const slotsLeft = 6 - photoCount;
-
-      if (photoCount === 0) {
-        // No photos — go straight to upload
-        userStates.set(telegramId, { action: 'uploading_photo' });
-        return bot.sendMessage(chatId,
-          '📸 **Upload Your First Photo** 📸\n\n' +
-          'You have no photos yet. Send me a photo to get started!\n\n' +
-          '💡 **Tips:**\n• High-quality, clear photos\n• Show your face clearly\n• Max 6 photos\n\n' +
-          '📤 Send a photo now!',
-          { reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'view_my_profile' }]] } }
-        );
+    if (text === '📸 Photos') {
+      try {
+        const user = await getCachedUserProfile(telegramId, User);
+        const photos = user ? (user.photos || []) : [];
+        if (photos.length === 0) {
+          userStates.set(telegramId, { action: 'uploading_photo' });
+          return bot.sendMessage(chatId, '� *Upload Your First Photo*\n\nSend me a photo to add to your profile!', {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [[{ text: '❌ Cancel', callback_data: 'view_my_profile' }]] }
+          });
+        }
+        if (photos.length === 1) {
+          await bot.sendPhoto(chatId, photos[0], { caption: '📸 Photo 1 of 1 (Profile photo)' });
+        } else {
+          await bot.sendMediaGroup(chatId, photos.slice(0, 10).map((f, i) => ({
+            type: 'photo', media: f,
+            ...(i === 0 ? { caption: `📸 Your ${photos.length} profile photos` } : {})
+          })));
+        }
+        const slotsLeft = 6 - photos.length;
+        const kb = [];
+        if (slotsLeft > 0) kb.push([{ text: `📤 Add Photo (${photos.length}/6)`, callback_data: 'upload_more_photos' }]);
+        kb.push([{ text: '🗑️ Delete a Photo', callback_data: 'delete_photo_menu' }]);
+        return bot.sendMessage(chatId, `📸 *Photos* — ${photos.length}/6 used`,
+          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: kb } });
+      } catch (err) {
+        return bot.sendMessage(chatId, '❌ Failed to load photos. Please try again.');
       }
-
-      // Show existing photos first
-      if (photoCount === 1) {
-        await bot.sendPhoto(chatId, photos[0], { caption: '📸 Photo 1 — your profile photo' });
-      } else {
-        const mediaGroup = photos.slice(0, 10).map((fileId, idx) => ({
-          type: 'photo',
-          media: fileId,
-          ...(idx === 0 ? { caption: `📸 Your ${photoCount} profile photos` } : {})
-        }));
-        await bot.sendMediaGroup(chatId, mediaGroup);
-      }
-
-      // Options below the photos
-      const keyboard = [];
-      if (slotsLeft > 0) {
-        keyboard.push([{ text: `📤 Add More Photos (${photoCount}/6)`, callback_data: 'upload_more_photos' }]);
-      } else {
-        keyboard.push([{ text: '⚠️ Limit reached — Delete a photo first', callback_data: 'delete_photo_menu' }]);
-      }
-      keyboard.push([{ text: '🗑️ Delete a Photo', callback_data: 'delete_photo_menu' }]);
-      keyboard.push([{ text: '👤 View Profile', callback_data: 'view_my_profile' }]);
-
-      bot.sendMessage(chatId,
-        `📸 **Photos** — ${photoCount}/6 slots used${slotsLeft > 0 ? `\n✨ Add up to ${slotsLeft} more.` : '\n⚠️ All slots used.'}`,
-        { reply_markup: { inline_keyboard: keyboard } }
-      );
-
-    } catch (err) {
-      bot.sendMessage(chatId, '❌ Failed to load your photos. Please try again.');
     }
   });
 
@@ -1099,6 +1075,10 @@ function setupProfileCommands(bot, userStates, User) {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
     const contact = msg.contact;
+
+    // Let onboarding.js handle contact shares during onboarding
+    const currentState = userStates.get(telegramId);
+    if (currentState && currentState.onboarding) return;
 
     // Only accept the user sharing their OWN number
     if (String(contact.user_id) !== String(telegramId)) {
