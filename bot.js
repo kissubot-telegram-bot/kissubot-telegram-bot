@@ -313,7 +313,7 @@ bot.on('callback_query', async (query) => {
 
   if (!vipCallbacks.includes(data)) {
     // Answer callback query to remove loading state for non-VIP callbacks
-    bot.answerCallbackQuery(query.id);
+    bot.answerCallbackQuery(query.id).catch(() => {});
   }
 
   try {

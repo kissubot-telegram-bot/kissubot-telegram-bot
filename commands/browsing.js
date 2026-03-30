@@ -530,6 +530,144 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   }
 
   // ─────────────────────────────────────────────────────────────────────
+  // Action helpers — called from both message handler and callback handler
+  // ─────────────────────────────────────────────────────────────────────
+  async function handleLike(chatId, telegramId, targetTelegramId) {
+    if (!canLike(telegramId)) {
+      return bot.sendMessage(chatId, '⏳ Slow down a bit! Wait a second before liking again.');
+    }
+    recordLike(telegramId);
+
+    const [fromUser, toUser] = await Promise.all([
+      User.findOne({ telegramId }),
+      User.findOne({ telegramId: targetTelegramId })
+    ]);
+    if (!fromUser || !toUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+    if (userStates) userStates.delete(String(telegramId));
+
+    if (!toUser.likes.includes(String(telegramId))) {
+      toUser.likes.push(String(telegramId));
+      await toUser.save();
+    }
+    if (!(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
+      await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $push: { seenProfiles: String(targetTelegramId) } });
+    }
+    trackLike(telegramId, targetTelegramId);
+
+    const isMutualLike = Like
+      ? !!(await Like.findOne({ fromUserId: toUser._id, toUserId: fromUser._id }))
+      : (fromUser.likes || []).includes(String(targetTelegramId));
+
+    if (isMutualLike) {
+      const alreadyMatched = (fromUser.matches || []).some(m => String(m.userId) === String(targetTelegramId));
+      if (!alreadyMatched) {
+        fromUser.matches = fromUser.matches || [];
+        toUser.matches = toUser.matches || [];
+        fromUser.matches.push({ userId: String(targetTelegramId), matchedAt: new Date() });
+        toUser.matches.push({ userId: String(telegramId), matchedAt: new Date() });
+        await Promise.all([fromUser.save(), toUser.save()]);
+        invalidateUserCache(telegramId);
+        invalidateUserCache(targetTelegramId);
+        trackMatch(telegramId, targetTelegramId);
+      }
+      const starters = [
+        "Ask about their favourite travel destination 🌍",
+        "Comment on something from their bio 💬",
+        "Ask what they're looking for 💕",
+        "Share a fun fact about yourself ✨",
+        "Ask about their weekend plans 🎉"
+      ];
+      const starter = starters[Math.floor(Math.random() * starters.length)];
+      const fromPhoto = (fromUser.photos || [])[0];
+      const toPhoto = (toUser.photos || [])[0];
+      if (fromPhoto && toPhoto) {
+        await bot.sendMediaGroup(chatId, [
+          { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
+          { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
+        ]).catch(() => {});
+      } else if (toPhoto) {
+        await bot.sendPhoto(chatId, toPhoto).catch(() => {});
+      }
+      await bot.sendMessage(chatId,
+        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` }, { text: '🔍 Keep Swiping', callback_data: 'start_browse' }],
+              [{ text: '💌 All Matches', callback_data: 'view_matches' }]
+            ]
+          }
+        }
+      );
+      notifyMatchedUser(targetTelegramId, fromUser, toUser);
+    } else {
+      await bot.sendMessage(chatId, randomFrom(LIKE_LINES),
+        { reply_markup: { inline_keyboard: [[{ text: '💌 Matches', callback_data: 'view_matches' }]] } }
+      );
+      await browseProfiles(chatId, telegramId);
+    }
+  }
+
+  async function handleSkip(chatId, telegramId, targetTelegramId) {
+    if (userStates) userStates.delete(String(telegramId));
+    const fromUser = await User.findOne({ telegramId });
+    if (fromUser && !(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
+      await User.findOneAndUpdate(
+        { telegramId: String(telegramId) },
+        { $push: { seenProfiles: String(targetTelegramId) }, lastSkippedProfile: String(targetTelegramId) }
+      );
+      invalidateUserCache(String(telegramId));
+    }
+    const skipKeyboard = fromUser && fromUser.isVip
+      ? { reply_markup: { inline_keyboard: [[{ text: '↩️ Undo Skip', callback_data: `undo_skip_${targetTelegramId}` }]] } }
+      : {};
+    await bot.sendMessage(chatId, randomFrom(PASS_LINES), skipKeyboard);
+    await browseProfiles(chatId, telegramId);
+  }
+
+  async function handleSuperLike(chatId, telegramId, targetTelegramId) {
+    const fromUser = await User.findOne({ telegramId });
+    if (!fromUser) return bot.sendMessage(chatId, '❌ User not found.');
+    const today = new Date().toDateString();
+    const vipDaily = fromUser.dailySuperLikesVip || {};
+    const freeSLUsed = vipDaily.date === today ? (vipDaily.count || 0) : 0;
+    const FREE_SL_LIMIT = 5;
+    const useFreeSuperLike = fromUser.isVip && freeSLUsed < FREE_SL_LIMIT;
+    if (!useFreeSuperLike && (fromUser.coins || 0) < 10) {
+      return bot.sendMessage(chatId,
+        `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n_VIP free super likes today: ${freeSLUsed}/${FREE_SL_LIMIT}_` : ''}`,
+        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💰 Buy Coins', callback_data: 'buy_coins' }, { text: '🔍 Browse', callback_data: 'start_browse' }]] } }
+      );
+    }
+    const toUser = await User.findOne({ telegramId: targetTelegramId });
+    if (!toUser) return bot.sendMessage(chatId, '❌ User not found.');
+    if (useFreeSuperLike) {
+      await User.findOneAndUpdate({ telegramId: String(telegramId) }, { dailySuperLikesVip: { count: freeSLUsed + 1, date: today } });
+    } else {
+      fromUser.coins -= 10;
+      await fromUser.save();
+    }
+    if (userStates) userStates.delete(String(telegramId));
+    if (Like) {
+      await Like.findOneAndUpdate(
+        { fromUserId: fromUser._id, toUserId: toUser._id },
+        { fromUserId: fromUser._id, toUserId: toUser._id, superLike: true },
+        { upsert: true }
+      );
+    }
+    try {
+      await bot.sendMessage(String(targetTelegramId),
+        `⭐ *Someone Super Liked You!*\n\n*${fromUser.name}* thinks you're special!\n\nBrowse their profile to see if you're interested! 💕`,
+        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }]] } }
+      );
+    } catch (e) { /* user may have blocked bot */ }
+    await bot.sendMessage(chatId, `⭐ Super Like sent to *${toUser.name}*! They've been notified.`, { parse_mode: 'Markdown' });
+    await browseProfiles(chatId, telegramId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
   // Reply Keyboard handler — Like / Skip / Super Like / Report
   // ─────────────────────────────────────────────────────────────────────
   const BROWSE_BUTTONS = ['❤️ Like', '❌ Skip', '⭐ Super Like', '🚩 Report'];
@@ -537,43 +675,36 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   bot.on('message', async (msg) => {
     const text = msg.text;
     if (!text || !BROWSE_BUTTONS.includes(text)) return;
-    if (MAIN_KB_BUTTONS.includes(text)) return;
 
     const chatId = msg.chat.id;
     const telegramId = String(msg.from.id);
 
     const state = userStates && userStates.get(telegramId);
     if (!state || !state.browsing || !state.browsing.profileId) {
-      // No active browse session — start one
       return browseProfiles(chatId, msg.from.id);
     }
 
     const targetTelegramId = state.browsing.profileId;
 
-    if (text === '❤️ Like') {
-      bot.emit('callback_query', {
-        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
-        from: { id: msg.from.id, first_name: msg.from.first_name },
-        data: `like_${targetTelegramId}`
-      });
-    } else if (text === '❌ Skip') {
-      bot.emit('callback_query', {
-        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
-        from: { id: msg.from.id, first_name: msg.from.first_name },
-        data: `pass_${targetTelegramId}`
-      });
-    } else if (text === '⭐ Super Like') {
-      bot.emit('callback_query', {
-        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
-        from: { id: msg.from.id, first_name: msg.from.first_name },
-        data: `superlike_${targetTelegramId}`
-      });
-    } else if (text === '🚩 Report') {
-      bot.emit('callback_query', {
-        id: 'kb', message: { chat: { id: chatId }, message_id: 0 },
-        from: { id: msg.from.id, first_name: msg.from.first_name },
-        data: `report_${targetTelegramId}`
-      });
+    try {
+      if (text === '❤️ Like') {
+        await handleLike(chatId, telegramId, targetTelegramId);
+      } else if (text === '❌ Skip') {
+        await handleSkip(chatId, telegramId, targetTelegramId);
+      } else if (text === '⭐ Super Like') {
+        await handleSuperLike(chatId, telegramId, targetTelegramId);
+      } else if (text === '🚩 Report') {
+        // Delegate to report.js via callback_query (report flow needs callback context)
+        bot.emit('callback_query', {
+          id: 'kb_report',
+          message: { chat: { id: chatId }, message_id: 0, from: msg.from },
+          from: msg.from,
+          data: `report_${targetTelegramId}`
+        });
+      }
+    } catch (err) {
+      console.error('[Browse KB] Error:', err);
+      bot.sendMessage(chatId, '❌ Something went wrong. Please try again.');
     }
   });
 
@@ -596,135 +727,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       // ── ❤️ LIKE ──────────────────────────────────────────────────────
       if (data.startsWith('like_')) {
-        const targetTelegramId = data.replace('like_', '');
-
-        // Rate limit check
-        if (!canLike(telegramId)) {
-          await bot.sendMessage(chatId, '⏳ Slow down a bit! Wait a second before liking again.');
-          return;
-        }
-        recordLike(telegramId);
-
-        const [fromUser, toUser] = await Promise.all([
-          User.findOne({ telegramId }),
-          User.findOne({ telegramId: targetTelegramId })
-        ]);
-
-        if (!fromUser || !toUser) return bot.sendMessage(chatId, '❌ User not found.');
-
-        // Clear browsing state (action taken)
-        if (userStates) userStates.delete(String(telegramId));
-
-        // Record the like and mark profile as seen
-        if (!toUser.likes.includes(String(telegramId))) {
-          toUser.likes.push(String(telegramId));
-          await toUser.save();
-        }
-        if (!(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
-          await User.findOneAndUpdate(
-            { telegramId: String(telegramId) },
-            { $push: { seenProfiles: String(targetTelegramId) } }
-          );
-        }
-
-        // Track stats (fire-and-forget)
-        trackLike(telegramId, targetTelegramId);
-
-        // Check for mutual like → MATCH
-        const isMutualLike = Like
-          ? !!(await Like.findOne({ fromUserId: toUser._id, toUserId: fromUser._id }))
-          : (fromUser.likes || []).includes(String(targetTelegramId));
-
-        if (isMutualLike) {
-          // Save match for both users (if not already matched)
-          const alreadyMatched = (fromUser.matches || []).some(m => String(m.userId) === String(targetTelegramId));
-
-          if (!alreadyMatched) {
-            fromUser.matches = fromUser.matches || [];
-            toUser.matches = toUser.matches || [];
-            fromUser.matches.push({ userId: String(targetTelegramId), matchedAt: new Date() });
-            toUser.matches.push({ userId: String(telegramId), matchedAt: new Date() });
-            await Promise.all([fromUser.save(), toUser.save()]);
-            invalidateUserCache(telegramId);
-            invalidateUserCache(targetTelegramId);
-            trackMatch(telegramId, targetTelegramId);
-          }
-
-          const starters = [
-            "Ask about their favourite travel destination 🌍",
-            "Comment on something from their bio 💬",
-            "Ask what they're looking for 💕",
-            "Share a fun fact about yourself ✨",
-            "Ask about their weekend plans 🎉"
-          ];
-          const starter = starters[Math.floor(Math.random() * starters.length)];
-
-          // ── Show "It's a Match!" to the liker ──────────────────────
-          const fromPhoto = (fromUser.photos || [])[0];
-          const toPhoto = (toUser.photos || [])[0];
-
-          if (fromPhoto && toPhoto) {
-            await bot.sendMediaGroup(chatId, [
-              { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
-              { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
-            ]).catch(() => {});
-          } else if (toPhoto) {
-            await bot.sendPhoto(chatId, toPhoto).catch(() => {});
-          }
-
-          await bot.sendMessage(chatId,
-            `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
-            `You and *${toUser.name}* liked each other!\n\n` +
-            `💡 *Conversation starter:*\n${starter}`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: '💬 Open Chat', callback_data: `chat_gate_${targetTelegramId}` },
-                    { text: '🔍 Keep Swiping', callback_data: 'start_browse' }
-                  ],
-                  [{ text: '💌 All Matches', callback_data: 'view_matches' }]
-                ]
-              }
-            }
-          );
-
-          // ── Notify the OTHER user too (background) ─────────────────
-          notifyMatchedUser(targetTelegramId, fromUser, toUser);
-
-        } else {
-          // No match yet — quick feedback then next profile
-          await bot.sendMessage(chatId,
-            randomFrom(LIKE_LINES),
-            { reply_markup: { inline_keyboard: [[{ text: '💌 Matches', callback_data: 'view_matches' }]] } }
-          );
-          await browseProfiles(chatId, telegramId);
-        }
+        await handleLike(chatId, telegramId, data.replace('like_', ''));
 
         // ── ❌ SKIP / PASS ────────────────────────────────────────────────
       } else if (data.startsWith('pass_')) {
-        const targetTelegramId = data.replace('pass_', '');
-
-        // Clear browsing state (action taken)
-        if (userStates) userStates.delete(String(telegramId));
-
-        // Record pass so we don't show this profile again
-        const fromUser = await User.findOne({ telegramId });
-        if (fromUser && !(fromUser.seenProfiles || []).includes(String(targetTelegramId))) {
-          await User.findOneAndUpdate(
-            { telegramId: String(telegramId) },
-            { $push: { seenProfiles: String(targetTelegramId) }, lastSkippedProfile: String(targetTelegramId) }
-          );
-          invalidateUserCache(String(telegramId));
-        }
-
-        const skipKeyboard = fromUser && fromUser.isVip
-          ? { reply_markup: { inline_keyboard: [[{ text: '↩️ Undo Skip', callback_data: `undo_skip_${targetTelegramId}` }]] } }
-          : {};
-        await bot.sendMessage(chatId, randomFrom(PASS_LINES), skipKeyboard);
-        // Instantly show next profile
-        await browseProfiles(chatId, telegramId);
+        await handleSkip(chatId, telegramId, data.replace('pass_', ''));
 
         // ── ↩️ UNDO SKIP (VIP only) ───────────────────────────────────────
       } else if (data.startsWith('undo_skip_')) {
@@ -755,68 +762,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         // ── ⭐ SUPER LIKE ─────────────────────────────────────────────────
       } else if (data.startsWith('superlike_')) {
-        const targetTelegramId = data.replace('superlike_', '');
-        const fromUser = await User.findOne({ telegramId });
-
-        if (!fromUser) return bot.sendMessage(chatId, '❌ User not found.');
-
-        const today = new Date().toDateString();
-        const vipDaily = fromUser.dailySuperLikesVip || {};
-        const freeSLUsed = vipDaily.date === today ? (vipDaily.count || 0) : 0;
-        const FREE_SL_LIMIT = 5;
-        const useFreeSuperLike = fromUser.isVip && freeSLUsed < FREE_SL_LIMIT;
-
-        if (!useFreeSuperLike && (fromUser.coins || 0) < 10) {
-          return bot.sendMessage(chatId,
-            `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n_VIP free super likes today: ${freeSLUsed}/${FREE_SL_LIMIT}_` : ''}`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: { inline_keyboard: [[{ text: '💰 Buy Coins', callback_data: 'buy_coins' }, { text: '🔍 Browse', callback_data: 'start_browse' }]] }
-            }
-          );
-        }
-
-        const toUser = await User.findOne({ telegramId: targetTelegramId });
-        if (!toUser) return bot.sendMessage(chatId, '❌ User not found.');
-
-        if (useFreeSuperLike) {
-          await User.findOneAndUpdate(
-            { telegramId: String(telegramId) },
-            { dailySuperLikesVip: { count: freeSLUsed + 1, date: today } }
-          );
-        } else {
-          fromUser.coins -= 10;
-          await fromUser.save();
-        }
-        if (userStates) userStates.delete(String(telegramId));
-
-        if (Like) {
-          await Like.findOneAndUpdate(
-            { fromUserId: fromUser._id, toUserId: toUser._id },
-            { fromUserId: fromUser._id, toUserId: toUser._id, superLike: true },
-            { upsert: true }
-          );
-        }
-
-        // Notify target user
-        try {
-          await bot.sendMessage(targetTelegramId,
-            `⭐ *Someone Super Liked You!*\n\n` +
-            `*${fromUser.name}* thinks you're special!\n\n` +
-            `Browse their profile to see if you're interested! 💕`,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: { inline_keyboard: [[{ text: '🔍 Browse Profiles', callback_data: 'start_browse' }]] }
-            }
-          );
-        } catch (e) { /* user may have blocked bot */ }
-
-        await bot.sendMessage(chatId,
-          `⭐ Super Like sent to *${toUser.name}*! They've been notified.`,
-          { parse_mode: 'Markdown' }
-        );
-
-        await browseProfiles(chatId, telegramId);
+        await handleSuperLike(chatId, telegramId, data.replace('superlike_', ''));
 
         // ── 💬 CHAT ───────────────────────────────────────────────────────
       } else if (data.startsWith('chat_') && !data.startsWith('chat_gate_')) {
