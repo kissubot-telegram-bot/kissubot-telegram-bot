@@ -33,7 +33,8 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   const BROWSE_KEYBOARD = {
     keyboard: [
       [{ text: '❤️ Like' }, { text: '❌ Skip' }],
-      [{ text: '⭐ Super Like' }, { text: '🚩 Report' }]
+      [{ text: '⭐ Super Like' }, { text: '🚩 Report' }],
+      [{ text: '🏠 Main Menu' }]
     ],
     resize_keyboard: true
   };
@@ -232,19 +233,32 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           });
         }
 
-        // 3rd try: drop photos requirement too
+        // 3rd try: drop location filter, keep photos
         if (profiles.length === 0) {
-          profiles = await runQuery({ ...ageFilter, ...locationFilter });
+          profiles = await runQuery({
+            photos: { $exists: true, $not: { $size: 0 } },
+            ...ageFilter, ...hideLikedFilter
+          });
         }
 
-        // 4th try: drop location filter
+        // 4th try: drop age filter, keep photos
         if (profiles.length === 0) {
-          profiles = await runQuery({ ...ageFilter });
+          profiles = await runQuery({
+            photos: { $exists: true, $not: { $size: 0 } }
+          });
         }
 
-        // 5th try: drop everything including blocked/seen exclusion list
+        // 5th try: last resort — include profiles with profilePhoto even if photos array is missing
         if (profiles.length === 0) {
-          let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, ...testFilter });
+          let q = User.find({
+            telegramId: { $ne: String(telegramId) },
+            name: { $exists: true, $ne: null },
+            $or: [
+              { photos: { $exists: true, $not: { $size: 0 } } },
+              { profilePhoto: { $exists: true, $ne: null } }
+            ],
+            ...testFilter
+          });
           if (limit) q = q.limit(limit);
           profiles = await q;
         }
@@ -311,17 +325,25 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           parse_mode: 'Markdown',
           reply_markup: keyboard
         });
-      } else if (profile.photos && profile.photos.length > 0) {
-        await bot.sendPhoto(chatId, profile.photos[0], {
-          caption,
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
       } else {
-        await bot.sendMessage(chatId, caption, {
-          parse_mode: 'Markdown',
-          reply_markup: keyboard
-        });
+        const photoId = (profile.photos && profile.photos.length > 0)
+          ? profile.photos[0]
+          : profile.profilePhoto;
+        if (photoId) {
+          await bot.sendPhoto(chatId, photoId, {
+            caption,
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+          }).catch(async () => {
+            // File ID expired or invalid — show text card instead
+            await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown', reply_markup: keyboard });
+          });
+        } else {
+          await bot.sendMessage(chatId, caption, {
+            parse_mode: 'Markdown',
+            reply_markup: keyboard
+          });
+        }
       }
 
     } catch (err) {

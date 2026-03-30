@@ -34,7 +34,7 @@ function setupMatchesCommands(bot, User) {
                 matches.forEach(match => {
                     matchesMessage += `\n• *${match.name}* — ${new Date(match.matchedAt).toLocaleDateString()}`;
                     keyboard.push([
-                        { text: `💬 ${match.name}`, url: `tg://user?id=${match.telegramId}` },
+                        { text: `💬 ${match.name}`, callback_data: `chat_gate_${match.telegramId}` },
                         { text: `🎁 Gift`, callback_data: `gift_to_${match.telegramId}` }
                     ]);
                 });

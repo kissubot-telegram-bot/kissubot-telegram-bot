@@ -93,11 +93,11 @@ const VIP_KEYBOARD = {
   keyboard: [
     [{ text: '👑 Get VIP' }, { text: '📊 My Subscription' }],
     [{ text: '💎 VIP Features' }, { text: '🎁 Gift VIP' }],
-    [{ text: '🚀 My VIP Perks' }, { text: '🏠 Main Menu' }]
+    [{ text: '🏠 Main Menu' }]
   ],
   resize_keyboard: true
 };
-const VIP_KB_BUTTONS = ['👑 Get VIP', '📊 My Subscription', '💎 VIP Features', '🎁 Gift VIP', '🚀 My VIP Perks'];
+const VIP_KB_BUTTONS = ['👑 Get VIP', '📊 My Subscription', '💎 VIP Features', '🎁 Gift VIP'];
 
 const GIFTS_KEYBOARD = {
   keyboard: [

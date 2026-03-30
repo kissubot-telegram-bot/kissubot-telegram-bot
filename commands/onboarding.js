@@ -3,11 +3,11 @@
  *
  * Flow (triggered after terms accepted):
  *   Step 1: Welcome → ask gender
- *   Step 2: Got gender → ask interested in (lookingFor)
- *   Step 3: Got interested in → ask name
- *   Step 4: Got name → ask age
- *   Step 5: Got age  → ask location
- *   Step 6: Got location → ask phone number
+ *   Step 2: Got gender → ask name
+ *   Step 3: Got name → ask age
+ *   Step 4: Got age  → ask location
+ *   Step 5: Got location → ask interested in (lookingFor)
+ *   Step 6: Got lookingFor → ask phone number
  *   Step 7: Got phone → ask bio (optional)
  *   Step 8: Got bio → ask for photo
  *   Done: Got photo → mark complete, show main menu 🎉
@@ -21,17 +21,17 @@ const PROMPTS = {
     gender: {
         text: `👤 *Step 1 of 8 — Your Gender*\n\nHow do you identify?`,
     },
-    lookingFor: {
-        text: `👀 *Step 2 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
-    },
     name: {
-        text: `📝 *Step 3 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+        text: `📝 *Step 2 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
     },
     age: {
-        text: `🎂 *Step 4 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
+        text: `🎂 *Step 3 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 *Step 5 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
+        text: `📍 *Step 4 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
+    },
+    lookingFor: {
+        text: `👀 *Step 5 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
     },
     phone: {
         text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
@@ -55,15 +55,15 @@ function setupOnboardingCommands(bot, userStates, User) {
         let nextStep = 'gender';
 
         if (user) {
-            if (user.gender) nextStep = 'lookingFor';
-            if (user.gender && user.lookingFor) nextStep = 'name';
-            if (user.gender && user.lookingFor && user.name) nextStep = 'age';
-            if (user.gender && user.lookingFor && user.name && user.age) nextStep = 'location';
-            if (user.gender && user.lookingFor && user.name && user.age && user.location) nextStep = 'phone';
-            if (user.gender && user.lookingFor && user.name && user.age && user.location && user.phone) nextStep = 'photo';
+            if (user.gender) nextStep = 'name';
+            if (user.gender && user.name) nextStep = 'age';
+            if (user.gender && user.name && user.age) nextStep = 'location';
+            if (user.gender && user.name && user.age && user.location) nextStep = 'lookingFor';
+            if (user.gender && user.name && user.age && user.location && user.lookingFor) nextStep = 'phone';
+            if (user.gender && user.name && user.age && user.location && user.lookingFor && user.phone) nextStep = 'photo';
 
             // If already complete (ignoring optional bio)
-            if (user.gender && user.lookingFor && user.name && user.age && user.location && user.phone && user.photos && user.photos.length > 0) {
+            if (user.gender && user.name && user.age && user.location && user.lookingFor && user.phone && user.photos && user.photos.length > 0) {
                 if (!user.profileCompleted) {
                     await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
                 }
@@ -103,22 +103,14 @@ function setupOnboardingCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { gender });
             invalidateUserCache(telegramId);
 
-            userStates.set(telegramId, { onboarding: { step: 'lookingFor' } });
+            userStates.set(telegramId, { onboarding: { step: 'name' } });
             await bot.answerCallbackQuery(query.id).catch(() => { });
 
             return bot.sendMessage(chatId,
-                `✅ Got it!\n\n${PROMPTS.lookingFor.text}`,
+                `✅ Got it!\n\n${PROMPTS.name.text}`,
                 {
                     parse_mode: 'Markdown',
-                    reply_markup: {
-                        keyboard: [
-                            [{ text: 'Men' }, { text: 'Women' }],
-                            [{ text: 'Everyone' }],
-                            [{ text: '🚫 Cancel Setup' }]
-                        ],
-                        resize_keyboard: true,
-                        one_time_keyboard: true
-                    }
+                    reply_markup: { remove_keyboard: true }
                 }
             );
         }
@@ -131,14 +123,18 @@ function setupOnboardingCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { lookingFor });
             invalidateUserCache(telegramId);
 
-            userStates.set(telegramId, { onboarding: { step: 'name' } });
+            userStates.set(telegramId, { onboarding: { step: 'phone' } });
             await bot.answerCallbackQuery(query.id).catch(() => { });
 
             return bot.sendMessage(chatId,
-                `✅ Preferences saved!\n\n${PROMPTS.name.text}`,
+                `✅ Preferences saved!\n\n${PROMPTS.phone.text}`,
                 {
                     parse_mode: 'Markdown',
-                    reply_markup: { remove_keyboard: true }
+                    reply_markup: {
+                        keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
+                        one_time_keyboard: true,
+                        resize_keyboard: true
+                    }
                 }
             );
         }
@@ -280,21 +276,10 @@ function setupOnboardingCommands(bot, userStates, User) {
                 }
                 await User.findOneAndUpdate({ telegramId }, { gender });
                 invalidateUserCache(telegramId);
-                userStates.set(telegramId, { onboarding: { step: 'lookingFor' } });
+                userStates.set(telegramId, { onboarding: { step: 'name' } });
                 return bot.sendMessage(chatId,
-                    `✅ Got it!\n\n${PROMPTS.lookingFor.text}`,
-                    {
-                        parse_mode: 'Markdown',
-                        reply_markup: {
-                            keyboard: [
-                                [{ text: 'Men' }, { text: 'Women' }],
-                                [{ text: 'Everyone' }],
-                                [{ text: '🚫 Cancel Setup' }]
-                            ],
-                            resize_keyboard: true,
-                            one_time_keyboard: true
-                        }
-                    }
+                    `✅ Got it!\n\n${PROMPTS.name.text}`,
+                    { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
                 );
             }
 
@@ -317,10 +302,17 @@ function setupOnboardingCommands(bot, userStates, User) {
                 }
                 await User.findOneAndUpdate({ telegramId }, { lookingFor });
                 invalidateUserCache(telegramId);
-                userStates.set(telegramId, { onboarding: { step: 'name' } });
+                userStates.set(telegramId, { onboarding: { step: 'phone' } });
                 return bot.sendMessage(chatId,
-                    `✅ Preferences saved!\n\n${PROMPTS.name.text}`,
-                    { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+                    `✅ Preferences saved!\n\n${PROMPTS.phone.text}`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
+                            one_time_keyboard: true,
+                            resize_keyboard: true
+                        }
+                    }
                 );
             }
 
@@ -438,33 +430,31 @@ function setupOnboardingCommands(bot, userStates, User) {
                 if (input.length < 2 || input.length > 100) {
                     return bot.sendMessage(chatId, '❌ Location must be 2–100 characters. Try again:');
                 }
-                // Search for matching cities
                 const cities = await searchCities(input);
                 if (cities.length === 0) {
-                    // No results — save as-is and continue
                     await User.findOneAndUpdate({ telegramId }, { location: input });
                     invalidateUserCache(telegramId);
-                    userStates.set(telegramId, { onboarding: { step: 'phone' } });
+                    userStates.set(telegramId, { onboarding: { step: 'lookingFor' } });
                     return bot.sendMessage(chatId,
-                        `✅ ${input} — noted!\n\n${PROMPTS.phone.text}`,
+                        `✅ ${input} — noted!\n\n${PROMPTS.lookingFor.text}`,
                         {
                             parse_mode: 'Markdown',
                             reply_markup: {
-                                keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
-                                one_time_keyboard: true,
-                                resize_keyboard: true
+                                keyboard: [
+                                    [{ text: 'Men' }, { text: 'Women' }],
+                                    [{ text: 'Everyone' }],
+                                    [{ text: '🚫 Cancel Setup' }]
+                                ],
+                                resize_keyboard: true,
+                                one_time_keyboard: true
                             }
                         }
                     );
                 }
-                // Store results in state, wait for selection
                 userStates.set(telegramId, { onboarding: { step: 'location_pick', cities } });
                 return bot.sendMessage(chatId,
                     `📍 *Select your city from the list:*\n\n${formatCityList(cities)}\n\n👇 Press the number button below`,
-                    {
-                        parse_mode: 'Markdown',
-                        reply_markup: buildCityKeyboard(cities)
-                    }
+                    { parse_mode: 'Markdown', reply_markup: buildCityKeyboard(cities) }
                 );
             }
 
@@ -472,12 +462,8 @@ function setupOnboardingCommands(bot, userStates, User) {
                 const cities = state.onboarding.cities || [];
                 if (input === '⬅️ Back') {
                     userStates.set(telegramId, { onboarding: { step: 'location' } });
-                    return bot.sendMessage(chatId,
-                        `${PROMPTS.location.text}`,
-                        {
-                            parse_mode: 'Markdown',
-                            reply_markup: { remove_keyboard: true }
-                        }
+                    return bot.sendMessage(chatId, PROMPTS.location.text,
+                        { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
                     );
                 }
                 const idx = parseInt(input, 10) - 1;
@@ -487,15 +473,19 @@ function setupOnboardingCommands(bot, userStates, User) {
                 const chosen = cities[idx].label;
                 await User.findOneAndUpdate({ telegramId }, { location: chosen });
                 invalidateUserCache(telegramId);
-                userStates.set(telegramId, { onboarding: { step: 'phone' } });
+                userStates.set(telegramId, { onboarding: { step: 'lookingFor' } });
                 return bot.sendMessage(chatId,
-                    `✅ *${chosen}* — great!\n\n${PROMPTS.phone.text}`,
+                    `✅ *${chosen}* — great!\n\n${PROMPTS.lookingFor.text}`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
-                            keyboard: [[{ text: '📞 Share My Number', request_contact: true }]],
-                            one_time_keyboard: true,
-                            resize_keyboard: true
+                            keyboard: [
+                                [{ text: 'Men' }, { text: 'Women' }],
+                                [{ text: 'Everyone' }],
+                                [{ text: '🚫 Cancel Setup' }]
+                            ],
+                            resize_keyboard: true,
+                            one_time_keyboard: true
                         }
                     }
                 );
@@ -510,7 +500,6 @@ function setupOnboardingCommands(bot, userStates, User) {
                     await User.findOneAndUpdate({ telegramId }, { bio: input });
                     invalidateUserCache(telegramId);
                 }
-
                 userStates.set(telegramId, { onboarding: { step: 'photo' } });
                 return bot.sendMessage(chatId,
                     `✅ ${skip ? 'Skipped!' : 'Great bio!'}\n\n${PROMPTS.photo.text}`,
