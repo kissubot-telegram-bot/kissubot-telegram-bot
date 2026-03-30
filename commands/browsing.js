@@ -463,16 +463,16 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       if (valid.length > 10) matchMsg += `_...and ${valid.length - 10} more matches!_`;
 
-      const matchButtons = valid.slice(0, 5).map(({ match, other }) => ([{
+      const matchButtons = valid.slice(0, 10).map(({ match, other }) => ([{
         text: `💬 Chat with ${other.name}`,
-        callback_data: `chat_gate_${other.telegramId}`
+        url: `tg://user?id=${other.telegramId}`
       }]));
 
       bot.sendMessage(chatId, matchMsg, {
         parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: matchButtons }
       });
-      bot.sendMessage(chatId, '_ _', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+      bot.sendMessage(chatId, '💡 Tap a name above to open a chat!', { reply_markup: MAIN_KEYBOARD });
 
     } catch (err) {
       console.error('[Matches] Error:', err);

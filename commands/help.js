@@ -1,4 +1,5 @@
 const { MAIN_KEYBOARD, HELP_KEYBOARD, HELP_KB_BUTTONS, REPORT_KEYBOARD, REPORT_KB_BUTTONS } = require('../keyboard');
+const { sendVipMenu } = require('./premium');
 
 function sendHelpMenu(bot, chatId) {
   bot.sendMessage(chatId,
@@ -18,7 +19,7 @@ function sendReportMenu(bot, chatId) {
   );
 }
 
-function setupHelpCommands(bot) {
+function setupHelpCommands(bot, User) {
 
   // ── /help command ──────────────────────────────────────────────────────
   bot.onText(/\/help/, (msg) => sendHelpMenu(bot, msg.chat.id));
@@ -79,21 +80,7 @@ function setupHelpCommands(bot) {
         );
 
       case '👑 VIP & Coins':
-        return bot.sendMessage(chatId,
-          `👑 *VIP & Coins*\n\n` +
-          `*VIP benefits:*\n` +
-          `• 👀 See who liked you\n` +
-          `• 🔝 Priority in browse queue\n` +
-          `• 💌 Unlimited matches\n` +
-          `• 🎭 Advanced filters\n` +
-          `• 📊 Profile analytics\n\n` +
-          `*Coins are used for:*\n` +
-          `• ⭐ Super Likes\n` +
-          `• 🚀 Priority Boosts\n` +
-          `• 🎁 Sending gifts to matches\n\n` +
-          `Tap *💎 VIP* on the main menu to get started!`,
-          { parse_mode: 'Markdown', reply_markup: HELP_KEYBOARD }
-        );
+        return sendVipMenu(bot, chatId, telegramId, User);
 
       case '📱 Stories Help':
         return bot.sendMessage(chatId,

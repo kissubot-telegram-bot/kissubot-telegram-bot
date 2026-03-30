@@ -21,6 +21,42 @@ const GIFT_VIP_PLANS = {
   gift_vip_yearly:   { name: '1 Year VIP',   days: 365, amount: 3490 },
 };
 
+async function sendVipMenu(bot, chatId, telegramId, User) {
+  try {
+    const user = await getCachedUserProfile(telegramId, User);
+    if (user.isVip) {
+      const expiry = user.vipExpiresAt ? new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Lifetime';
+      return bot.sendMessage(chatId,
+        `👑 *VIP Active!* ✨\n\n` +
+        `🎉 You're a VIP member until *${expiry}*!\n\n` +
+        `*Your benefits:*\n` +
+        `• 👀 See who likes you\n` +
+        `• ♾️ Unlimited likes\n` +
+        `• 🚀 Priority in browse\n` +
+        `• 🔍 Advanced filters\n` +
+        `• ⭐ VIP badge on profile`,
+        { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
+      );
+    } else {
+      return bot.sendMessage(chatId,
+        `👑 *Upgrade to VIP* 💎\n\n` +
+        `*Unlock exclusive perks:*\n` +
+        `• 👀 See who liked you\n` +
+        `• ♾️ Unlimited likes\n` +
+        `• 🚀 Priority browse placement\n` +
+        `• 🔍 Advanced search filters\n` +
+        `• 🚫 No ads\n` +
+        `• ⭐ VIP badge\n\n` +
+        `_Tap_ *👑 Get VIP* _to subscribe!_`,
+        { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
+      );
+    }
+  } catch (err) {
+    console.error('VIP menu error:', err.message);
+    bot.sendMessage(chatId, '❌ Failed to load VIP status. Please try again.');
+  }
+}
+
 function setupPremiumCommands(bot, User, userStates) {
   const axios = require('axios');
   const API_BASE = process.env.API_BASE || 'http://localhost:3000';
@@ -461,41 +497,7 @@ function setupPremiumCommands(bot, User, userStates) {
   });
   // VIP command
   bot.onText(/\/vip/, async (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-    try {
-      const user = await getCachedUserProfile(telegramId, User);
-      if (user.isVip) {
-        const expiry = user.vipExpiresAt ? new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Lifetime';
-        bot.sendMessage(chatId,
-          `👑 *VIP Active!* ✨\n\n` +
-          `🎉 You're a VIP member until *${expiry}*!\n\n` +
-          `*Your benefits:*\n` +
-          `• 👀 See who likes you\n` +
-          `• ♾️ Unlimited likes\n` +
-          `• 🚀 Priority in browse\n` +
-          `• 🔍 Advanced filters\n` +
-          `• ⭐ VIP badge on profile`,
-          { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
-        );
-      } else {
-        bot.sendMessage(chatId,
-          `👑 *Upgrade to VIP* 💎\n\n` +
-          `*Unlock exclusive perks:*\n` +
-          `• 👀 See who liked you\n` +
-          `• ♾️ Unlimited likes\n` +
-          `• 🚀 Priority browse placement\n` +
-          `• 🔍 Advanced search filters\n` +
-          `• 🚫 No ads\n` +
-          `• ⭐ VIP badge\n\n` +
-          `_Tap_ *👑 Get VIP* _to subscribe!_`,
-          { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD }
-        );
-      }
-    } catch (err) {
-      console.error('VIP command error:', err.response?.data || err.message);
-      bot.sendMessage(chatId, '❌ Failed to load VIP status. Please try again.');
-    }
+    await sendVipMenu(bot, msg.chat.id, msg.from.id, User);
   });
 
   // ── VIP Reply Keyboard handler ────────────────────────────────────────
@@ -780,4 +782,4 @@ function setupPremiumCommands(bot, User, userStates) {
   });
 }
 
-module.exports = { setupPremiumCommands };
+module.exports = { setupPremiumCommands, sendVipMenu };

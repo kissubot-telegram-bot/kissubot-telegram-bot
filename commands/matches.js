@@ -28,7 +28,7 @@ function setupMatchesCommands(bot, User) {
 
                 bot.sendMessage(chatId, noMatchesMsg, { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
             } else {
-                let matchesMessage = `💕 **Your Matches (${matches.length})** 💕\n\nHere are the people you've matched with:\n`;
+                let matchesMessage = `💕 *Your Matches (${matches.length})* 💕\n\nHere are the people you've matched with:\n`;
                 const keyboard = [];
 
                 matches.forEach(match => {
@@ -43,7 +43,7 @@ function setupMatchesCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: { inline_keyboard: keyboard }
                 });
-                bot.sendMessage(chatId, '🔍 Tap a name above to open a chat, or keep browsing!', { reply_markup: MAIN_KEYBOARD });
+                bot.sendMessage(chatId, '� Tap a name above to open a chat!', { reply_markup: MAIN_KEYBOARD });
             }
         } catch (error) {
             console.error('Error fetching matches:', error.message);

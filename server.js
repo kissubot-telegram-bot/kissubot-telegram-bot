@@ -641,7 +641,7 @@ setupProfileCommands(bot, userStates, User);
 setupOnboardingCommands(bot, userStates, User);
 setupBrowsingCommands(bot, User, Match, Like, userStates);
 setupReportCommands(bot, userStates, User, Report, null);
-setupHelpCommands(bot);
+setupHelpCommands(bot, User);
 setupSettingsCommands(bot, userStates, User);
 setupPremiumCommands(bot, User, userStates);
 setupGiftCommands(bot, User, userStates);
