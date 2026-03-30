@@ -1,4 +1,4 @@
-const { MAIN_KEYBOARD } = require('../keyboard');
+const { MAIN_KEYBOARD, MAIN_KB_BUTTONS } = require('../keyboard');
 const userProfileCache = new Map();
 
 async function getCachedUserProfile(telegramId, User) {
