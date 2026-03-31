@@ -52,8 +52,8 @@ function setupAuthCommands(bot, userStates, User) {
                   { text: '❌ Decline', callback_data: 'decline_terms' }
                 ],
                 [
-                  { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' },
-                  { text: '🔒 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }
+                  { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
+                  { text: '🔒 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
                 ]
               ]
             }

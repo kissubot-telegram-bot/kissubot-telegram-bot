@@ -13,8 +13,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
-                        [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
+                        [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
+                        [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -32,8 +32,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
-                        [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
+                        [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }],
+                        [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -97,8 +97,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
-                            [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
+                            [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
+                            [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -112,8 +112,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
-                            [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
+                            [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }],
+                            [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -129,7 +129,7 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Terms Again', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
+                            [{ text: '📖 Read Terms Again', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
                             [{ text: '🔙 Try Again', callback_data: 'main_menu' }]
                         ]
                     }
