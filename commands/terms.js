@@ -13,8 +13,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Terms', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
-                        [{ text: '🔒 Privacy Policy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
+                        [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
+                        [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -32,8 +32,8 @@ function setupTermsCommands(bot, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: '📖 Read Privacy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
-                        [{ text: '📜 Terms of Service', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
+                        [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
+                        [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
                         [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                     ]
                 }
@@ -97,8 +97,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Terms', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
-                            [{ text: '🔒 Privacy Policy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
+                            [{ text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
+                            [{ text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -112,8 +112,8 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Privacy', url: `${process.env.WEBHOOK_URL}/docs/privacy` }],
-                            [{ text: '📜 Terms of Service', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
+                            [{ text: '📖 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/privacy.html' }],
+                            [{ text: '📜 Terms of Service', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
                             [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
                         ]
                     }
@@ -129,7 +129,7 @@ function setupTermsCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '📖 Read Terms Again', url: `${process.env.WEBHOOK_URL}/docs/terms` }],
+                            [{ text: '📖 Read Terms Again', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/docs/terms.html' }],
                             [{ text: '🔙 Try Again', callback_data: 'main_menu' }]
                         ]
                     }
