@@ -41,9 +41,8 @@ function setupAuthCommands(bot, userStates, User) {
         invalidateUserCache(telegramId);
 
         // Start onboarding directly - terms will be shown during onboarding after phone step
-        const onboardingModule = require('./onboarding');
-        if (onboardingModule.startOnboarding) {
-          return await onboardingModule.startOnboarding(chatId, telegramId);
+        if (global.startOnboarding) {
+          return await global.startOnboarding(chatId, telegramId);
         }
       }
 

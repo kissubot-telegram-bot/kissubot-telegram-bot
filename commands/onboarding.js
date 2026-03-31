@@ -568,7 +568,7 @@ function setupOnboardingCommands(bot, userStates, User) {
         }
     });
 
-    module.exports.startOnboarding = startOnboarding;
+    return { startOnboarding };
 }
 
 module.exports = { setupOnboardingCommands };
