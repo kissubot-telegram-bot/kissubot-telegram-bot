@@ -392,9 +392,10 @@ const connectWithRetry = async () => {
             return; // Do not proceed if the URL isn't set
           }
 
-          console.log(`📡 Registering webhook with Telegram: ${webhookUrl}`);
+          const fullWebhookUrl = `${webhookUrl.replace(/\/$/, '')}/webhook/telegram`;
+          console.log(`📡 Registering webhook with Telegram: ${fullWebhookUrl}`);
 
-          await bot.setWebHook(webhookUrl);
+          await bot.setWebHook(fullWebhookUrl);
           console.log('✅ Webhook registered successfully with Telegram');
         } catch (err) {
           console.error('❌ Failed to register webhook:', err.message);
@@ -2381,23 +2382,6 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
   }
 });
 
-// Serve Terms of Service PDF
-app.get('/docs/terms', (req, res) => {
-  const filePath = path.join(__dirname, 'docs', 'terms-of-service.pdf');
-  res.setHeader('Content-Type', 'application/pdf');
-  res.sendFile(filePath, (err) => {
-    if (err) res.status(404).send('Terms of Service not found.');
-  });
-});
-
-// Serve Privacy Policy PDF
-app.get('/docs/privacy', (req, res) => {
-  const filePath = path.join(__dirname, 'docs', 'privacy-policy.pdf');
-  res.setHeader('Content-Type', 'application/pdf');
-  res.sendFile(filePath, (err) => {
-    if (err) res.status(404).send('Privacy Policy not found.');
-  });
-});
 
 // Catch-all for unhandled routes (should be after all API routes)
 app.use((req, res) => {
