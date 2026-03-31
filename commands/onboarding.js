@@ -1,15 +1,16 @@
 /**
  * onboarding.js — Guided step-by-step profile setup
  *
- * Flow (triggered after terms accepted):
- *   Step 1: Welcome → ask gender
- *   Step 2: Got gender → ask name
- *   Step 3: Got name → ask age
+ * Flow:
+ *   Step 1: Welcome → ask name
+ *   Step 2: Got name → ask gender
+ *   Step 3: Got gender → ask age
  *   Step 4: Got age  → ask location
  *   Step 5: Got location → ask interested in (lookingFor)
  *   Step 6: Got lookingFor → ask phone number
- *   Step 7: Got phone → ask bio (optional)
- *   Step 8: Got bio → ask for photo
+ *   Step 7: Got phone → ask to accept terms
+ *   Step 8: Got terms → ask bio (optional)
+ *   Step 9: Got bio → ask for photo
  *   Done: Got photo → mark complete, show main menu 🎉
  */
 
@@ -18,29 +19,32 @@ const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearc
 const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard');
 
 const PROMPTS = {
-    gender: {
-        text: `👤 *Step 1 of 8 — Your Gender*\n\nHow do you identify?`,
-    },
     name: {
-        text: `📝 *Step 2 of 8 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+        text: `� *Step 1 of 9 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+    },
+    gender: {
+        text: `� *Step 2 of 9 — Your Gender*\n\nHow do you identify?`,
     },
     age: {
-        text: `🎂 *Step 3 of 8 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
+        text: `🎂 *Step 3 of 9 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 *Step 4 of 8 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
+        text: `📍 *Step 4 of 9 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
     },
     lookingFor: {
-        text: `👀 *Step 5 of 8 — Who are you looking for?*\n\nWho would you like to meet?`,
+        text: `👀 *Step 5 of 9 — Who are you looking for?*\n\nWho would you like to meet?`,
     },
     phone: {
-        text: `📞 *Step 6 of 8 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
+        text: `📞 *Step 6 of 9 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
+    },
+    terms: {
+        text: `📜 *Step 7 of 9 — Terms & Privacy*\n\nBefore we continue, please review and accept our Terms of Service and Privacy Policy.\n\n_By tapping "Accept", you agree to our terms._`,
     },
     bio: {
-        text: `💬 *Step 7 of 8 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
+        text: `💬 *Step 8 of 9 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
     },
     photo: {
-        text: `📸 *Step 8 of 8 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
+        text: `📸 *Step 9 of 9 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
     },
 };
 
@@ -52,18 +56,20 @@ function setupOnboardingCommands(bot, userStates, User) {
      */
     async function startOnboarding(chatId, telegramId) {
         const user = await User.findOne({ telegramId });
-        let nextStep = 'gender';
+        let nextStep = 'name';
 
         if (user) {
-            if (user.gender) nextStep = 'name';
-            if (user.gender && user.name) nextStep = 'age';
-            if (user.gender && user.name && user.age) nextStep = 'location';
-            if (user.gender && user.name && user.age && user.location) nextStep = 'lookingFor';
-            if (user.gender && user.name && user.age && user.location && user.lookingFor) nextStep = 'phone';
-            if (user.gender && user.name && user.age && user.location && user.lookingFor && user.phone) nextStep = 'photo';
+            if (user.name) nextStep = 'gender';
+            if (user.name && user.gender) nextStep = 'age';
+            if (user.name && user.gender && user.age) nextStep = 'location';
+            if (user.name && user.gender && user.age && user.location) nextStep = 'lookingFor';
+            if (user.name && user.gender && user.age && user.location && user.lookingFor) nextStep = 'phone';
+            if (user.name && user.gender && user.age && user.location && user.lookingFor && user.phone) nextStep = 'terms';
+            if (user.name && user.gender && user.age && user.location && user.lookingFor && user.phone && user.termsAccepted) nextStep = 'bio';
+            if (user.name && user.gender && user.age && user.location && user.lookingFor && user.phone && user.termsAccepted && user.bio) nextStep = 'photo';
 
             // If already complete (ignoring optional bio)
-            if (user.gender && user.name && user.age && user.location && user.lookingFor && user.phone && user.photos && user.photos.length > 0) {
+            if (user.name && user.gender && user.age && user.location && user.lookingFor && user.phone && user.termsAccepted && user.photos && user.photos.length > 0) {
                 if (!user.profileCompleted) {
                     await User.findOneAndUpdate({ telegramId }, { profileCompleted: true });
                 }
@@ -103,11 +109,11 @@ function setupOnboardingCommands(bot, userStates, User) {
             await User.findOneAndUpdate({ telegramId }, { gender });
             invalidateUserCache(telegramId);
 
-            userStates.set(telegramId, { onboarding: { step: 'name' } });
+            userStates.set(telegramId, { onboarding: { step: 'age' } });
             await bot.answerCallbackQuery(query.id).catch(() => { });
 
             return bot.sendMessage(chatId,
-                `✅ Got it!\n\n${PROMPTS.name.text}`,
+                `✅ Got it!\n\n${PROMPTS.age.text}`,
                 {
                     parse_mode: 'Markdown',
                     reply_markup: { remove_keyboard: true }
@@ -136,6 +142,41 @@ function setupOnboardingCommands(bot, userStates, User) {
                         resize_keyboard: true
                     }
                 }
+            );
+        }
+
+        // --- Handle Terms Acceptance during onboarding ---
+        if (data === 'onboard_accept_terms') {
+            await User.findOneAndUpdate(
+                { telegramId },
+                { termsAccepted: true, termsAcceptedAt: new Date() }
+            );
+            invalidateUserCache(telegramId);
+
+            userStates.set(telegramId, { onboarding: { step: 'bio' } });
+            await bot.answerCallbackQuery(query.id).catch(() => { });
+
+            return bot.sendMessage(chatId,
+                `✅ Terms accepted!\n\n${PROMPTS.bio.text}`,
+                {
+                    parse_mode: 'Markdown',
+                    reply_markup: {
+                        keyboard: [
+                            [{ text: '⏭️ Skip Bio' }],
+                            [{ text: '🚫 Cancel Setup' }]
+                        ],
+                        resize_keyboard: true,
+                        one_time_keyboard: true
+                    }
+                }
+            );
+        }
+
+        if (data === 'onboard_decline_terms') {
+            await bot.answerCallbackQuery(query.id).catch(() => { });
+            return bot.sendMessage(chatId,
+                `❌ *Terms Declined*\n\nYou must accept our Terms of Service to use KissuBot.\n\nIf you change your mind, type /start to try again.`,
+                { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
             );
         }
 
@@ -276,9 +317,9 @@ function setupOnboardingCommands(bot, userStates, User) {
                 }
                 await User.findOneAndUpdate({ telegramId }, { gender });
                 invalidateUserCache(telegramId);
-                userStates.set(telegramId, { onboarding: { step: 'name' } });
+                userStates.set(telegramId, { onboarding: { step: 'age' } });
                 return bot.sendMessage(chatId,
-                    `✅ Got it!\n\n${PROMPTS.name.text}`,
+                    `✅ Got it!\n\n${PROMPTS.age.text}`,
                     { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
                 );
             }
@@ -345,18 +386,22 @@ function setupOnboardingCommands(bot, userStates, User) {
                 await User.findOneAndUpdate({ telegramId }, { phone: phoneNumber });
                 invalidateUserCache(telegramId);
 
-                userStates.set(telegramId, { onboarding: { step: 'bio' } });
+                userStates.set(telegramId, { onboarding: { step: 'terms' } });
                 return bot.sendMessage(chatId,
-                    `✅ Phone saved!\n\n${PROMPTS.bio.text}`,
+                    `✅ Phone saved!\n\n${PROMPTS.terms.text}`,
                     {
                         parse_mode: 'Markdown',
                         reply_markup: {
-                            keyboard: [
-                                [{ text: '⏭️ Skip Bio' }],
-                                [{ text: '🚫 Cancel Setup' }]
-                            ],
-                            resize_keyboard: true,
-                            one_time_keyboard: true
+                            inline_keyboard: [
+                                [
+                                    { text: '✅ Accept & Continue', callback_data: 'onboard_accept_terms' },
+                                    { text: '❌ Decline', callback_data: 'onboard_decline_terms' }
+                                ],
+                                [
+                                    { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
+                                    { text: '🔒 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
+                                ]
+                            ]
                         }
                     }
                 );
@@ -404,10 +449,20 @@ function setupOnboardingCommands(bot, userStates, User) {
                 await User.findOneAndUpdate({ telegramId }, { name: input });
                 invalidateUserCache(telegramId);
 
-                userStates.set(telegramId, { onboarding: { step: 'age' } });
+                userStates.set(telegramId, { onboarding: { step: 'gender' } });
                 return bot.sendMessage(chatId,
-                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.age.text}`,
-                    { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
+                    `✅ Nice to meet you, *${input}*!\n\n${PROMPTS.gender.text}`,
+                    {
+                        parse_mode: 'Markdown',
+                        reply_markup: {
+                            keyboard: [
+                                [{ text: '👨 Male' }, { text: '👩 Female' }],
+                                [{ text: '🌈 Non-Binary' }, { text: '🚫 Cancel Setup' }]
+                            ],
+                            resize_keyboard: true,
+                            one_time_keyboard: true
+                        }
+                    }
                 );
             }
 

@@ -40,25 +40,11 @@ function setupAuthCommands(bot, userStates, User) {
         await user.save();
         invalidateUserCache(telegramId);
 
-        // Show Terms of Service first before onboarding begins
-        return bot.sendMessage(chatId,
-          `📜 *Welcome to KissuBot!*\n\nBefore we get started, please review and accept our Terms of Service and Privacy Policy.\n\n_By tapping "Accept", you agree to our terms._`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '✅ Accept & Continue', callback_data: 'accept_terms' },
-                  { text: '❌ Decline', callback_data: 'decline_terms' }
-                ],
-                [
-                  { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
-                  { text: '🔒 Read Privacy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
-                ]
-              ]
-            }
-          }
-        );
+        // Start onboarding directly - terms will be shown during onboarding after phone step
+        const onboardingModule = require('./onboarding');
+        if (onboardingModule.startOnboarding) {
+          return await onboardingModule.startOnboarding(chatId, telegramId);
+        }
       }
 
       // 2. Compute profile completeness from actual fields

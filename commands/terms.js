@@ -44,54 +44,13 @@ function setupTermsCommands(bot, User) {
         }
     });
 
-    // Accept Terms callback
+    // Terms view callbacks
     bot.on('callback_query', async (query) => {
         const chatId = query.message.chat.id;
         const telegramId = query.from.id;
         const data = query.data;
 
-        if (data === 'accept_terms') {
-            try {
-                let user = await User.findOne({ telegramId });
-
-                if (!user) {
-                    user = new User({
-                        telegramId,
-                        username: query.from.username || '',
-                        location: 'Unknown',
-                        termsAccepted: true,
-                        termsAcceptedAt: new Date(),
-                        onboardingStep: 'registration'
-                    });
-                    await user.save();
-                } else {
-                    user.termsAccepted = true;
-                    user.termsAcceptedAt = new Date();
-                    await user.save();
-                }
-
-                invalidateUserCache(telegramId);
-                await bot.answerCallbackQuery(query.id).catch(() => { });
-
-                // If profile already complete, just show main menu
-                if (user.profileCompleted) {
-                    return bot.sendMessage(chatId,
-                        `✅ *Terms accepted!*\n\nWelcome back, ${user.name || 'friend'}! 💕`,
-                        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
-                    );
-                }
-
-                // Otherwise start onboarding flow
-                const onboardingModule = require('./onboarding');
-                if (onboardingModule.startOnboarding) {
-                    return await onboardingModule.startOnboarding(chatId, telegramId);
-                }
-            } catch (err) {
-                console.error('Accept terms error:', err);
-                bot.sendMessage(chatId, '❌ Something went wrong. Please try /start again.');
-            }
-
-        } else if (data === 'view_terms_inline') {
+        if (data === 'view_terms_inline') {
             try {
                 await bot.sendMessage(chatId, '📜 **KissuBot Terms of Service**', {
                     parse_mode: 'Markdown',
@@ -121,20 +80,6 @@ function setupTermsCommands(bot, User) {
             } catch (err) {
                 bot.sendMessage(chatId, '❌ Could not load Privacy Policy. Please try again later.');
             }
-        } else if (data === 'decline_terms' || data === 'decline_privacy') {
-            await bot.answerCallbackQuery(query.id).catch(() => { });
-            await bot.sendMessage(chatId,
-                `❌ *Terms Declined*\n\nYou must accept our Terms of Service to use KissuBot.\n\nIf you change your mind, tap below. �`,
-                {
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '📖 Read Terms Again', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' }],
-                            [{ text: '🔙 Try Again', callback_data: 'main_menu' }]
-                        ]
-                    }
-                }
-            );
         }
     });
 }
