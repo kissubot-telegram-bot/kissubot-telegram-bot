@@ -315,8 +315,9 @@ const ALL_KB_BUTTONS = [
   '🏠 Main Menu',
   '⚙️ Back to Settings',
   '🆘 Back to Help',
-  '🔙 Back',
-  "Let's Go! 🚀"
+  '🔙 Back'
+  // NOTE: "Let's Go! 🚀" is intentionally NOT here — it's an onboarding-only
+  // button and must reach the onboarding message handler in onboarding.js.
 ];
 
 module.exports = {

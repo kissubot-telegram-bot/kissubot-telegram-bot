@@ -48,6 +48,9 @@ const PROMPTS = {
     },
 };
 
+// Module-level reference so startOnboarding can be exported from module.exports
+let _startOnboarding;
+
 function setupOnboardingCommands(bot, userStates, User) {
 
     /**
@@ -568,7 +571,8 @@ function setupOnboardingCommands(bot, userStates, User) {
         }
     });
 
+    _startOnboarding = startOnboarding;
     return { startOnboarding };
 }
 
-module.exports = { setupOnboardingCommands };
+module.exports = { setupOnboardingCommands, get startOnboarding() { return _startOnboarding; } };

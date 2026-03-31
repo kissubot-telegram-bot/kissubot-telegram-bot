@@ -5,10 +5,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node bot.js",
-    "test": "jest --testPathPattern=tests/ --forceExit --detectOpenHandles",
-    "test:unit": "jest --testPathPattern=tests/unit --forceExit",
-    "test:integration": "jest --testPathPattern=tests/integration --forceExit",
-    "test:coverage": "jest --coverage --testPathPattern=tests/ --forceExit"
+    "test": "jest --testPathPatterns=tests/ --forceExit --detectOpenHandles",
+    "test:unit": "jest --testPathPatterns=tests/unit --forceExit",
+    "test:integration": "jest --testPathPatterns=tests/integration --forceExit",
+    "test:coverage": "jest --coverage --testPathPatterns=tests/ --forceExit"
   },
   "jest": {
     "testEnvironment": "node",

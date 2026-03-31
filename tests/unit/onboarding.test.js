@@ -1,11 +1,13 @@
 /**
- * BLACK-BOX UNIT TESTS: commands/onboarding.js + commands/terms.js (accept_terms)
+ * BLACK-BOX UNIT TESTS: commands/onboarding.js
  *
  * Strategy: Feed the module mock messages / callback queries and assert
  * ONLY on what the bot sends back (outputs). We never inspect internals.
  *
+ * The current implementation is a 9-step reply-keyboard flow:
+ *   name → gender → age → location → lookingFor → phone → terms → bio → photo
+ *
  * Naming:  TC-BB-XX  (Black Box)
- * Numbering follows the implementation plan exactly.
  */
 
 'use strict';
@@ -31,6 +33,11 @@ function makeMockBot() {
         on(event, handler) {
             if (!this._onHandlers[event]) this._onHandlers[event] = [];
             this._onHandlers[event].push(handler);
+        },
+
+        emit(event, ...args) {
+            const handlers = this._onHandlers[event] || [];
+            for (const h of handlers) h(...args);
         },
 
         sendMessage: jest.fn().mockResolvedValue({}),
@@ -81,7 +88,7 @@ function makeQuery(chatId, telegramId, data, queryId = 'qid-1') {
 function makeTextMsg(chatId, telegramId, text) {
     return {
         chat: { id: chatId },
-        from: { id: telegramId },
+        from: { id: telegramId, first_name: 'Test' },
         text,
     };
 }
@@ -94,6 +101,17 @@ function makePhotoMsg(chatId, telegramId, fileId = 'photo_file_id_123') {
         chat: { id: chatId },
         from: { id: telegramId },
         photo: [{ file_id: `${fileId}_small` }, { file_id: fileId }],
+    };
+}
+
+/**
+ * Build a contact message object (for phone step).
+ */
+function makeContactMsg(chatId, telegramId, phone = '+12345678900') {
+    return {
+        chat: { id: chatId },
+        from: { id: telegramId },
+        contact: { user_id: telegramId, phone_number: phone },
     };
 }
 
@@ -130,14 +148,12 @@ describe('BLACK-BOX: startOnboarding', () => {
         const MockUser = makeMockUser();
 
         const { setupOnboardingCommands } = require('../../commands/onboarding');
-        setupOnboardingCommands(bot, userStates, MockUser);
-
-        // startOnboarding is exported via module.exports.startOnboarding inside
-        // the setup function — grab it from the module after setup.
-        startOnboarding = require('../../commands/onboarding').startOnboarding;
+        // setupOnboardingCommands returns { startOnboarding } and also sets it on module.exports
+        const handlers = setupOnboardingCommands(bot, userStates, MockUser);
+        startOnboarding = handlers.startOnboarding;
     });
 
-    test('TC-BB-01: startOnboarding sends welcome message with "Let\'s Go" button', async () => {
+    test('TC-BB-01: startOnboarding sends welcome message with "Let\'s Go" reply button', async () => {
         await startOnboarding(100, 1001);
 
         expect(bot.sendMessage).toHaveBeenCalledWith(
@@ -145,9 +161,9 @@ describe('BLACK-BOX: startOnboarding', () => {
             expect.stringContaining('Welcome to KissuBot'),
             expect.objectContaining({
                 reply_markup: expect.objectContaining({
-                    inline_keyboard: expect.arrayContaining([
+                    keyboard: expect.arrayContaining([
                         expect.arrayContaining([
-                            expect.objectContaining({ callback_data: 'onboard_next_name' })
+                            expect.objectContaining({ text: "Let's Go! 🚀" })
                         ])
                     ])
                 })
@@ -158,6 +174,27 @@ describe('BLACK-BOX: startOnboarding', () => {
     test('TC-BB-01b: startOnboarding sets onboarding state to "name" step', async () => {
         await startOnboarding(100, 1001);
         expect(userStates.get(1001)).toEqual({ onboarding: { step: 'name' } });
+    });
+
+    test('TC-BB-01c: startOnboarding for already-complete user sends "already complete" message', async () => {
+        jest.resetModules();
+        const completeUser = {
+            name: 'Alice', gender: 'Female', age: 25, location: 'Lagos',
+            lookingFor: 'Male', phone: '+1234', termsAccepted: true,
+            profileCompleted: true, photos: ['photo1'],
+            save: jest.fn()
+        };
+        bot = makeMockBot();
+        userStates = new Map();
+        const MockUser = makeMockUser(completeUser);
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        const handlers = setupOnboardingCommands(bot, userStates, MockUser);
+        startOnboarding = handlers.startOnboarding;
+
+        await startOnboarding(100, 1001);
+
+        const call = bot.sendMessage.mock.calls[0];
+        expect(call[1]).toContain('already complete');
     });
 });
 
@@ -179,43 +216,57 @@ describe('BLACK-BOX: onboard_next_* callbacks', () => {
         setupOnboardingCommands(bot, userStates, MockUser);
     });
 
-    test('TC-BB-02: onboard_next_name → sends name prompt (Step 1 of 5)', async () => {
+    test('TC-BB-02: onboard_next_name → sends name prompt (Step 1 of 9)', async () => {
         await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_name'));
 
-        const call = bot.sendMessage.mock.calls.find(c => c[1].includes('Step 1 of 5'));
+        const call = bot.sendMessage.mock.calls.find(c => c[1].includes('Step 1 of 9'));
         expect(call).toBeDefined();
         expect(call[0]).toBe(100);
     });
 
-    test('TC-BB-02b: onboard_next_name callback includes Cancel button', async () => {
+    test('TC-BB-02b: onboard_next_name sets state to name step', async () => {
         await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_name'));
-
-        const call = bot.sendMessage.mock.calls.find(c => c[1].includes('Step 1 of 5'));
-        expect(call[2]).toMatchObject({
-            reply_markup: {
-                inline_keyboard: expect.arrayContaining([
-                    expect.arrayContaining([
-                        expect.objectContaining({ callback_data: 'onboard_cancel' })
-                    ])
-                ])
-            }
-        });
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'name' } });
     });
 
-    test('TC-BB-02c: onboard_next_photo callback does NOT include Cancel button', async () => {
+    test('TC-BB-02c: onboard_next_photo sends photo prompt and removes keyboard', async () => {
         await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_photo'));
 
-        const call = bot.sendMessage.mock.calls.find(c => c[1].includes('Step 5 of 5'));
+        const call = bot.sendMessage.mock.calls.find(c => c[1].includes('Step 9 of 9'));
         expect(call).toBeDefined();
-        // Should NOT have an inline_keyboard with cancel
-        const markup = call[2]?.reply_markup;
-        const hasCancel = JSON.stringify(markup || {}).includes('onboard_cancel');
-        expect(hasCancel).toBe(false);
+        expect(call[2]).toMatchObject({ reply_markup: { remove_keyboard: true } });
     });
 
     test('TC-BB-02d: unknown onboard_next_* step is silently ignored', async () => {
         await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_unknown_step'));
         expect(bot.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('TC-BB-02e: onboard_next_gender sends reply keyboard with Male/Female options', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_gender'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('👨 Male');
+        expect(markup).toContain('👩 Female');
+    });
+
+    test('TC-BB-02f: onboard_next_lookingFor sends reply keyboard with Men/Women/Everyone', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_lookingFor'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('Men');
+        expect(markup).toContain('Women');
+        expect(markup).toContain('Everyone');
+    });
+
+    test('TC-BB-02g: onboard_next_phone sends reply keyboard with share-number button', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_next_phone'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('Share My Number');
     });
 });
 
@@ -249,18 +300,69 @@ describe('BLACK-BOX: onboard_cancel callback', () => {
         expect(userStates.has(1001)).toBe(false);
     });
 
-    test('TC-BB-03c: onboard_cancel message includes "Complete Profile" and "Main Menu" buttons', async () => {
+    test('TC-BB-03c: onboard_cancel message sends MAIN_KEYBOARD (persistent nav)', async () => {
         await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_cancel'));
 
         const call = bot.sendMessage.mock.calls[0];
-        const markup = JSON.stringify(call[2]?.reply_markup || {});
-        expect(markup).toContain('edit_profile');
-        expect(markup).toContain('main_menu');
+        const markup = call[2]?.reply_markup;
+        // MAIN_KEYBOARD has keyboard array with nav buttons
+        expect(markup).toHaveProperty('keyboard');
+        const flat = markup.keyboard.flat().map(b => b.text);
+        expect(flat).toContain('🔍 Discover');
     });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 3: Name step
+// Suite 3: onboard_accept/decline_terms callbacks
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BLACK-BOX: Terms callbacks (onboard_accept_terms / onboard_decline_terms)', () => {
+    let bot;
+    let userStates;
+    let MockUser;
+
+    beforeEach(() => {
+        jest.resetModules();
+        bot = makeMockBot();
+        userStates = new Map();
+        userStates.set(1001, { onboarding: { step: 'terms' } });
+        MockUser = makeMockUser();
+
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        setupOnboardingCommands(bot, userStates, MockUser);
+    });
+
+    test('TC-BB-T1: accept_terms → saves termsAccepted, advances to bio step', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_accept_terms'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 },
+            expect.objectContaining({ termsAccepted: true })
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'bio' } });
+    });
+
+    test('TC-BB-T2: accept_terms → sends bio prompt with Skip button', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_accept_terms'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        // The message contains 'Bio' (capital B in Markdown: *Bio*)
+        expect(call[1]).toContain('Bio');
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('Skip Bio');
+    });
+
+    test('TC-BB-T3: decline_terms → sends "must accept" message', async () => {
+        await fireCallbackQuery(bot, makeQuery(100, 1001, 'onboard_decline_terms'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        expect(call[1]).toContain('must accept');
+        // Note: the decline handler just informs the user — it does not modify state
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 4: Name step
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: Name step', () => {
@@ -279,12 +381,12 @@ describe('BLACK-BOX: Name step', () => {
         setupOnboardingCommands(bot, userStates, MockUser);
     });
 
-    test('TC-BB-04: Valid name → greeting uses name, state advances to age', async () => {
+    test('TC-BB-04: Valid name → greeting uses name, state advances to gender', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'Alice'));
 
         const msg = bot.sendMessage.mock.calls[0][1];
         expect(msg).toContain('Alice');
-        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'age' } });
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'gender' } });
     });
 
     test('TC-BB-05: Name too short (1 char) → error, state remains on name', async () => {
@@ -307,21 +409,74 @@ describe('BLACK-BOX: Name step', () => {
         expect(userStates.get(1001)).toEqual({ onboarding: { step: 'name' } });
     });
 
-    test('TC-BB-04b: Valid name at boundary (2 chars) → accepted', async () => {
+    test('TC-BB-04b: Valid name at boundary (2 chars) → accepted, shows gender keyboard', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'Jo'));
 
-        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'age' } });
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'gender' } });
+        const call = bot.sendMessage.mock.calls[0];
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('👨 Male');
     });
 
     test('TC-BB-04c: Valid name at max boundary (50 chars) → accepted', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'C'.repeat(50)));
 
-        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'age' } });
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'gender' } });
     });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 4: Age step
+// Suite 5: Gender step
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BLACK-BOX: Gender step', () => {
+    let bot;
+    let userStates;
+    let MockUser;
+
+    beforeEach(() => {
+        jest.resetModules();
+        bot = makeMockBot();
+        userStates = new Map();
+        userStates.set(1001, { onboarding: { step: 'gender' } });
+        MockUser = makeMockUser();
+
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        setupOnboardingCommands(bot, userStates, MockUser);
+    });
+
+    test('TC-BB-G1: "👨 Male" → saves gender Male, advances to age', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '👨 Male'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { gender: 'Male' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'age' } });
+    });
+
+    test('TC-BB-G2: "👩 Female" → saves gender Female, advances to age', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '👩 Female'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { gender: 'Female' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'age' } });
+    });
+
+    test('TC-BB-G3: Invalid text → error, shows gender keyboard again', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, 'Apache helicopter'));
+
+        expect(bot.sendMessage).toHaveBeenCalledWith(
+            100,
+            expect.stringContaining('buttons below'),
+            expect.objectContaining({ reply_markup: expect.objectContaining({ keyboard: expect.any(Array) }) })
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'gender' } });
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 6: Age step
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: Age step', () => {
@@ -392,7 +547,7 @@ describe('BLACK-BOX: Age step', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 5: Location step
+// Suite 7: Location step
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: Location step', () => {
@@ -411,10 +566,11 @@ describe('BLACK-BOX: Location step', () => {
         setupOnboardingCommands(bot, userStates, MockUser);
     });
 
-    test('TC-BB-11: Valid location → state advances to bio', async () => {
+    test('TC-BB-11: Valid location → state advances to lookingFor', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'Lagos'));
 
-        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'bio' } });
+        // After location, next step is lookingFor (no cities found in mock)
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'lookingFor' } });
     });
 
     test('TC-BB-11b: Success reply echoes the location name entered', async () => {
@@ -445,12 +601,149 @@ describe('BLACK-BOX: Location step', () => {
 
     test('TC-BB-11c: Location at max boundary (100 chars) → accepted', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'A'.repeat(100)));
-        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'bio' } });
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'lookingFor' } });
     });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 6: Bio step
+// Suite 8: LookingFor step
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BLACK-BOX: LookingFor step', () => {
+    let bot;
+    let userStates;
+    let MockUser;
+
+    beforeEach(() => {
+        jest.resetModules();
+        bot = makeMockBot();
+        userStates = new Map();
+        userStates.set(1001, { onboarding: { step: 'lookingFor' } });
+        MockUser = makeMockUser();
+
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        setupOnboardingCommands(bot, userStates, MockUser);
+    });
+
+    test('TC-BB-LF1: "Men" → saves lookingFor Male, advances to phone', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, 'Men'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { lookingFor: 'Male' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'phone' } });
+    });
+
+    test('TC-BB-LF2: "Women" → saves lookingFor Female, advances to phone', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, 'Women'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { lookingFor: 'Female' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'phone' } });
+    });
+
+    test('TC-BB-LF3: "Everyone" → saves lookingFor Both, advances to phone', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, 'Everyone'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { lookingFor: 'Both' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'phone' } });
+    });
+
+    test('TC-BB-LF4: Invalid text → error, shows lookingFor keyboard again', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, 'just friends'));
+
+        expect(bot.sendMessage).toHaveBeenCalledWith(
+            100,
+            expect.stringContaining('buttons below'),
+            expect.objectContaining({ reply_markup: expect.objectContaining({ keyboard: expect.any(Array) }) })
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'lookingFor' } });
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 9: Phone step
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BLACK-BOX: Phone step', () => {
+    let bot;
+    let userStates;
+    let MockUser;
+
+    beforeEach(() => {
+        jest.resetModules();
+        bot = makeMockBot();
+        userStates = new Map();
+        userStates.set(1001, { onboarding: { step: 'phone' } });
+        MockUser = makeMockUser();
+
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        setupOnboardingCommands(bot, userStates, MockUser);
+    });
+
+    test('TC-BB-PH1: Contact message (mobile share) → saves phone, advances to terms', async () => {
+        await fireMessage(bot, makeContactMsg(100, 1001, '+12345678900'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { phone: '+12345678900' }
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'terms' } });
+    });
+
+    test('TC-BB-PH2: Typed number with country code → accepted, advances to terms', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '+12345678900'));
+
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'terms' } });
+    });
+
+    test('TC-BB-PH3: Typed number without + → prefixed with +, accepted', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '12345678900'));
+
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 }, { phone: '+12345678900' }
+        );
+    });
+
+    test('TC-BB-PH4: Invalid number (too short) → error sent', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '123'));
+
+        expect(bot.sendMessage).toHaveBeenCalledWith(
+            100,
+            expect.stringContaining('Invalid number'),
+            expect.any(Object)
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'phone' } });
+    });
+
+    test('TC-BB-PH5: Phone step sends terms as inline keyboard after accepting', async () => {
+        await fireMessage(bot, makeContactMsg(100, 1001));
+
+        const call = bot.sendMessage.mock.calls[0];
+        const markup = JSON.stringify(call[2]?.reply_markup || {});
+        expect(markup).toContain('onboard_accept_terms');
+    });
+
+    test('TC-BB-PH6: Contact from another user is rejected', async () => {
+        const wrongContactMsg = {
+            chat: { id: 100 },
+            from: { id: 1001 },
+            contact: { user_id: 9999, phone_number: '+12345678900' }, // different user
+        };
+        await fireMessage(bot, wrongContactMsg);
+
+        expect(bot.sendMessage).toHaveBeenCalledWith(
+            100,
+            expect.stringContaining("your own number")
+        );
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'phone' } });
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 10: Bio step
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: Bio step', () => {
@@ -496,7 +789,14 @@ describe('BLACK-BOX: Bio step', () => {
         expect(MockUser.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
-    test('TC-BB-15c: Skipped bio reply contains "Skipped!"', async () => {
+    test('TC-BB-15c: "⏭️ Skip Bio" button text → treated as skip', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '⏭️ Skip Bio'));
+
+        expect(userStates.get(1001)).toEqual({ onboarding: { step: 'photo' } });
+        expect(MockUser.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    test('TC-BB-15d: Skipped bio reply contains "Skipped!"', async () => {
         await fireMessage(bot, makeTextMsg(100, 1001, 'skip'));
 
         const msg = bot.sendMessage.mock.calls[0][1];
@@ -520,7 +820,7 @@ describe('BLACK-BOX: Bio step', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 7: Photo step
+// Suite 11: Photo step
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: Photo step', () => {
@@ -561,11 +861,13 @@ describe('BLACK-BOX: Photo step', () => {
         );
     });
 
-    test('TC-BB-17b: After valid photo → profileCompleted is set to true on saved doc', async () => {
+    test('TC-BB-17b: After valid photo → profileCompleted is set to true on doc', async () => {
         await fireMessage(bot, makePhotoMsg(100, 1001));
 
-        expect(mockUserDoc.profileCompleted).toBe(true);
-        expect(mockUserDoc.save).toHaveBeenCalled();
+        expect(MockUser.findOneAndUpdate).toHaveBeenCalledWith(
+            { telegramId: 1001 },
+            expect.objectContaining({ profileCompleted: true, onboardingStep: 'completed' })
+        );
     });
 
     test('TC-BB-17c: After valid photo → user state is cleared', async () => {
@@ -574,12 +876,15 @@ describe('BLACK-BOX: Photo step', () => {
         expect(userStates.has(1001)).toBe(false);
     });
 
-    test('TC-BB-17d: Completion message includes Start Browsing button', async () => {
+    test('TC-BB-17d: Completion message sends MAIN_KEYBOARD (persistent nav)', async () => {
         await fireMessage(bot, makePhotoMsg(100, 1001));
 
         const call = bot.sendMessage.mock.calls[0];
-        const markup = JSON.stringify(call[2]?.reply_markup || {});
-        expect(markup).toContain('start_browse');
+        const markup = call[2]?.reply_markup;
+        // MAIN_KEYBOARD has a keyboard array with nav buttons
+        expect(markup).toHaveProperty('keyboard');
+        const flat = markup.keyboard.flat().map(b => b.text);
+        expect(flat).toContain('🔍 Discover');
     });
 
     test('TC-BB-17e: Largest photo variant (last in array) is saved as profilePhoto', async () => {
@@ -629,7 +934,42 @@ describe('BLACK-BOX: Photo step', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Suite 8: State guard — messages outside onboarding are ignored
+// Suite 12: Cancel Setup (reply keyboard button, any step)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('BLACK-BOX: "🚫 Cancel Setup" reply button', () => {
+    let bot;
+    let userStates;
+
+    beforeEach(() => {
+        jest.resetModules();
+        bot = makeMockBot();
+        userStates = new Map();
+        userStates.set(1001, { onboarding: { step: 'age' } });
+        const MockUser = makeMockUser();
+
+        const { setupOnboardingCommands } = require('../../commands/onboarding');
+        setupOnboardingCommands(bot, userStates, MockUser);
+    });
+
+    test('TC-BB-CS1: "🚫 Cancel Setup" text → clears state', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '🚫 Cancel Setup'));
+
+        expect(userStates.has(1001)).toBe(false);
+    });
+
+    test('TC-BB-CS2: "🚫 Cancel Setup" → sends "paused" message with MAIN_KEYBOARD', async () => {
+        await fireMessage(bot, makeTextMsg(100, 1001, '🚫 Cancel Setup'));
+
+        const call = bot.sendMessage.mock.calls[0];
+        expect(call[1]).toContain('paused');
+        const markup = call[2]?.reply_markup;
+        expect(markup).toHaveProperty('keyboard');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 13: State guard — messages outside onboarding are ignored
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('BLACK-BOX: State guard', () => {
@@ -655,6 +995,13 @@ describe('BLACK-BOX: State guard', () => {
     test('TC-BB-20b: Message for user with non-onboarding state → ignored', async () => {
         userStates.set(9999, { browsing: { page: 1 } }); // wrong state key
         await fireMessage(bot, makeTextMsg(100, 9999, 'Hello!'));
+
+        expect(bot.sendMessage).not.toHaveBeenCalled();
+    });
+
+    test('TC-BB-20c: /command text → ignored by onboarding handler', async () => {
+        userStates.set(1001, { onboarding: { step: 'name' } });
+        await fireMessage(bot, makeTextMsg(100, 1001, '/profile'));
 
         expect(bot.sendMessage).not.toHaveBeenCalled();
     });
