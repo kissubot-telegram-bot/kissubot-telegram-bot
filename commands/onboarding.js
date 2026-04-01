@@ -436,7 +436,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                 invalidateUserCache(telegramId);
 
                 return bot.sendMessage(chatId,
-                    `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nUse the menu below to start browsing!`,
+                    `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nTap the Discover button below to start browsing!`,
                     { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
                 );
             }

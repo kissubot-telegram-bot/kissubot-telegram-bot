@@ -1,4 +1,4 @@
-const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require('./auth');
+﻿const { getCachedUserProfile, invalidateUserCache, getProfileMissing } = require('./auth');
 const axios = require('axios');
 const { API_BASE } = require('../config');
 const browsingModule = require('./browsing');
@@ -662,14 +662,14 @@ function setupProfileCommands(bot, userStates, User) {
       return bot.sendMessage(chatId, '👤 *Edit Gender*\n\nHow do you identify?', {
         parse_mode: 'Markdown',
         reply_markup: {
-          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '� Cancel' }]],
+          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '🚫 Cancel' }]],
           resize_keyboard: true, one_time_keyboard: true
         }
       });
     }
     if (text === '👀 Looking For') {
       userStates.set(telegramId, { editing: 'lookingFor' });
-      return bot.sendMessage(chatId, '� *Looking For*\n\nWho would you like to meet?', {
+      return bot.sendMessage(chatId, '👀 *Looking For*\n\nWho would you like to meet?', {
         parse_mode: 'Markdown',
         reply_markup: {
           keyboard: [[{ text: 'Men' }, { text: 'Women' }], [{ text: 'Everyone' }], [{ text: '🚫 Cancel' }]],
@@ -687,7 +687,7 @@ function setupProfileCommands(bot, userStates, User) {
       return bot.sendMessage(chatId, '💬 *Edit Bio*\n\nEnter your bio (max 500 chars):',
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
     }
-    if (text === '� Phone') {
+    if (text === '📞 Phone') {
       userStates.set(telegramId, { editing: 'phone' });
       return bot.sendMessage(chatId,
         '📞 *Phone Number*\n\n📱 *Mobile:* Tap the Share button below.\n💻 *Desktop:* Type your number with country code e.g. `+12345678900`',
