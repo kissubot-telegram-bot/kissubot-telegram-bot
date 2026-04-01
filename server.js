@@ -392,7 +392,8 @@ const connectWithRetry = async () => {
             return; // Do not proceed if the URL isn't set
           }
 
-          const fullWebhookUrl = `${webhookUrl.replace(/\/$/, '')}/webhook/telegram`;
+          const baseWebhookUrl = webhookUrl.replace(/\/$/, '').replace(/\/webhook\/telegram$/, '');
+          const fullWebhookUrl = `${baseWebhookUrl}/webhook/telegram`;
           console.log(`📡 Registering webhook with Telegram: ${fullWebhookUrl}`);
 
           await bot.setWebHook(fullWebhookUrl);
@@ -2347,7 +2348,7 @@ app.post('/upload-photo/:telegramId', upload.single('image'), async (req, res) =
     // Find user first to check photo count
     const user = await User.findOne({ telegramId });
     if (!user) {
-      await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
+      await cloudinary.uploader.destroy(req.file.filename).catch(() => { });
       return res.status(404).json({ error: 'User not found' });
     }
 
