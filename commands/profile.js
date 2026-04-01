@@ -22,9 +22,7 @@ function setupProfileCommands(bot, userStates, User) {
         case 'add_phone_number':
           userStates.set(telegramId, { editing: 'phone' });
           await bot.sendMessage(chatId,
-            '📞 *Add Your Phone Number*\n\n' +
-            '📱 *On mobile:* Tap the *"📞 Share My Phone Number"* button that appears at the bottom of your screen.\n\n' +
-            '💻 *On desktop:* Type your number with country code and send it here:\n`+12345678900`',
+            '📞 *Add Your Phone Number*\n\nTap the *"📞 Share My Phone Number"* button that appears at the bottom of your screen.',
             {
               parse_mode: 'Markdown',
               reply_markup: {
@@ -690,7 +688,7 @@ function setupProfileCommands(bot, userStates, User) {
     if (text === '📞 Phone') {
       userStates.set(telegramId, { editing: 'phone' });
       return bot.sendMessage(chatId,
-        '📞 *Phone Number*\n\n📱 *Mobile:* Tap the Share button below.\n💻 *Desktop:* Type your number with country code e.g. `+12345678900`',
+        '📞 *Phone Number*\n\nTap the Share button below.',
         {
           parse_mode: 'Markdown',
           reply_markup: {

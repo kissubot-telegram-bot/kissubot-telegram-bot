@@ -35,7 +35,7 @@ const PROMPTS = {
         text: `👀 *Step 5 of 9 — Who are you looking for?*\n\nWho would you like to meet?`,
     },
     phone: {
-        text: `📞 *Step 6 of 9 — Your Phone Number*\n\n📱 *On mobile:* Tap the *"📞 Share My Number"* button below.\n\n💻 *On desktop:* Type your number with country code:\n\`+12345678900\`\n\n🔒 Your number is private and never shown publicly.`,
+        text: `📞 *Step 6 of 9 — Your Phone Number*\n\nTap the *"📞 Share My Number"* button below.\n\n🔒 Your number is private and never shown publicly.`,
     },
     terms: {
         text: `📜 *Step 7 of 9 — Terms & Privacy*\n\nBefore we continue, please review and accept our Terms of Service and Privacy Policy.\n\n_By tapping "Accept", you agree to our terms._`,
