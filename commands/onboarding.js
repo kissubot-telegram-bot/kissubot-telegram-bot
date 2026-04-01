@@ -20,31 +20,31 @@ const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard'
 
 const PROMPTS = {
     name: {
-        text: `� *Step 1 of 9 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
+        text: `✨ *Step 1 of 9 — Your Name*\n\nWhat should we call you?\n_Enter your first name or nickname:_`,
     },
     gender: {
-        text: `� *Step 2 of 9 — Your Gender*\n\nHow do you identify?`,
+        text: `👫 *Step 2 of 9 — Your Gender*\n\nHow do you identify?`,
     },
     age: {
         text: `🎂 *Step 3 of 9 — Your Age*\n\nHow old are you?\n_Enter your age (18–99):_`,
     },
     location: {
-        text: `📍 *Step 4 of 9 — Your Location*\n\nWhere are you based?\n_Enter your city or state (e.g. London, New York):_`,
+        text: `📍 *Step 4 of 9 — Your Location*\n\nWhere are you based?\n_Enter your city (e.g. London, New York):_`,
     },
     lookingFor: {
-        text: `👀 *Step 5 of 9 — Who are you looking for?*\n\nWho would you like to meet?`,
+        text: `� *Step 5 of 9 — Your Preferences*\n\nWho would you like to meet?`,
     },
     phone: {
-        text: `📞 *Step 6 of 9 — Your Phone Number*\n\nTap the *"📞 Share My Number"* button below.\n\n🔒 Your number is private and never shown publicly.`,
+        text: `� *Step 6 of 9 — Your Phone Number*\n\nTap the button below to share your number.\n\n🔒 Your number is private and never shown publicly.`,
     },
     terms: {
-        text: `📜 *Step 7 of 9 — Terms & Privacy*\n\nBefore we continue, please review and accept our Terms of Service and Privacy Policy.\n\n_By tapping "Accept", you agree to our terms._`,
+        text: `📜 *Step 7 of 9 — Terms & Privacy*\n\nBefore we continue, please review and accept our Terms of Service.\n\n_By tapping "Accept", you agree to our terms._`,
     },
     bio: {
-        text: `💬 *Step 8 of 9 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
+        text: `� *Step 8 of 9 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
     },
     photo: {
-        text: `📸 *Step 9 of 9 — Your Photo*\n\nTime to look your best! 📸\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
+        text: `📸 *Step 9 of 9 — Your Photo*\n\nTime to look your best! ✨\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
     },
 };
 
@@ -217,8 +217,8 @@ function setupOnboardingCommands(bot, userStates, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     keyboard: [
-                        [{ text: '👨 Male' }, { text: '👩 Female' }],
-                        [{ text: '� Cancel Setup' }]
+                        [{ text: '� Male' }, { text: '� Female' }],
+                        [{ text: '❌ Stop Setup' }]
                     ],
                     resize_keyboard: true,
                     one_time_keyboard: true
@@ -232,9 +232,9 @@ function setupOnboardingCommands(bot, userStates, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     keyboard: [
-                        [{ text: 'Men' }, { text: 'Women' }],
-                        [{ text: 'Everyone' }],
-                        [{ text: '🚫 Cancel Setup' }]
+                        [{ text: '👔 Men' }, { text: '👗 Women' }],
+                        [{ text: '💘 Everyone' }],
+                        [{ text: '❌ Stop Setup' }]
                     ],
                     resize_keyboard: true,
                     one_time_keyboard: true
@@ -293,7 +293,7 @@ function setupOnboardingCommands(bot, userStates, User) {
             }
 
             // ── 🚫 Cancel Setup (Reply Keyboard button, any step) ──────────
-            if (msg.text && msg.text.trim() === '🚫 Cancel Setup') {
+            if (msg.text && (msg.text.trim() === '🚫 Cancel Setup' || msg.text.trim() === '❌ Stop Setup')) {
                 userStates.delete(telegramId);
                 await bot.sendMessage(chatId,
                     `⏭️ Setup paused. You can complete it anytime from your profile settings.`,
@@ -304,14 +304,14 @@ function setupOnboardingCommands(bot, userStates, User) {
 
             // ── GENDER step ────────────────────────────────────────────────
             if (step === 'gender') {
-                const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female' };
+                const genderMap = { '� Male': 'Male', '� Female': 'Female' };
                 const gender = genderMap[msg.text && msg.text.trim()];
                 if (!gender) {
                     return bot.sendMessage(chatId, '❌ Please press one of the buttons below:', {
                         reply_markup: {
                             keyboard: [
-                                [{ text: '👨 Male' }, { text: '👩 Female' }],
-                                [{ text: '🚫 Cancel Setup' }]
+                                [{ text: '� Male' }, { text: '� Female' }],
+                                [{ text: '❌ Stop Setup' }]
                             ],
                             resize_keyboard: true,
                             one_time_keyboard: true
@@ -329,15 +329,15 @@ function setupOnboardingCommands(bot, userStates, User) {
 
             // ── LOOKING FOR step ───────────────────────────────────────────
             if (step === 'lookingFor') {
-                const lookingForMap = { 'Men': 'Male', 'Women': 'Female', 'Everyone': 'Both' };
+                const lookingForMap = { '👔 Men': 'Male', '👗 Women': 'Female', '💘 Everyone': 'Both' };
                 const lookingFor = lookingForMap[msg.text && msg.text.trim()];
                 if (!lookingFor) {
                     return bot.sendMessage(chatId, '❌ Please press one of the buttons below:', {
                         reply_markup: {
                             keyboard: [
-                                [{ text: 'Men' }, { text: 'Women' }],
-                                [{ text: 'Everyone' }],
-                                [{ text: '🚫 Cancel Setup' }]
+                                [{ text: '👔 Men' }, { text: '👗 Women' }],
+                                [{ text: '💘 Everyone' }],
+                                [{ text: '❌ Stop Setup' }]
                             ],
                             resize_keyboard: true,
                             one_time_keyboard: true
@@ -436,7 +436,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                 invalidateUserCache(telegramId);
 
                 return bot.sendMessage(chatId,
-                    `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nTap the Discover button below to start browsing!`,
+                    `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nTap the ✨ Discover button below to start browsing!`,
                     { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
                 );
             }

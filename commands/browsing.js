@@ -32,9 +32,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   // ─────────────────────────────────────────────────────────────────────
   const BROWSE_KEYBOARD = {
     keyboard: [
-      [{ text: '❤️ Like' }, { text: '❌ Skip' }],
+      [{ text: '💖 Like' }, { text: '⏭️ Skip' }],
       [{ text: '⭐ Super Like' }, { text: '🎁 Gift' }],
-      [{ text: '🏠 Main Menu' }]
+      [{ text: '🏠 Menu' }]
     ],
     resize_keyboard: true
   };
@@ -47,11 +47,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   // Build the caption for a profile card
   // ─────────────────────────────────────────────────────────────────────
   const LIKE_LINES = [
-    '❤️ Liked! Looking for your next match...',
-    '💘 Nice choice! Finding someone new...',
-    '🔥 You liked them! Fingers crossed for a match...',
-    '✨ Like sent! Who\'s next?',
-    '💌 They might just like you back! Loading...',
+    '💖 *Heartbeat!* Looking for your next match...',
+    '💘 *A match made in heaven?* Finding someone new...',
+    '🔥 *Ooh la la!* Fingers crossed for a match...',
+    '✨ *Spark sent!* Who\'s next?',
+    '💌 *They might just be the one!* Loading...',
   ];
 
   const PASS_LINES = [
@@ -64,7 +64,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   function randomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
   function buildProfileCaption(profile, viewerTelegramId) {
-    const genderIcon = profile.gender === 'Male' ? '👨' : profile.gender === 'Female' ? '👩' : '🧑';
+    const genderIcon = profile.gender === 'Male' ? '👔' : profile.gender === 'Female' ? '👗' : '🧒';
     const vipBadge = profile.isVip ? ' 👑' : '';
     const lookingFor = profile.lookingFor
       ? `\n🔍 Looking for: *${profile.lookingFor}*`
@@ -152,7 +152,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       // Invisible mode: don't update lastActive while browsing
       if (!currentUser.invisibleMode) {
-        User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date() }).catch(() => {});
+        User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date() }).catch(() => { });
       }
 
       if (!(await requireBrowseAccess(bot, chatId, String(telegramId), User))) {
@@ -280,7 +280,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             { telegramId: String(telegramId) },
             { $inc: { coins: monthlyCoins }, $set: { 'vipDetails.lastCoinGrantDate': now } }
           );
-          bot.sendMessage(chatId, `🎁 *Monthly VIP Coins!*\n\n+${monthlyCoins} coins have been added to your balance! 🪙`, { parse_mode: 'Markdown' }).catch(() => {});
+          bot.sendMessage(chatId, `🎁 *Monthly VIP Coins!*\n\n+${monthlyCoins} coins have been added to your balance! 🪙`, { parse_mode: 'Markdown' }).catch(() => { });
         }
       }
 
@@ -320,7 +320,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           type: 'photo', media: url,
           ...(i === 0 ? { caption, parse_mode: 'Markdown' } : {})
         }));
-        await bot.sendMediaGroup(chatId, mediaGroup).catch(() => {});
+        await bot.sendMediaGroup(chatId, mediaGroup).catch(() => { });
         await bot.sendMessage(chatId, `📸 *${profile.name.split(' ')[0]}'s ${profile.photos.length} photos above* — like or skip?`, {
           parse_mode: 'Markdown',
           reply_markup: keyboard
@@ -523,9 +523,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         await bot.sendMediaGroup(otherTelegramId, [
           { type: 'photo', media: theirPhoto, caption: '💖', parse_mode: 'Markdown' },
           { type: 'photo', media: myPhoto, caption: '💖', parse_mode: 'Markdown' }
-        ]).catch(() => {});
+        ]).catch(() => { });
       } else if (myPhoto) {
-        await bot.sendPhoto(otherTelegramId, myPhoto).catch(() => {});
+        await bot.sendPhoto(otherTelegramId, myPhoto).catch(() => { });
       }
 
       await bot.sendMessage(
@@ -596,9 +596,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         await bot.sendMediaGroup(chatId, [
           { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
           { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
-        ]).catch(() => {});
+        ]).catch(() => { });
       } else if (toPhoto) {
-        await bot.sendPhoto(chatId, toPhoto).catch(() => {});
+        await bot.sendPhoto(chatId, toPhoto).catch(() => { });
       }
       await bot.sendMessage(chatId,
         `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}\n\n_Tap_ *💕 Matches* _to open a chat!_`,
@@ -671,7 +671,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   // ─────────────────────────────────────────────────────────────────────
   // Reply Keyboard handler — Like / Skip / Super Like / Gift
   // ─────────────────────────────────────────────────────────────────────
-  const BROWSE_BUTTONS = ['❤️ Like', '❌ Skip', '⭐ Super Like', '🎁 Gift'];
+  const BROWSE_BUTTONS = ['💖 Like', '⏭️ Skip', '⭐ Super Like', '🎁 Gift'];
 
   bot.on('message', async (msg) => {
     const text = msg.text;
@@ -688,9 +688,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
     const targetTelegramId = state.browsing.profileId;
 
     try {
-      if (text === '❤️ Like') {
+      if (text === '💖 Like') {
         await handleLike(chatId, telegramId, targetTelegramId);
-      } else if (text === '❌ Skip') {
+      } else if (text === '⏭️ Skip') {
         await handleSkip(chatId, telegramId, targetTelegramId);
       } else if (text === '⭐ Super Like') {
         await handleSuperLike(chatId, telegramId, targetTelegramId);

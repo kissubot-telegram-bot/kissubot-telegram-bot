@@ -476,12 +476,12 @@ function setupProfileCommands(bot, userStates, User) {
             userStates.delete(telegramId);
             return bot.sendMessage(chatId, '❌ Edit cancelled.', { reply_markup: MAIN_KEYBOARD });
           }
-          const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female' };
+          const genderMap = { '👔 Male': 'Male', '👗 Female': 'Female' };
           const gender = genderMap[value];
           if (!gender) {
             return bot.sendMessage(chatId, '❌ Please press one of the buttons:', {
               reply_markup: {
-                keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '🚫 Cancel' }]],
+                keyboard: [[{ text: '👔 Male' }, { text: '👗 Female' }], [{ text: '❌ Cancel' }]],
                 resize_keyboard: true, one_time_keyboard: true
               }
             });
@@ -500,12 +500,12 @@ function setupProfileCommands(bot, userStates, User) {
             userStates.delete(telegramId);
             return bot.sendMessage(chatId, '❌ Edit cancelled.', { reply_markup: MAIN_KEYBOARD });
           }
-          const lookingForMap = { 'Men': 'Male', 'Women': 'Female', 'Everyone': 'Both' };
+          const lookingForMap = { '👔 Men': 'Male', '👗 Women': 'Female', '💘 Everyone': 'Both' };
           const lookingFor = lookingForMap[value];
           if (!lookingFor) {
             return bot.sendMessage(chatId, '❌ Please press one of the buttons:', {
               reply_markup: {
-                keyboard: [[{ text: 'Men' }, { text: 'Women' }], [{ text: 'Everyone' }], [{ text: '🚫 Cancel' }]],
+                keyboard: [[{ text: '👔 Men' }, { text: '👗 Women' }], [{ text: '💘 Everyone' }], [{ text: '❌ Cancel' }]],
                 resize_keyboard: true, one_time_keyboard: true
               }
             });
@@ -641,54 +641,54 @@ function setupProfileCommands(bot, userStates, User) {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
 
-    if (text === '🔙 Back') {
+    if (text === '🏠 Menu') {
       userStates.delete(telegramId);
-      return bot.sendMessage(chatId, '🏠 Main menu', { reply_markup: MAIN_KEYBOARD });
+      return bot.sendMessage(chatId, '🏠 Returning to Main menu...', { reply_markup: MAIN_KEYBOARD });
     }
-    if (text === '📝 Edit Name') {
+    if (text === '✨ Name') {
       userStates.set(telegramId, { editing: 'name' });
-      return bot.sendMessage(chatId, '📝 *Edit Name*\n\nEnter your new name:',
+      return bot.sendMessage(chatId, '✨ *Your Name*\n\nHow should we call you? Send your new name:',
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
     }
-    if (text === '🎂 Edit Age') {
+    if (text === '🎂 Age') {
       userStates.set(telegramId, { editing: 'age' });
-      return bot.sendMessage(chatId, '🎂 *Edit Age*\n\nEnter your age (18–100):',
+      return bot.sendMessage(chatId, '🎂 *Your Age*\n\nEnter your age (18–100):',
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
     }
-    if (text === '👤 Edit Gender') {
+    if (text === '👫 Gender') {
       userStates.set(telegramId, { editing: 'gender' });
-      return bot.sendMessage(chatId, '👤 *Edit Gender*\n\nHow do you identify?', {
+      return bot.sendMessage(chatId, '👫 *Your Gender*\n\nHow do you identify?', {
         parse_mode: 'Markdown',
         reply_markup: {
-          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '🚫 Cancel' }]],
+          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '❌ Cancel' }]],
           resize_keyboard: true, one_time_keyboard: true
         }
       });
     }
-    if (text === '👀 Looking For') {
+    if (text === '💘 Preferences') {
       userStates.set(telegramId, { editing: 'lookingFor' });
-      return bot.sendMessage(chatId, '👀 *Looking For*\n\nWho would you like to meet?', {
+      return bot.sendMessage(chatId, '💘 *Your Preferences*\n\nWho would you like to meet?', {
         parse_mode: 'Markdown',
         reply_markup: {
-          keyboard: [[{ text: 'Men' }, { text: 'Women' }], [{ text: 'Everyone' }], [{ text: '🚫 Cancel' }]],
+          keyboard: [[{ text: '👔 Men' }, { text: '👗 Women' }], [{ text: '💘 Everyone' }], [{ text: '❌ Cancel' }]],
           resize_keyboard: true, one_time_keyboard: true
         }
       });
     }
-    if (text === '📍 Edit Location') {
+    if (text === '📍 City') {
       userStates.set(telegramId, { editing: 'location_search' });
-      return bot.sendMessage(chatId, '📍 *Edit Location*\n\nType your city name:\n_e.g. London, New York_',
+      return bot.sendMessage(chatId, '📍 *Your City*\n\nWhere are you located?\n_e.g. London, New York_',
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
     }
-    if (text === '💬 Edit Bio') {
+    if (text === '💌 Bio') {
       userStates.set(telegramId, { editing: 'bio' });
-      return bot.sendMessage(chatId, '💬 *Edit Bio*\n\nEnter your bio (max 500 chars):',
+      return bot.sendMessage(chatId, '💌 *Your Bio*\n\nTell potential matches about yourself (max 500 characters):',
         { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } });
     }
-    if (text === '📞 Phone') {
+    if (text === '📱 Phone') {
       userStates.set(telegramId, { editing: 'phone' });
       return bot.sendMessage(chatId,
-        '📞 *Phone Number*\n\nTap the Share button below.',
+        '📱 *Phone Number*\n\nTap the button below to share your number:',
         {
           parse_mode: 'Markdown',
           reply_markup: {

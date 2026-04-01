@@ -113,13 +113,13 @@ function setupAuthCommands(bot, userStates, User) {
         });
         await newUser.save();
 
-        const welcomeMsg = `🎉 **Registration Successful!** 🎉\n\n` +
-          `Welcome to KissuBot! Let's set up your profile to help you find the perfect match. 💖\n\n` +
-          `**Steps to complete your profile:**\n` +
-          `1️⃣ Add your name\n` +
-          `2️⃣ Add your age\n` +
-          `3️⃣ Add a bio\n` +
-          `4️⃣ Upload photos`;
+        const welcomeMsg = `✨ **Welcome to KissuBot!** ✨\n\n` +
+          `Your match made in heaven is just a few steps away. 💖 Let's complete your profile so you can start matching!\n\n` +
+          `🌟 **Your Romantic Profile:**\n` +
+          `✨ Add your Name\n` +
+          `🎂 Set your Age\n` +
+          `💌 Write a Bio\n` +
+          `📸 Upload Photos`;
 
         bot.sendMessage(chatId, welcomeMsg, {
           reply_markup: MAIN_KEYBOARD

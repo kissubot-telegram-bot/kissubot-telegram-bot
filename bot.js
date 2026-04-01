@@ -71,12 +71,12 @@ function showMainMenu(chatId, firstName) {
 function handleNavigation(chatId, action) {
   const navigationMessages = {
     show_help: '❓ For help, use the /help command to see all available options.',
-    view_profile: '👤 Use the /profile command to view and edit your profile.',
-    browse_profiles: '🔍 Use the /browse command to start browsing profiles.',
-    view_matches: '💕 Use the /matches command to see your matches.',
+    view_profile: '🎀 Use the /profile command to view and edit your profile.',
+    browse_profiles: '✨ Use the /browse command to start browsing profiles.',
+    view_matches: '💘 Use the /matches command to see your matches.',
     main_settings: '⚙️ Use the /settings command to access all settings.',
-    manage_vip: '💎 Use the /vip command to manage your VIP membership.',
-    contact_support: '📞 Use the /contact command to get support information.',
+    manage_vip: '👑 Use the /vip command to manage your VIP membership.',
+    contact_support: '📱 Use the /contact command to get support information.',
     report_menu: '🚨 Use the /report command to report issues or users.'
   };
 
@@ -283,7 +283,7 @@ bot.on('callback_query', async (query) => {
 
   if (!vipCallbacks.includes(data)) {
     // Answer callback query to remove loading state for non-VIP callbacks
-    bot.answerCallbackQuery(query.id).catch(() => {});
+    bot.answerCallbackQuery(query.id).catch(() => { });
   }
 
   try {
@@ -469,7 +469,7 @@ bot.on('callback_query', async (query) => {
               reply_markup: {
                 inline_keyboard: [
                   [{ text: '🐛 Report Bug', callback_data: 'report_bug' }, { text: '💡 Feature Request', callback_data: 'feature_request' }],
-                  [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                  [{ text: '🏠 Menu', callback_data: 'main_menu' }]
                 ]
               }
             }
@@ -954,13 +954,13 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-// ── Central '🏠 Main Menu' handler ─────────────────────────────────────
+// ── Central '🏠 Menu' handler ──────────────────────────────────────────
 bot.on('message', (msg) => {
-  if (msg.text !== '🏠 Main Menu') return;
+  if (msg.text !== '🏠 Menu') return;
   const chatId = msg.chat.id;
   const telegramId = msg.from.id;
   userStates.delete(telegramId);
-  bot.sendMessage(chatId, '🏠 *Main Menu*', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+  bot.sendMessage(chatId, '🏠 *Menu*', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
 });
 
 // ── Main Reply Keyboard routing ─────────────────────────────────────────
@@ -970,12 +970,12 @@ bot.on('message', (msg) => {
   if (!text) return;
 
   const routes = {
-    '🔍 Discover':    '/browse',
-    '💕 Matches':     '/matches',
-    '👤 My Profile':  '/profile',
-    '⚙️ Settings':    '/settings',
-    '💎 VIP':         '/vip',
-    '🆘 Help':        '/help'
+    '✨ Discover': '/browse',
+    '💘 Matches': '/matches',
+    '🎀 My Profile': '/profile',
+    '⚙️ Settings': '/settings',
+    '👑 VIP': '/vip',
+    '🆘 Help': '/help'
   };
 
   const cmd = routes[text];

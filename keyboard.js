@@ -9,9 +9,9 @@
 
 const MAIN_KEYBOARD = {
   keyboard: [
-    [{ text: '🔍 Discover' }],
-    [{ text: '💕 Matches' }, { text: '👤 My Profile' }],
-    [{ text: '⚙️ Settings' }, { text: '💎 VIP' }],
+    [{ text: '✨ Discover' }],
+    [{ text: '💘 Matches' }, { text: '🎀 My Profile' }],
+    [{ text: '⚙️ Settings' }, { text: '👑 VIP' }],
     [{ text: '🆘 Help' }]
   ],
   resize_keyboard: true,
@@ -20,38 +20,38 @@ const MAIN_KEYBOARD = {
 
 /** Texts that belong to the main nav keyboard — used to skip state handlers */
 const MAIN_KB_BUTTONS = [
-  '🔍 Discover',
-  '💕 Matches',
-  '👤 My Profile',
+  '✨ Discover',
+  '💘 Matches',
+  '🎀 My Profile',
   '⚙️ Settings',
-  '💎 VIP',
+  '👑 VIP',
   '🆘 Help'
 ];
 
 const PROFILE_KEYBOARD = {
   keyboard: [
-    [{ text: '📝 Edit Name' }, { text: '🎂 Edit Age' }],
-    [{ text: '👤 Edit Gender' }, { text: '👀 Looking For' }],
-    [{ text: '📍 Edit Location' }, { text: '💬 Edit Bio' }],
-    [{ text: '📞 Phone' }, { text: '📸 Photos' }],
-    [{ text: '🔙 Back' }]
+    [{ text: '✨ Name' }, { text: '🎂 Age' }],
+    [{ text: '👫 Gender' }, { text: '💘 Preferences' }],
+    [{ text: '📍 City' }, { text: '💌 Bio' }],
+    [{ text: '📱 Phone' }, { text: '📸 Photos' }],
+    [{ text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
 
 const PROFILE_KB_BUTTONS = [
-  '📝 Edit Name', '🎂 Edit Age',
-  '👤 Edit Gender', '👀 Looking For',
-  '📍 Edit Location', '💬 Edit Bio',
-  '📞 Phone', '📸 Photos',
-  '🔙 Back'
+  '✨ Name', '🎂 Age',
+  '👫 Gender', '💘 Preferences',
+  '📍 City', '💌 Bio',
+  '📱 Phone', '📸 Photos',
+  '🏠 Menu'
 ];
 
 const SETTINGS_KEYBOARD = {
   keyboard: [
     [{ text: '👤 Profile Info' }, { text: '🔍 Search Preferences' }],
     [{ text: '🔔 Notifications' }, { text: '🔒 Privacy' }],
-    [{ text: '❓ Help Center' }, { text: '🏠 Main Menu' }]
+    [{ text: '❓ Help Center' }, { text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
@@ -72,7 +72,7 @@ const HELP_KEYBOARD = {
     [{ text: '👤 Profile Help' }, { text: '🔍 Browsing Help' }],
     [{ text: '👑 VIP & Coins' }, { text: '📱 Stories Help' }],
     [{ text: '📞 Contact Support' }, { text: '🚨 Report Center' }],
-    [{ text: '🏠 Main Menu' }]
+    [{ text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
@@ -93,7 +93,7 @@ const VIP_KEYBOARD = {
   keyboard: [
     [{ text: '👑 Get VIP' }, { text: '📊 My Subscription' }],
     [{ text: '💎 VIP Features' }, { text: '🎁 Gift VIP' }],
-    [{ text: '🏠 Main Menu' }]
+    [{ text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
@@ -102,7 +102,7 @@ const VIP_KB_BUTTONS = ['👑 Get VIP', '📊 My Subscription', '💎 VIP Featur
 const GIFTS_KEYBOARD = {
   keyboard: [
     [{ text: '🎁 Send a Gift' }, { text: '📨 My Sent Gifts' }],
-    [{ text: '📬 My Received Gifts' }, { text: '🏠 Main Menu' }]
+    [{ text: '📬 My Received Gifts' }, { text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
@@ -283,7 +283,7 @@ const SKIP_SCREENSHOT_KB_BUTTONS = ['⏭️ Skip Screenshot'];
 const STORY_KEYBOARD = {
   keyboard: [
     [{ text: '📸 Add Another Story' }, { text: '👀 View My Stories' }],
-    [{ text: '🏠 Main Menu' }]
+    [{ text: '🏠 Menu' }]
   ],
   resize_keyboard: true
 };
@@ -312,7 +312,7 @@ const ALL_KB_BUTTONS = [
   ...PRIORITY_CONFIRM_KB_BUTTONS,
   ...SKIP_SCREENSHOT_KB_BUTTONS,
   ...STORY_KB_BUTTONS,
-  '🏠 Main Menu',
+  '🏠 Menu',
   '⚙️ Back to Settings',
   '🆘 Back to Help',
   '🔙 Back'
