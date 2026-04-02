@@ -189,8 +189,40 @@ bot.on('message', async (msg) => {
   const telegramId = msg.from.id;
   const text = msg.text;
 
-  // Skip commands and all nav keyboard buttons
+  // Skip commands (handled by bot.onText)
   if (text && text.startsWith('/')) return;
+
+  // ROUTE: Map Reply Keyboard buttons to commands
+  const routes = {
+    [MAIN_KB_BUTTONS[0]]: '/browse',   // ✨ Discover
+    [MAIN_KB_BUTTONS[1]]: '/matches',  // 💘 Matches
+    [MAIN_KB_BUTTONS[2]]: '/profile',  // 🎀 My Profile
+    [MAIN_KB_BUTTONS[3]]: '/settings', // ⚙️ Settings
+    [MAIN_KB_BUTTONS[4]]: '/vip',      // 👑 VIP
+    [MAIN_KB_BUTTONS[5]]: '/help',     // 🆘 Help
+    '🏠 Menu': '/start'    // 🏠 Menu standardization
+  };
+
+  if (text && routes[text]) {
+    const cmd = routes[text];
+    // Clear any active state when navigating via main menu
+    userStates.delete(telegramId);
+
+    // Process as if the user typed the command
+    return bot.processUpdate({
+      update_id: 0,
+      message: {
+        message_id: msg.message_id || 0,
+        from: msg.from,
+        chat: msg.chat,
+        date: msg.date || Math.floor(Date.now() / 1000),
+        text: cmd,
+        entities: [{ offset: 0, length: cmd.length, type: 'bot_command' }]
+      }
+    });
+  }
+
+  // Skip other nav keyboard buttons - they are handled in their modules
   if (text && ALL_KB_BUTTONS.includes(text)) return;
 
   // Handle user states
@@ -951,46 +983,6 @@ bot.on('callback_query', async (query) => {
 
     console.error('Callback query error:', err.response?.data || err.message);
     bot.sendMessage(chatId, '❌ Something went wrong. Please try again later.');
-  }
-});
-
-// ── Central '🏠 Menu' handler ──────────────────────────────────────────
-bot.on('message', (msg) => {
-  if (msg.text !== '🏠 Menu') return;
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
-  userStates.delete(telegramId);
-  bot.sendMessage(chatId, '🏠 *Menu*', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
-});
-
-// ── Main Reply Keyboard routing ─────────────────────────────────────────
-// Uses processUpdate so bot.onText handlers fire reliably.
-bot.on('message', (msg) => {
-  const text = msg.text;
-  if (!text) return;
-
-  const routes = {
-    '✨ Discover': '/browse',
-    '💘 Matches': '/matches',
-    '🎀 My Profile': '/profile',
-    '⚙️ Settings': '/settings',
-    '👑 VIP': '/vip',
-    '🆘 Help': '/help'
-  };
-
-  const cmd = routes[text];
-  if (cmd) {
-    bot.processUpdate({
-      update_id: 0,
-      message: {
-        message_id: msg.message_id || 0,
-        from: msg.from,
-        chat: msg.chat,
-        date: msg.date || Math.floor(Date.now() / 1000),
-        text: cmd,
-        entities: [{ offset: 0, length: cmd.length, type: 'bot_command' }]
-      }
-    });
   }
 });
 
