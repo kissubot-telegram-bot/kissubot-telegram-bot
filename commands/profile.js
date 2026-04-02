@@ -476,12 +476,12 @@ function setupProfileCommands(bot, userStates, User) {
             userStates.delete(telegramId);
             return bot.sendMessage(chatId, '❌ Edit cancelled.', { reply_markup: MAIN_KEYBOARD });
           }
-          const genderMap = { '👔 Male': 'Male', '👗 Female': 'Female' };
+          const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female' };
           const gender = genderMap[value];
           if (!gender) {
             return bot.sendMessage(chatId, '❌ Please press one of the buttons:', {
               reply_markup: {
-                keyboard: [[{ text: '👔 Male' }, { text: '👗 Female' }], [{ text: '❌ Cancel' }]],
+                keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '❌ Cancel' }]],
                 resize_keyboard: true, one_time_keyboard: true
               }
             });

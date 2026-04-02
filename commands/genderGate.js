@@ -32,7 +32,7 @@ async function requireBrowseAccess(bot, chatId, telegramId, User) {
     const gender = (user.gender || '').toLowerCase();
 
     // Women & others: unlimited free browse
-    if (gender === 'female' || gender === 'other') return true;
+    if (gender === 'female' || gender === 'other' || gender === 'non-binary') return true;
 
     // VIP men: unlimited
     if (user.isVip) return true;
@@ -67,7 +67,7 @@ async function requireMatchesAccess(bot, chatId, telegramId, User) {
     const gender = (user.gender || '').toLowerCase();
 
     // Women & others: free access to matches
-    if (gender === 'female' || gender === 'other') return true;
+    if (gender === 'female' || gender === 'other' || gender === 'non-binary') return true;
 
     // VIP men: allowed
     if (user.isVip) return true;

@@ -218,7 +218,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                 reply_markup: {
                     keyboard: [
                         [{ text: '👨 Male' }, { text: '👩 Female' }],
-                        [{ text: '🌈 Non-Binary' }, { text: '❌ Stop Setup' }]
+                        [{ text: '❌ Stop Setup' }]
                     ],
                     resize_keyboard: true,
                     one_time_keyboard: true
@@ -304,14 +304,14 @@ function setupOnboardingCommands(bot, userStates, User) {
 
             // ── GENDER step ────────────────────────────────────────────────
             if (step === 'gender') {
-                const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female', '🌈 Non-Binary': 'Non-Binary', '👔 Male': 'Male', '👗 Female': 'Female' };
+                const genderMap = { '👨 Male': 'Male', '👩 Female': 'Female', '👔 Male': 'Male', '👗 Female': 'Female' };
                 const gender = genderMap[msg.text && msg.text.trim()];
                 if (!gender) {
                     return bot.sendMessage(chatId, '❌ Please press one of the buttons below:', {
                         reply_markup: {
                             keyboard: [
                                 [{ text: '👨 Male' }, { text: '👩 Female' }],
-                                [{ text: '🌈 Non-Binary' }, { text: '❌ Stop Setup' }]
+                                [{ text: '❌ Stop Setup' }]
                             ],
                             resize_keyboard: true,
                             one_time_keyboard: true
@@ -460,7 +460,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                         reply_markup: {
                             keyboard: [
                                 [{ text: '👨 Male' }, { text: '👩 Female' }],
-                                [{ text: '🌈 Non-Binary' }, { text: '🚫 Cancel Setup' }]
+                                [{ text: '🚫 Cancel Setup' }]
                             ],
                             resize_keyboard: true,
                             one_time_keyboard: true
