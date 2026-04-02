@@ -764,12 +764,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else if (data.startsWith('superlike_')) {
         await handleSuperLike(chatId, telegramId, data.replace('superlike_', ''));
 
-        // ── 💬 CHAT ───────────────────────────────────────────────────────
-      } else if (data.startsWith('chat_') && !data.startsWith('chat_gate_')) {
-        const targetTelegramId = data.replace('chat_', '');
-        bot.emit('callback_query', { id: 'kb', message: { chat: { id: chatId }, message_id: 0 }, from: query.from, data: `chat_gate_${targetTelegramId}` });
-
-        // ── 💔 UNMATCH ────────────────────────────────────────────────────
+        // ──  UNMATCH ────────────────────────────────────────────────────
       } else if (data.startsWith('unmatch_')) {
         const targetTelegramId = data.replace('unmatch_', '');
         const fromUser = await User.findOne({ telegramId });
@@ -795,9 +790,8 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
 
-      }
       // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
-      else if (data.startsWith('chat_gate_')) {
+      } else if (data.startsWith('chat_gate_')) {
         const targetId = data.replace('chat_gate_', '');
         if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
           return;
