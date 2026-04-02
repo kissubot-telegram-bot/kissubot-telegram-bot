@@ -192,19 +192,20 @@ bot.on('message', async (msg) => {
   // Skip commands (handled by bot.onText)
   if (text && text.startsWith('/')) return;
 
-  // ROUTE: Map Reply Keyboard buttons to commands
-  const routes = {
-    [MAIN_KB_BUTTONS[0]]: '/browse',   // ✨ Discover
-    [MAIN_KB_BUTTONS[1]]: '/matches',  // 💘 Matches
-    [MAIN_KB_BUTTONS[2]]: '/profile',  // 🎀 My Profile
-    [MAIN_KB_BUTTONS[3]]: '/settings', // ⚙️ Settings
-    [MAIN_KB_BUTTONS[4]]: '/vip',      // 👑 VIP
-    [MAIN_KB_BUTTONS[5]]: '/help',     // 🆘 Help
-    '🏠 Menu': '/start'    // 🏠 Menu standardization
-  };
+  // ROUTE: Map Reply Keyboard buttons to commands (flexible match)
+  let cmd = null;
+  if (text) {
+    const t = text.trim();
+    if (t.includes('Discover')) cmd = '/browse';
+    else if (t.includes('Matches')) cmd = '/matches';
+    else if (t.includes('Profile')) cmd = '/profile';
+    else if (t.includes('Settings')) cmd = '/settings';
+    else if (t.includes('VIP')) cmd = '/vip';
+    else if (t.includes('Help')) cmd = '/help';
+    else if (t.includes('Menu')) cmd = '/start';
+  }
 
-  if (text && routes[text]) {
-    const cmd = routes[text];
+  if (cmd) {
     // Clear any active state when navigating via main menu
     userStates.delete(telegramId);
 
@@ -222,8 +223,8 @@ bot.on('message', async (msg) => {
     });
   }
 
-  // Skip other nav keyboard buttons - they are handled in their modules
-  if (text && ALL_KB_BUTTONS.includes(text)) return;
+  // Skip other nav keyboard buttons - let specialized handlers deal with them
+  if (text && ALL_KB_BUTTONS.some(btn => text.trim() === btn)) return;
 
   // Handle user states
   if (userStates.has(telegramId)) {
