@@ -971,17 +971,23 @@ bot.on('message', (msg) => {
 
   const routes = {
     '✨ Discover': '/browse',
+    '🔍 Discover': '/browse',
     '💘 Matches': '/matches',
+    '💕 Matches': '/matches',
     '🎀 My Profile': '/profile',
+    '👤 My Profile': '/profile',
     '⚙️ Settings': '/settings',
     '👑 VIP': '/vip',
-    '🆘 Help': '/help'
+    '💎 VIP': '/vip',
+    '🆘 Help': '/help',
+    '🏠 Menu': '/start',
+    '🏠 Main Menu': '/start'
   };
 
   const cmd = routes[text];
   if (cmd) {
     bot.processUpdate({
-      update_id: 0,
+      update_id: Date.now(),
       message: {
         message_id: msg.message_id || 0,
         from: msg.from,

@@ -313,9 +313,18 @@ const ALL_KB_BUTTONS = [
   ...SKIP_SCREENSHOT_KB_BUTTONS,
   ...STORY_KB_BUTTONS,
   '🏠 Menu',
+  '🏠 Main Menu',
   '⚙️ Back to Settings',
   '🆘 Back to Help',
-  '🔙 Back'
+  '🔙 Back',
+  '🔍 Discover',
+  '💕 Matches',
+  '👤 My Profile',
+  '💎 VIP',
+  '📝 Edit Name', '🎂 Edit Age',
+  '👤 Edit Gender', '👀 Looking For',
+  '📍 Edit Location', '💬 Edit Bio',
+  '📞 Phone'
   // NOTE: "Let's Go! 🚀" is intentionally NOT here — it's an onboarding-only
   // button and must reach the onboarding message handler in onboarding.js.
 ];
