@@ -14,7 +14,8 @@ const MAIN_KEYBOARD = {
     [{ text: '⚙️ Settings' }, { text: '👑 VIP' }],
     [{ text: '🆘 Help' }]
   ],
-  resize_keyboard: true
+  resize_keyboard: true,
+  persistent: true
 };
 
 /** Texts that belong to the main nav keyboard — used to skip state handlers */

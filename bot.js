@@ -189,42 +189,9 @@ bot.on('message', async (msg) => {
   const telegramId = msg.from.id;
   const text = msg.text;
 
-  // Skip commands (handled by bot.onText)
+  // Skip commands and all nav keyboard buttons
   if (text && text.startsWith('/')) return;
-
-  // ROUTE: Map Reply Keyboard buttons to commands (flexible match)
-  let cmd = null;
-  if (text) {
-    const t = text.trim();
-    if (t.includes('Discover')) cmd = '/browse';
-    else if (t.includes('Matches')) cmd = '/matches';
-    else if (t.includes('Profile')) cmd = '/profile';
-    else if (t.includes('Settings')) cmd = '/settings';
-    else if (t.includes('VIP')) cmd = '/vip';
-    else if (t.includes('Help')) cmd = '/help';
-    else if (t.includes('Menu')) cmd = '/start';
-  }
-
-  if (cmd) {
-    // Clear any active state when navigating via main menu
-    userStates.delete(telegramId);
-
-    // Process as if the user typed the command
-    return bot.processUpdate({
-      update_id: 0,
-      message: {
-        message_id: msg.message_id || 0,
-        from: msg.from,
-        chat: msg.chat,
-        date: msg.date || Math.floor(Date.now() / 1000),
-        text: cmd,
-        entities: [{ offset: 0, length: cmd.length, type: 'bot_command' }]
-      }
-    });
-  }
-
-  // Skip other nav keyboard buttons - let specialized handlers deal with them
-  if (text && ALL_KB_BUTTONS.some(btn => text.trim() === btn)) return;
+  if (text && ALL_KB_BUTTONS.includes(text)) return;
 
   // Handle user states
   if (userStates.has(telegramId)) {
@@ -984,6 +951,46 @@ bot.on('callback_query', async (query) => {
 
     console.error('Callback query error:', err.response?.data || err.message);
     bot.sendMessage(chatId, '❌ Something went wrong. Please try again later.');
+  }
+});
+
+// ── Central '🏠 Menu' handler ──────────────────────────────────────────
+bot.on('message', (msg) => {
+  if (msg.text !== '🏠 Menu') return;
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  userStates.delete(telegramId);
+  bot.sendMessage(chatId, '🏠 *Menu*', { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+});
+
+// ── Main Reply Keyboard routing ─────────────────────────────────────────
+// Uses processUpdate so bot.onText handlers fire reliably.
+bot.on('message', (msg) => {
+  const text = msg.text;
+  if (!text) return;
+
+  const routes = {
+    '✨ Discover': '/browse',
+    '💘 Matches': '/matches',
+    '🎀 My Profile': '/profile',
+    '⚙️ Settings': '/settings',
+    '👑 VIP': '/vip',
+    '🆘 Help': '/help'
+  };
+
+  const cmd = routes[text];
+  if (cmd) {
+    bot.processUpdate({
+      update_id: 0,
+      message: {
+        message_id: msg.message_id || 0,
+        from: msg.from,
+        chat: msg.chat,
+        date: msg.date || Math.floor(Date.now() / 1000),
+        text: cmd,
+        entities: [{ offset: 0, length: cmd.length, type: 'bot_command' }]
+      }
+    });
   }
 });
 

@@ -32,16 +32,16 @@ const PROMPTS = {
         text: `📍 *Step 4 of 9 — Your Location*\n\nWhere are you based?\n_Enter your city (e.g. London, New York):_`,
     },
     lookingFor: {
-        text: `💘 *Step 5 of 9 — Your Preferences*\n\nWho would you like to meet?`,
+        text: `� *Step 5 of 9 — Your Preferences*\n\nWho would you like to meet?`,
     },
     phone: {
-        text: `📱 *Step 6 of 9 — Your Phone Number*\n\nTap the button below to share your number.\n\n🔒 Your number is private and never shown publicly.`,
+        text: `� *Step 6 of 9 — Your Phone Number*\n\nTap the button below to share your number.\n\n🔒 Your number is private and never shown publicly.`,
     },
     terms: {
         text: `📜 *Step 7 of 9 — Terms & Privacy*\n\nBefore we continue, please review and accept our Terms of Service.\n\n_By tapping "Accept", you agree to our terms._`,
     },
     bio: {
-        text: `💌 *Step 8 of 9 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
+        text: `� *Step 8 of 9 — Your Bio* _(Optional)_\n\nTell potential matches a little about yourself!\n_Max 200 characters. Type "Skip" to leave blank._`,
     },
     photo: {
         text: `📸 *Step 9 of 9 — Your Photo*\n\nTime to look your best! ✨\n\nSend a clear photo of yourself.\n_This will be the first thing matches see._`,
@@ -217,7 +217,7 @@ function setupOnboardingCommands(bot, userStates, User) {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     keyboard: [
-                        [{ text: '👔 Male' }, { text: '👗 Female' }],
+                        [{ text: '� Male' }, { text: '� Female' }],
                         [{ text: '❌ Stop Setup' }]
                     ],
                     resize_keyboard: true,
@@ -304,13 +304,13 @@ function setupOnboardingCommands(bot, userStates, User) {
 
             // ── GENDER step ────────────────────────────────────────────────
             if (step === 'gender') {
-                const genderMap = { '👔 Male': 'Male', '👗 Female': 'Female' };
+                const genderMap = { '� Male': 'Male', '� Female': 'Female' };
                 const gender = genderMap[msg.text && msg.text.trim()];
                 if (!gender) {
                     return bot.sendMessage(chatId, '❌ Please press one of the buttons below:', {
                         reply_markup: {
                             keyboard: [
-                                [{ text: '👔 Male' }, { text: '👗 Female' }],
+                                [{ text: '� Male' }, { text: '� Female' }],
                                 [{ text: '❌ Stop Setup' }]
                             ],
                             resize_keyboard: true,
