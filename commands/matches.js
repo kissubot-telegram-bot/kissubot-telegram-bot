@@ -33,8 +33,11 @@ function setupMatchesCommands(bot, User) {
 
                 matches.forEach(match => {
                     matchesMessage += `\n• *${match.name}* — ${new Date(match.matchedAt).toLocaleDateString()}`;
+                    const chatUrl = match.username
+                        ? `https://t.me/${match.username}`
+                        : `tg://user?id=${match.telegramId}`;
                     keyboard.push([
-                        { text: `💬 ${match.name}`, callback_data: `chat_gate_${match.telegramId}` },
+                        { text: `💬 ${match.name}`, url: chatUrl },
                         { text: `🎁 Gift`, callback_data: `gift_to_${match.telegramId}` }
                     ]);
                 });
@@ -43,7 +46,6 @@ function setupMatchesCommands(bot, User) {
                     parse_mode: 'Markdown',
                     reply_markup: { inline_keyboard: keyboard }
                 });
-                bot.sendMessage(chatId, '� Tap a name above to open a chat!', { reply_markup: MAIN_KEYBOARD });
             }
         } catch (error) {
             console.error('Error fetching matches:', error.message);
