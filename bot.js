@@ -271,6 +271,10 @@ bot.on('callback_query', async (query) => {
   const telegramId = query.from.id;
   const data = query.data;
 
+  if (data && data.startsWith('chat_gate_')) {
+    return;
+  }
+
   // Removed debug logging for production
 
   // Skip answering VIP callbacks immediately - let premium.js handle them
