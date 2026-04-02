@@ -51,7 +51,7 @@ async function requireBrowseAccess(bot, chatId, telegramId, User) {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                    [{ text: '🏠 Menu', callback_data: 'main_menu' }]
                 ]
             }
         }
@@ -81,7 +81,7 @@ async function requireMatchesAccess(bot, chatId, telegramId, User) {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                    [{ text: '🏠 Menu', callback_data: 'main_menu' }]
                 ]
             }
         }
@@ -106,7 +106,7 @@ async function requireLikesAccess(bot, chatId, telegramId, User) {
         reply_markup: {
             inline_keyboard: [
                 [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-                [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                [{ text: '🏠 Menu', callback_data: 'main_menu' }]
             ]
         }
     });

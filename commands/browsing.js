@@ -137,7 +137,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             reply_markup: {
               inline_keyboard: [
                 ...dynamicButtons,
-                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                [{ text: '✏️ Edit Profile', callback_data: 'edit_profile' }, { text: '🏠 Menu', callback_data: 'main_menu' }]
               ]
             }
           }

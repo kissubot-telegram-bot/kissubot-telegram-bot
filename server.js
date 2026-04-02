@@ -27,7 +27,7 @@ if (!token) {
   console.error('❌ BOT_TOKEN is required in .env file');
   process.exit(1);
 }
-const bot = new TelegramBot(token);
+const bot = new TelegramBot(token, { polling: false });
 
 // Import and setup command modules
 const { setupAuthCommands } = require('./commands/auth');
@@ -50,6 +50,11 @@ const app = express();
 app.use(bodyParser.json());
 
 // Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', bot: !!bot, uptime: process.uptime() });
+});
+
+// Health check endpoint (original)
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
@@ -344,14 +349,11 @@ app.post('/webhook/telegram', async (req, res) => {
   try {
     const update = req.body;
 
-    console.log('🔔 [Webhook] Received update from Telegram!');
-    console.log(`[Webhook] Update details:`, JSON.stringify(update, null, 2));
+    console.log(`🔔 [Webhook] Incoming: "${update.message?.text || 'non-text message'}" from ${update.message?.from?.id}`);
 
     // Process the update through the bot instance
-    // This will trigger all the command handlers and event listeners in bot.js
     bot.processUpdate(update);
 
-    // Always respond with 200 to Telegram immediately
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('❌ Webhook error:', err);

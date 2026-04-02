@@ -75,7 +75,7 @@ function setupProfileCommands(bot, userStates, User) {
                 { text: '📸 Manage Photos', callback_data: 'manage_photos' }
               ],
               [
-                { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                { text: '🏠 Menu', callback_data: 'main_menu' }
               ]
             ];
 
@@ -121,9 +121,9 @@ function setupProfileCommands(bot, userStates, User) {
           bot.sendMessage(chatId, '👀 **Edit Preferences**\n\nWho would you like to meet?', {
             reply_markup: {
               keyboard: [
-                [{ text: 'Men' }, { text: 'Women' }],
-                [{ text: 'Everyone' }],
-                [{ text: '🚫 Cancel' }]
+                [{ text: '👔 Men' }, { text: '👗 Women' }],
+                [{ text: '💘 Everyone' }],
+                [{ text: '🏠 Menu', callback_data: 'main_menu' }]
               ],
               resize_keyboard: true,
               one_time_keyboard: true
@@ -348,7 +348,7 @@ function setupProfileCommands(bot, userStates, User) {
                 ],
                 [
                   { text: '💕 Start Browsing', callback_data: 'start_browse' },
-                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                  { text: '🏠 Menu', callback_data: 'main_menu' }
                 ]
               ];
 
