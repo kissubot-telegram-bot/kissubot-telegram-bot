@@ -15,7 +15,8 @@ const MAIN_KEYBOARD = {
     [{ text: '🆘 Help' }]
   ],
   resize_keyboard: true,
-  persistent: true
+  is_persistent: true,
+  input_field_placeholder: '✨ Tap a menu option...'
 };
 
 /** Texts that belong to the main nav keyboard — used to skip state handlers */
@@ -36,7 +37,8 @@ const PROFILE_KEYBOARD = {
     [{ text: '📱 Phone' }, { text: '📸 Photos' }],
     [{ text: '🏠 Menu' }]
   ],
-  resize_keyboard: true
+  resize_keyboard: true,
+  input_field_placeholder: '🎀 Edit your profile...'
 };
 
 const PROFILE_KB_BUTTONS = [
@@ -53,7 +55,8 @@ const SETTINGS_KEYBOARD = {
     [{ text: '🔔 Notifications' }, { text: '🔒 Privacy' }],
     [{ text: '❓ Help Center' }, { text: '🏠 Menu' }]
   ],
-  resize_keyboard: true
+  resize_keyboard: true,
+  input_field_placeholder: '⚙️ Choose a setting...'
 };
 const SETTINGS_KB_BUTTONS = ['👤 Profile Info', '🔍 Search Preferences', '🔔 Notifications', '🔒 Privacy', '❓ Help Center'];
 
