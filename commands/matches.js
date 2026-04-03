@@ -21,24 +21,6 @@ function setupMatchesCommands(bot, User) {
             bot.sendMessage(chatId, '❌ An error occurred while fetching your matches. Please try again later.');
         }
     });
-
-    // Also catch the specific text "💕 Matches" just in case the UI routing missed it
-    bot.on('message', async (msg) => {
-        if (!msg.text) return;
-        const text = msg.text.trim();
-        if (text === '💕 Matches' || text === '💘 Matches') {
-            const chatId = msg.chat.id;
-            const telegramId = msg.from.id;
-            try {
-                const browsingModule = require('./browsing');
-                if (browsingModule.showMatches) {
-                    await browsingModule.showMatches(chatId, telegramId);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        }
-    });
 }
 
 module.exports = { setupMatchesCommands };
