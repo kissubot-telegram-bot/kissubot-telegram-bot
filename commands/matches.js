@@ -9,44 +9,34 @@ function setupMatchesCommands(bot, User) {
         const telegramId = msg.from.id;
 
         try {
-            // Everyone must be VIP to view matches
-            if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
-                return;
-            }
-
-            const res = await axios.get(`${API_BASE}/matches/${telegramId}`);
-            const matches = res.data;
-
-            if (!matches || matches.length === 0) {
-                const noMatchesMsg = `💔 **No Matches Yet** 💔\n\n` +
-                    `Don't worry! Your perfect match is out there.\n\n` +
-                    `💡 **Tips to get more matches:**\n` +
-                    `• Complete your profile (add a bio and photos)\n` +
-                    `• Be active and browse profiles daily\n` +
-                    `• Try adjusting your search filters\n\n` +
-                    `Keep swiping and you'll find someone soon!`;
-
-                bot.sendMessage(chatId, noMatchesMsg, { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD });
+            // Dynamically import showMatches so it captures the updated browsing module exports
+            const browsingModule = require('./browsing');
+            if (browsingModule.showMatches) {
+                await browsingModule.showMatches(chatId, telegramId);
             } else {
-                let matchesMessage = `💕 *Your Matches (${matches.length})* 💕\n\nHere are the people you've matched with:\n`;
-                const keyboard = [];
-
-                matches.forEach(match => {
-                    matchesMessage += `\n• *${match.name}* — ${new Date(match.matchedAt).toLocaleDateString()}`;
-                    keyboard.push([
-                        { text: `💬 ${match.name}`, callback_data: `chat_gate_${match.telegramId}` },
-                        { text: `🎁 Gift`, callback_data: `gift_to_${match.telegramId}` }
-                    ]);
-                });
-
-                bot.sendMessage(chatId, matchesMessage, {
-                    parse_mode: 'Markdown',
-                    reply_markup: { inline_keyboard: keyboard }
-                });
+                bot.sendMessage(chatId, '❌ Matches module is currently initializing. Please try again.');
             }
         } catch (error) {
-            console.error('Error fetching matches:', error.message);
+            console.error('Error in /matches command:', error.message);
             bot.sendMessage(chatId, '❌ An error occurred while fetching your matches. Please try again later.');
+        }
+    });
+
+    // Also catch the specific text "💕 Matches" just in case the UI routing missed it
+    bot.on('message', async (msg) => {
+        if (!msg.text) return;
+        const text = msg.text.trim();
+        if (text === '💕 Matches' || text === '💘 Matches') {
+            const chatId = msg.chat.id;
+            const telegramId = msg.from.id;
+            try {
+                const browsingModule = require('./browsing');
+                if (browsingModule.showMatches) {
+                    await browsingModule.showMatches(chatId, telegramId);
+                }
+            } catch (err) {
+                console.error(err);
+            }
         }
     });
 }

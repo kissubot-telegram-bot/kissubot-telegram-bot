@@ -487,7 +487,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const matchButtons = valid.slice(0, 10).map(({ match, other }) => ([{
         text: `💬 Chat with ${other.name}`,
-        url: `tg://user?id=${other.telegramId}`
+        callback_data: `chat_gate_${other.telegramId}`
       }]));
 
       bot.sendMessage(chatId, matchMsg, {
@@ -831,6 +831,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
   // Export so other modules can trigger browsing
   module.exports.browseProfiles = browseProfiles;
+  module.exports.showMatches = showMatches;
 }
 
 module.exports = { setupBrowsingCommands };
