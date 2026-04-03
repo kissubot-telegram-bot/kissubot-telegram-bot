@@ -271,7 +271,7 @@ bot.on('callback_query', async (query) => {
   const telegramId = query.from.id;
   const data = query.data;
 
-  if (data && data.startsWith('chat_gate_')) {
+  if (data && (data.startsWith('chat_gate_') || data.startsWith('chat_'))) {
     return;
   }
 

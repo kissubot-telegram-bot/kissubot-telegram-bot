@@ -790,9 +790,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
 
-      // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
-      } else if (data.startsWith('chat_gate_')) {
-        const targetId = data.replace('chat_gate_', '');
+        // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
+      } else if (data.startsWith('chat_gate_') || data.startsWith('chat_')) {
+        const targetId = data.startsWith('chat_gate_')
+          ? data.replace('chat_gate_', '')
+          : data.replace('chat_', '');
+
         if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
           return;
         }
