@@ -33,11 +33,8 @@ function setupMatchesCommands(bot, User) {
 
                 matches.forEach(match => {
                     matchesMessage += `\n• *${match.name}* — ${new Date(match.matchedAt).toLocaleDateString()}`;
-                    const chatUrl = match.username
-                        ? `https://t.me/${match.username}`
-                        : `tg://user?id=${match.telegramId}`;
                     keyboard.push([
-                        { text: `💬 ${match.name}`, url: chatUrl },
+                        { text: `💬 ${match.name}`, callback_data: `chat_gate_${match.telegramId}` },
                         { text: `🎁 Gift`, callback_data: `gift_to_${match.telegramId}` }
                     ]);
                 });
