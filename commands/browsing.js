@@ -833,9 +833,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         // ── 👤 VIEW MATCH PROFILE ─────────────────────────────────────────
       } else if (data.startsWith('view_match_profile_')) {
         const targetId = data.replace('view_match_profile_', '');
+        console.log('[VIEW PROFILE] Triggered for targetId:', targetId);
         
         try {
           const targetUser = await User.findOne({ telegramId: String(targetId) });
+          console.log('[VIEW PROFILE] User found:', targetUser ? targetUser.name : 'null');
           if (!targetUser) {
             return bot.sendMessage(chatId, '❌ User not found.');
           }
@@ -902,7 +904,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         } catch (error) {
           console.error('Error viewing match profile:', error);
-          bot.sendMessage(chatId, '❌ Failed to load profile. Please try again.');
+          console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            targetId: targetId
+          });
+          bot.sendMessage(chatId, `❌ Failed to load profile. Error: ${error.message}`);
         }
 
         // ── �� CHAT GATE ──────────────────────────────────────────────────
