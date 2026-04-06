@@ -476,31 +476,65 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const valid = matchDetails.filter(Boolean);
 
-      let matchMsg = `💕 *YOUR MATCHES (${valid.length})* 💕\n\n`;
-      valid.slice(0, 10).forEach(({ match, other }, index) => {
-        matchMsg += `${index + 1}. *${other.name}*, ${other.age} · 📍 ${other.location}\n`;
-        if (other.bio) matchMsg += `   💬 ${other.bio.substring(0, 60)}${other.bio.length > 60 ? '...' : ''}\n`;
-        matchMsg += '\n';
+      // Send header message
+      await bot.sendMessage(chatId, `💕 *YOUR MATCHES (${valid.length})* 💕\n\nSwipe through your matches below! 👇`, {
+        parse_mode: 'Markdown'
       });
 
-      if (valid.length > 10) matchMsg += `_...and ${valid.length - 10} more matches!_`;
-
-      const matchButtons = valid.slice(0, 10).map(({ match, other }) => ([
-        {
-          text: `💬 Chat with ${other.name}`,
-          callback_data: `chat_gate_${other.telegramId}`
-        },
-        {
-          text: `👤 View Profile`,
-          callback_data: `view_match_profile_${other.telegramId}`
+      // Send each match as a card with photo
+      for (const { match, other } of valid.slice(0, 10)) {
+        const genderIcon = other.gender === 'Male' ? '👔' : other.gender === 'Female' ? '👗' : '🧒';
+        const vipBadge = other.isVip ? ' 👑' : '';
+        
+        let caption = `${genderIcon} *${other.name}*${vipBadge}, ${other.age}\n`;
+        caption += `📍 ${other.location}\n`;
+        
+        if (other.bio) {
+          const shortBio = other.bio.length > 100 ? other.bio.substring(0, 97) + '...' : other.bio;
+          caption += `\n💬 ${shortBio}\n`;
         }
-      ]));
+        
+        // Check if chat is unlocked
+        if (match.chatUnlocked) {
+          caption += `\n🎉 *Private chat unlocked!*`;
+        } else if (match.messageCount?.user1 > 0 || match.messageCount?.user2 > 0) {
+          const myMsgs = match.messageCount?.user1 || 0;
+          const theirMsgs = match.messageCount?.user2 || 0;
+          caption += `\n📩 Messages: You ${myMsgs}/3 · Them ${theirMsgs}/3`;
+        }
 
-      bot.sendMessage(chatId, matchMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: matchButtons }
-      });
-      bot.sendMessage(chatId, '💡 Tap a name above to open a chat!', { reply_markup: MAIN_KEYBOARD });
+        const matchButtons = {
+          inline_keyboard: [
+            [
+              { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` },
+              { text: '👤 Profile', callback_data: `view_match_profile_${other.telegramId}` }
+            ]
+          ]
+        };
+
+        // Send with photo if available
+        if (other.photos && other.photos.length > 0) {
+          await bot.sendPhoto(chatId, other.photos[0], {
+            caption: caption,
+            parse_mode: 'Markdown',
+            reply_markup: matchButtons
+          });
+        } else {
+          // Send as text if no photo
+          await bot.sendMessage(chatId, caption, {
+            parse_mode: 'Markdown',
+            reply_markup: matchButtons
+          });
+        }
+      }
+
+      if (valid.length > 10) {
+        await bot.sendMessage(chatId, `_...and ${valid.length - 10} more matches! Use /matches to see all._`, {
+          parse_mode: 'Markdown'
+        });
+      }
+
+      bot.sendMessage(chatId, '💡 Tap the buttons to chat or view full profiles!', { reply_markup: MAIN_KEYBOARD });
 
     } catch (err) {
       console.error('[Matches] Error:', err);
