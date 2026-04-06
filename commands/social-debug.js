@@ -151,6 +151,114 @@ function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
     }
   });
 
+  // Simulate a reply from a test user to test chat unlock
+  bot.onText(/\/simulatereply\s+(\d+)\s+(.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const telegramId = String(msg.from.id);
+    const testUserId = match[1];
+    const replyText = match[2];
+
+    try {
+      const [currentUser, testUser] = await Promise.all([
+        User.findOne({ telegramId }),
+        User.findOne({ telegramId: String(testUserId) })
+      ]);
+
+      if (!currentUser) {
+        return bot.sendMessage(chatId, '❌ Your account not found.');
+      }
+
+      if (!testUser) {
+        return bot.sendMessage(chatId, `❌ Test user with ID \`${testUserId}\` not found.`, { parse_mode: 'Markdown' });
+      }
+
+      // Find the match in both users
+      const myMatch = currentUser.matches.find(m => String(m.userId) === String(testUserId));
+      const theirMatch = testUser.matches.find(m => String(m.userId) === telegramId);
+
+      if (!myMatch || !theirMatch) {
+        return bot.sendMessage(chatId, '❌ You are not matched with this user. Use `/forcematch` first.', { parse_mode: 'Markdown' });
+      }
+
+      // Initialize message structures if needed
+      if (!myMatch.inBotMessages) myMatch.inBotMessages = [];
+      if (!myMatch.messageCount) myMatch.messageCount = { user1: 0, user2: 0 };
+      if (!theirMatch.inBotMessages) theirMatch.inBotMessages = [];
+      if (!theirMatch.messageCount) theirMatch.messageCount = { user1: 0, user2: 0 };
+
+      // Check if test user has reached message limit
+      if (myMatch.messageCount.user2 >= 3) {
+        return bot.sendMessage(chatId, '⚠️ Test user has already sent 3 messages (limit reached).');
+      }
+
+      // Add the simulated reply to both users' chat history
+      myMatch.inBotMessages.push({
+        from: String(testUserId),
+        text: replyText,
+        sentAt: new Date()
+      });
+      myMatch.messageCount.user2 += 1;
+      myMatch.lastMessage = { text: replyText, sentAt: new Date() };
+      myMatch.unreadCount = (myMatch.unreadCount || 0) + 1;
+
+      theirMatch.inBotMessages.push({
+        from: String(testUserId),
+        text: replyText,
+        sentAt: new Date()
+      });
+      theirMatch.messageCount.user1 += 1;
+      theirMatch.lastMessage = { text: replyText, sentAt: new Date() };
+
+      // Check if chat should be unlocked (both users sent at least 1 message)
+      if (myMatch.messageCount.user1 >= 1 && myMatch.messageCount.user2 >= 1 && !myMatch.chatUnlocked) {
+        myMatch.chatUnlocked = true;
+        theirMatch.chatUnlocked = true;
+      }
+
+      await Promise.all([currentUser.save(), testUser.save()]);
+
+      // Notify the user about the simulated reply
+      let notifyMsg = `💬 *Simulated reply from ${testUser.name}:*\n\n`;
+      notifyMsg += `"${replyText}"\n\n`;
+      notifyMsg += `📝 Their messages: ${myMatch.messageCount.user2}/3\n`;
+      notifyMsg += `📩 Your messages: ${myMatch.messageCount.user1}/3\n\n`;
+
+      if (myMatch.chatUnlocked) {
+        notifyMsg += `🎉 *Private chat unlocked!* Both of you have sent at least 1 message.\n\n`;
+        notifyMsg += `You can now open direct Telegram chat!`;
+      } else if (myMatch.messageCount.user1 === 0) {
+        notifyMsg += `💡 Send a message to unlock private chat!`;
+      } else {
+        notifyMsg += `⏳ Keep chatting to unlock private chat...`;
+      }
+
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: `💬 Reply to ${testUser.name}`, callback_data: `chat_gate_${testUserId}` }],
+          [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
+        ]
+      };
+
+      if (myMatch.chatUnlocked) {
+        const chatUrl = testUser.username
+          ? `https://t.me/${testUser.username}`
+          : `tg://user?id=${testUserId}`;
+        keyboard.inline_keyboard.unshift([
+          { text: `💬 Open Private Chat with ${testUser.name}`, url: chatUrl }
+        ]);
+      }
+
+      await bot.sendMessage(chatId, notifyMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard
+      });
+
+    } catch (err) {
+      console.error('[simulatereply] Error:', err);
+      bot.sendMessage(chatId, '❌ Failed to simulate reply. Check server logs.');
+    }
+  });
+
   // ── 🛠️ DEV MODE — toggle full VIP for testing ──────────────────────
   bot.onText(/\/devmode(?:\s+(on|off))?/, async (msg, match) => {
     const chatId = msg.chat.id;

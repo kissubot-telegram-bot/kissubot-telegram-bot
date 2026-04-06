@@ -485,10 +485,16 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       if (valid.length > 10) matchMsg += `_...and ${valid.length - 10} more matches!_`;
 
-      const matchButtons = valid.slice(0, 10).map(({ match, other }) => ([{
-        text: `💬 Chat with ${other.name}`,
-        callback_data: `chat_gate_${other.telegramId}`
-      }]));
+      const matchButtons = valid.slice(0, 10).map(({ match, other }) => ([
+        {
+          text: `💬 Chat with ${other.name}`,
+          callback_data: `chat_gate_${other.telegramId}`
+        },
+        {
+          text: `👤 View Profile`,
+          callback_data: `view_match_profile_${other.telegramId}`
+        }
+      ]));
 
       bot.sendMessage(chatId, matchMsg, {
         parse_mode: 'Markdown',
@@ -790,7 +796,72 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
 
-        // ── 🔒 CHAT GATE ──────────────────────────────────────────────────
+        // ── � VIEW MATCH PROFILE ─────────────────────────────────────────
+      } else if (data.startsWith('view_match_profile_')) {
+        const targetId = data.replace('view_match_profile_', '');
+        
+        try {
+          const targetUser = await User.findOne({ telegramId: String(targetId) });
+          if (!targetUser) {
+            return bot.sendMessage(chatId, '❌ User not found.');
+          }
+
+          // Send all photos if available
+          if (targetUser.photos && targetUser.photos.length > 0) {
+            if (targetUser.photos.length === 1) {
+              await bot.sendPhoto(chatId, targetUser.photos[0]);
+            } else {
+              // Send as media group (up to 10 photos)
+              const mediaGroup = targetUser.photos.slice(0, 10).map((photo, index) => ({
+                type: 'photo',
+                media: photo,
+                caption: index === 0 ? `📸 ${targetUser.name}'s Photos` : undefined
+              }));
+              await bot.sendMediaGroup(chatId, mediaGroup);
+            }
+          }
+
+          // Send profile details
+          let profileMsg = `👤 *${targetUser.name}'s Profile*\n\n`;
+          profileMsg += `🎂 Age: ${targetUser.age}\n`;
+          profileMsg += `🎭 Gender: ${targetUser.gender}\n`;
+          profileMsg += `💕 Looking for: ${targetUser.lookingFor}\n`;
+          profileMsg += `📍 Location: ${targetUser.location}\n\n`;
+          
+          if (targetUser.bio) {
+            profileMsg += `💬 *Bio:*\n${targetUser.bio}\n\n`;
+          }
+
+          profileMsg += `📸 Photos: ${targetUser.photos?.length || 0}\n`;
+          
+          if (targetUser.isVip) {
+            profileMsg += `👑 VIP Member\n`;
+          }
+
+          const profileKeyboard = {
+            inline_keyboard: [
+              [
+                { text: '💬 Start Chat', callback_data: `chat_gate_${targetId}` },
+                { text: '🎁 Send Gift', callback_data: `gift_to_${targetId}` }
+              ],
+              [
+                { text: '💔 Unmatch', callback_data: `unmatch_${targetId}` },
+                { text: '🔙 Back to Matches', callback_data: 'view_matches' }
+              ]
+            ]
+          };
+
+          await bot.sendMessage(chatId, profileMsg, {
+            parse_mode: 'Markdown',
+            reply_markup: profileKeyboard
+          });
+
+        } catch (error) {
+          console.error('Error viewing match profile:', error);
+          bot.sendMessage(chatId, '❌ Failed to load profile. Please try again.');
+        }
+
+        // ── �🔒 CHAT GATE ──────────────────────────────────────────────────
       } else if (data.startsWith('chat_gate_') || data.startsWith('chat_')) {
         const targetId = data.startsWith('chat_gate_')
           ? data.replace('chat_gate_', '')
