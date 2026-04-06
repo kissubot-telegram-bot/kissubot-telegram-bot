@@ -483,48 +483,54 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       // Send each match as a card with photo
       for (const { match, other } of valid.slice(0, 10)) {
-        const genderIcon = other.gender === 'Male' ? '👔' : other.gender === 'Female' ? '👗' : '🧒';
-        const vipBadge = other.isVip ? ' 👑' : '';
-        
-        let caption = `${genderIcon} *${other.name}*${vipBadge}, ${other.age}\n`;
-        caption += `📍 ${other.location}\n`;
-        
-        if (other.bio) {
-          const shortBio = other.bio.length > 100 ? other.bio.substring(0, 97) + '...' : other.bio;
-          caption += `\n💬 ${shortBio}\n`;
-        }
-        
-        // Check if chat is unlocked
-        if (match.chatUnlocked) {
-          caption += `\n🎉 *Private chat unlocked!*`;
-        } else if (match.messageCount?.user1 > 0 || match.messageCount?.user2 > 0) {
-          const myMsgs = match.messageCount?.user1 || 0;
-          const theirMsgs = match.messageCount?.user2 || 0;
-          caption += `\n📩 Messages: You ${myMsgs}/3 · Them ${theirMsgs}/3`;
-        }
+        try {
+          const genderIcon = other.gender === 'Male' ? '👔' : other.gender === 'Female' ? '👗' : '🧒';
+          const vipBadge = other.isVip ? ' 👑' : '';
+          
+          let caption = `${genderIcon} *${other.name}*${vipBadge}, ${other.age}\n`;
+          caption += `📍 ${other.location}\n`;
+          
+          if (other.bio) {
+            const shortBio = other.bio.length > 100 ? other.bio.substring(0, 97) + '...' : other.bio;
+            caption += `\n💬 ${shortBio}\n`;
+          }
+          
+          // Check if chat is unlocked
+          if (match.chatUnlocked) {
+            caption += `\n🎉 *Private chat unlocked!*`;
+          } else if (match.messageCount?.user1 > 0 || match.messageCount?.user2 > 0) {
+            const myMsgs = match.messageCount?.user1 || 0;
+            const theirMsgs = match.messageCount?.user2 || 0;
+            caption += `\n📩 Messages: You ${myMsgs}/3 · Them ${theirMsgs}/3`;
+          }
 
-        const matchButtons = {
-          inline_keyboard: [
-            [
-              { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` },
-              { text: '👤 Profile', callback_data: `view_match_profile_${other.telegramId}` }
+          const matchButtons = {
+            inline_keyboard: [
+              [
+                { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` },
+                { text: '👤 Profile', callback_data: `view_match_profile_${other.telegramId}` }
+              ]
             ]
-          ]
-        };
+          };
 
-        // Send with photo if available
-        if (other.photos && other.photos.length > 0) {
-          await bot.sendPhoto(chatId, other.photos[0], {
-            caption: caption,
-            parse_mode: 'Markdown',
-            reply_markup: matchButtons
-          });
-        } else {
-          // Send as text if no photo
-          await bot.sendMessage(chatId, caption, {
-            parse_mode: 'Markdown',
-            reply_markup: matchButtons
-          });
+          // Send with photo if available
+          if (other.photos && other.photos.length > 0) {
+            await bot.sendPhoto(chatId, other.photos[0], {
+              caption: caption,
+              parse_mode: 'Markdown',
+              reply_markup: matchButtons
+            });
+          } else {
+            // Send as text if no photo
+            await bot.sendMessage(chatId, caption, {
+              parse_mode: 'Markdown',
+              reply_markup: matchButtons
+            });
+          }
+        } catch (cardError) {
+          console.error('[Matches] Error sending match card:', cardError);
+          console.error('[Matches] Failed for user:', other?.name, other?.telegramId);
+          // Continue to next match even if one fails
         }
       }
 
