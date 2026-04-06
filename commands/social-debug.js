@@ -15,21 +15,31 @@ function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
       // Generate random test user ID
       const testUserId = String(Math.floor(Math.random() * 900000000) + 100000000);
       
+      const randomGender = Math.random() > 0.5 ? 'Male' : 'Female';
+      const randomAge = Math.floor(Math.random() * 20) + 20;
+      
+      // Use a reliable placeholder image service
+      const photoUrl = `https://i.pravatar.cc/400?img=${Math.floor(Math.random() * 70)}`;
+      
       const testUser = new User({
         telegramId: testUserId,
         username: `testuser_${testUserId.slice(-4)}`,
         name: `Test User ${testUserId.slice(-4)}`,
-        gender: Math.random() > 0.5 ? 'Male' : 'Female',
-        lookingFor: Math.random() > 0.5 ? 'Male' : 'Female',
-        age: Math.floor(Math.random() * 20) + 20,
+        gender: randomGender,
+        lookingFor: randomGender === 'Male' ? 'Female' : 'Male', // Opposite gender
+        age: randomAge,
         location: 'Test City',
-        bio: 'This is a test user for testing chat functionality',
-        photos: ['https://via.placeholder.com/400x400.png?text=Test+User'],
+        bio: 'This is a test user for testing chat functionality. Feel free to send messages and test features!',
+        photos: [photoUrl],
+        profilePhoto: photoUrl,
         profileCompleted: true,
         termsAccepted: true,
         isTestAccount: true,
         coins: 1000,
-        isVip: true
+        isVip: true,
+        matches: [],
+        likes: [],
+        seenProfiles: []
       });
 
       await testUser.save();

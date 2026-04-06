@@ -842,17 +842,27 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
           // Send all photos if available
           if (targetUser.photos && targetUser.photos.length > 0) {
-            if (targetUser.photos.length === 1) {
-              await bot.sendPhoto(chatId, targetUser.photos[0]);
-            } else {
-              // Send as media group (up to 10 photos)
-              const mediaGroup = targetUser.photos.slice(0, 10).map((photo, index) => ({
-                type: 'photo',
-                media: photo,
-                caption: index === 0 ? `📸 ${targetUser.name}'s Photos` : undefined
-              }));
-              await bot.sendMediaGroup(chatId, mediaGroup);
+            try {
+              if (targetUser.photos.length === 1) {
+                await bot.sendPhoto(chatId, targetUser.photos[0], {
+                  caption: `📸 ${targetUser.name}'s Photo`
+                });
+              } else {
+                // Send as media group (up to 10 photos)
+                const mediaGroup = targetUser.photos.slice(0, 10).map((photo, index) => ({
+                  type: 'photo',
+                  media: photo,
+                  caption: index === 0 ? `📸 ${targetUser.name}'s Photos (${targetUser.photos.length} total)` : undefined
+                }));
+                await bot.sendMediaGroup(chatId, mediaGroup);
+              }
+            } catch (photoError) {
+              console.error('Error sending photos:', photoError);
+              // Continue to send profile text even if photos fail
+              await bot.sendMessage(chatId, `⚠️ Could not load photos for this profile.`);
             }
+          } else {
+            await bot.sendMessage(chatId, `📷 *No photos available*\n\n`);
           }
 
           // Send profile details
