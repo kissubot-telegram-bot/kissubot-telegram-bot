@@ -155,6 +155,7 @@ function setupGiftCommands(bot, User, userStates) {
 
         // ── Step 2: Pick gift type for a recipient (via callback, legacy support) ──
         if (data.startsWith('gift_to_')) {
+            console.log('[GIFT] gift_to_ triggered for recipient:', data);
             await bot.answerCallbackQuery(query.id).catch(() => {});
             const recipientId = data.replace('gift_to_', '');
             try {
@@ -189,13 +190,18 @@ function setupGiftCommands(bot, User, userStates) {
 
         // ── Step 2b: Pick gift type via inline callback (for view profile flow) ──
         if (data.startsWith('gift_type_')) {
+            console.log('[GIFT] gift_type_ triggered:', data);
             await bot.answerCallbackQuery(query.id).catch(() => {});
             const parts = data.replace('gift_type_', '').split('_');
             const recipientId = parts[parts.length - 1];
             const giftKey = parts.slice(0, -1).join('_');
+            console.log('[GIFT] Parsed - giftKey:', giftKey, 'recipientId:', recipientId);
             const gift = GIFTS[giftKey];
 
-            if (!gift) return bot.sendMessage(chatId, '❌ Unknown gift type.');
+            if (!gift) {
+                console.log('[GIFT] Unknown gift type:', giftKey);
+                return bot.sendMessage(chatId, '❌ Unknown gift type.');
+            }
 
             try {
                 const [sender, recipient] = await Promise.all([
