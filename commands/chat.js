@@ -101,6 +101,9 @@ function setupChatCommands(bot, User, userStates) {
 
     if (!text) return;
 
+    // Ignore commands (messages starting with /)
+    if (text.startsWith('/')) return;
+
     const state = userStates.get(telegramId);
     if (!state || state.action !== 'in_bot_chat') return;
 
