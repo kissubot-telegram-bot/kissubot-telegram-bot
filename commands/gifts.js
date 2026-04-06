@@ -161,15 +161,84 @@ function setupGiftCommands(bot, User, userStates) {
                 const recipient = await User.findOne({ telegramId: String(recipientId) }).select('name');
                 const sender = await User.findOne({ telegramId: String(telegramId) }).select('coins');
                 const balance = sender?.coins || 0;
-                userStates.set(String(telegramId), { giftFlow: { step: 'pick_type', recipientId: String(recipientId), recipientName: recipient?.name || 'your match' } });
+                
+                // Create inline keyboard for gift selection
+                const giftInlineKeyboard = {
+                    inline_keyboard: [
+                        [{ text: '🌹 Rose — 5 coins', callback_data: `gift_type_rose_${recipientId}` }],
+                        [{ text: '💖 Heart — 10 coins', callback_data: `gift_type_heart_${recipientId}` }],
+                        [{ text: '🍫 Chocolate — 15 coins', callback_data: `gift_type_chocolate_${recipientId}` }],
+                        [{ text: '🌺 Flowers — 20 coins', callback_data: `gift_type_flowers_${recipientId}` }],
+                        [{ text: '💎 Diamond — 50 coins', callback_data: `gift_type_diamond_${recipientId}` }],
+                        [{ text: '🔙 Cancel', callback_data: 'view_matches' }]
+                    ]
+                };
+                
                 await bot.sendMessage(chatId,
                     `🎁 *Send a gift to ${recipient?.name || 'your match'}*\n\n` +
-                    `🪙 Your balance: *${balance} coins*\n\nChoose a gift:`,
-                    { parse_mode: 'Markdown', reply_markup: GIFT_TYPE_KEYBOARD }
+                    `🪙 Your balance: *${balance} coins*\n\n` +
+                    `Choose a gift to send:`,
+                    { parse_mode: 'Markdown', reply_markup: giftInlineKeyboard }
                 );
             } catch (err) {
                 console.error('[Gifts] pick gift error:', err);
                 bot.sendMessage(chatId, '❌ Failed to load gift picker. Please try again.');
+            }
+            return;
+        }
+
+        // ── Step 2b: Pick gift type via inline callback (for view profile flow) ──
+        if (data.startsWith('gift_type_')) {
+            await bot.answerCallbackQuery(query.id).catch(() => {});
+            const parts = data.replace('gift_type_', '').split('_');
+            const recipientId = parts[parts.length - 1];
+            const giftKey = parts.slice(0, -1).join('_');
+            const gift = GIFTS[giftKey];
+
+            if (!gift) return bot.sendMessage(chatId, '❌ Unknown gift type.');
+
+            try {
+                const [sender, recipient] = await Promise.all([
+                    User.findOne({ telegramId: String(telegramId) }),
+                    User.findOne({ telegramId: String(recipientId) })
+                ]);
+
+                if (!sender) return bot.sendMessage(chatId, '❌ User not found.');
+                if (!recipient) return bot.sendMessage(chatId, '❌ Recipient not found.');
+
+                if ((sender.coins || 0) < gift.coins) {
+                    return bot.sendMessage(chatId,
+                        `❌ *Not enough coins!*\n\nYou need *${gift.coins} coins* for ${gift.name} but only have *${sender.coins || 0}*.\n\nBuy more coins to send gifts!`,
+                        { parse_mode: 'Markdown', reply_markup: COINS_STORE_KEYBOARD }
+                    );
+                }
+
+                sender.coins -= gift.coins;
+                recipient.gifts = recipient.gifts || [];
+                recipient.gifts.push({
+                    from: String(telegramId),
+                    giftType: gift.name,
+                    sentAt: new Date()
+                });
+
+                await Promise.all([sender.save(), recipient.save()]);
+                invalidateUserCache(String(telegramId));
+                invalidateUserCache(String(recipientId));
+
+                await bot.sendMessage(chatId,
+                    `✅ *Gift Sent!*\n\nYou sent ${gift.name} to *${recipient.name}*!\n🪙 Remaining balance: *${sender.coins} coins*`,
+                    { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+                );
+
+                // Notify the recipient
+                bot.sendMessage(String(recipientId),
+                    `🎁 *You received a gift!*\n\n*${sender.name}* sent you ${gift.name}!\n\n💬 Tap *💕 Matches* to start a conversation!`,
+                    { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+                ).catch(() => {});
+
+            } catch (err) {
+                console.error('[Gifts] inline send error:', err);
+                bot.sendMessage(chatId, '❌ Failed to send gift. Please try again.');
             }
             return;
         }
