@@ -796,7 +796,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else if (data === 'start_browse' || data === 'browse_profiles') {
         return browseProfiles(chatId, telegramId);
 
-        // ── � VIEW MATCH PROFILE ─────────────────────────────────────────
+        // ── 👤 VIEW MATCH PROFILE ─────────────────────────────────────────
       } else if (data.startsWith('view_match_profile_')) {
         const targetId = data.replace('view_match_profile_', '');
         
@@ -861,7 +861,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           bot.sendMessage(chatId, '❌ Failed to load profile. Please try again.');
         }
 
-        // ── �🔒 CHAT GATE ──────────────────────────────────────────────────
+        // ── �� CHAT GATE ──────────────────────────────────────────────────
       } else if (data.startsWith('chat_gate_') || data.startsWith('chat_')) {
         const targetId = data.startsWith('chat_gate_')
           ? data.replace('chat_gate_', '')
