@@ -6,6 +6,51 @@ const userStates = {};
 
 function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
 
+  // Create a test user for matching
+  bot.onText(/\/createtestuser/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    try {
+      // Generate random test user ID
+      const testUserId = String(Math.floor(Math.random() * 900000000) + 100000000);
+      
+      const testUser = new User({
+        telegramId: testUserId,
+        username: `testuser_${testUserId.slice(-4)}`,
+        name: `Test User ${testUserId.slice(-4)}`,
+        gender: Math.random() > 0.5 ? 'Male' : 'Female',
+        lookingFor: Math.random() > 0.5 ? 'Male' : 'Female',
+        age: Math.floor(Math.random() * 20) + 20,
+        location: 'Test City',
+        bio: 'This is a test user for testing chat functionality',
+        photos: ['https://via.placeholder.com/400x400.png?text=Test+User'],
+        profileCompleted: true,
+        termsAccepted: true,
+        isTestAccount: true,
+        coins: 1000,
+        isVip: true
+      });
+
+      await testUser.save();
+
+      bot.sendMessage(chatId,
+        `✅ *Test user created!*\n\n` +
+        `📱 Telegram ID: \`${testUserId}\`\n` +
+        `👤 Name: ${testUser.name}\n` +
+        `🎭 Gender: ${testUser.gender}\n` +
+        `📍 Location: ${testUser.location}\n\n` +
+        `💡 *To match with this user, use:*\n` +
+        `/forcematch ${testUserId}`,
+        { parse_mode: 'Markdown' }
+      );
+
+    } catch (err) {
+      console.error('[createtestuser] Error:', err);
+      bot.sendMessage(chatId, '❌ Failed to create test user. Check server logs.');
+    }
+  });
+
   bot.onText(/\/forcematch(?:\s+(\d+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
