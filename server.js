@@ -44,6 +44,7 @@ const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
 const { setupPaymentCommands } = require('./commands/payment');
 const { setupChatCommands } = require('./commands/chat');
+const { setupDebugMatchesCommand } = require('./commands/debug-matches');
 
 const userStates = new Map();
 
@@ -671,6 +672,7 @@ setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
 setupVipPerksCommands(bot, User);
 setupPaymentCommands(bot, User);
+setupDebugMatchesCommand(bot, User);
 
 // Register bot command menu with Telegram (visible in the "/" list)
 bot.setMyCommands([
