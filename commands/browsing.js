@@ -800,27 +800,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           return;
         }
 
-        const targetUser = await User.findOne({ telegramId: String(targetId) });
-        const chatUrl = targetUser && targetUser.username
-          ? `https://t.me/${targetUser.username}`
-          : `tg://user?id=${targetId}`;
-
-        const noUsernameNote = targetUser && !targetUser.username
-          ? `\n\n⚠️ *${targetUser.name || 'This user'}* hasn't set a Telegram username yet — the link may not open. Ask them to set one in Telegram Settings.`
-          : '';
-
-        bot.sendMessage(chatId,
-          `💬 *It's a match!* Start your conversation below.${noUsernameNote}`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: `💬 Message ${targetUser ? targetUser.name : 'Match'}`, url: chatUrl }],
-                [{ text: '🔙 Back to Matches', callback_data: 'view_matches' }]
-              ]
-            }
-          }
-        );
+        // Use the new in-bot chat system
+        if (global.startInBotChat) {
+          await global.startInBotChat(chatId, telegramId, targetId);
+        } else {
+          bot.sendMessage(chatId, '❌ Chat system is initializing. Please try again in a moment.');
+        }
       }
 
     } catch (err) {

@@ -43,6 +43,7 @@ const { setupSocialCommands } = require('./commands/social');
 const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
 const { setupPaymentCommands } = require('./commands/payment');
+const { setupChatCommands } = require('./commands/chat');
 
 const userStates = new Map();
 
@@ -527,7 +528,19 @@ const userSchema = new mongoose.Schema({
       text: String,
       sentAt: Date
     },
-    unreadCount: { type: Number, default: 0 }
+    unreadCount: { type: Number, default: 0 },
+    // In-bot chat system
+    inBotMessages: [{
+      from: String, // telegramId of sender
+      text: String,
+      sentAt: { type: Date, default: Date.now }
+    }],
+    messageCount: {
+      user1: { type: Number, default: 0 }, // messages sent by this user
+      user2: { type: Number, default: 0 }  // messages sent by matched user
+    },
+    chatUnlocked: { type: Boolean, default: false }, // true when both users send 1+ message
+    privateChatOpened: { type: Boolean, default: false }
   }],
 
   // Gifts System
@@ -644,6 +657,8 @@ setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
 const onboardingHandlers = setupOnboardingCommands(bot, userStates, User);
 global.startOnboarding = onboardingHandlers.startOnboarding;
+const chatHandlers = setupChatCommands(bot, User, userStates);
+global.startInBotChat = chatHandlers.startInBotChat;
 setupBrowsingCommands(bot, User, Match, Like, userStates);
 setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot, User);
