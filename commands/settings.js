@@ -21,7 +21,12 @@ function sendSettingsMenu(bot, chatId) {
 
 async function sendSearchMenu(bot, chatId, telegramId, User) {
   try {
-    const user = await getCachedUserProfile(telegramId, User);
+    // Fetch fresh data from database to ensure latest settings are shown
+    const user = await User.findOne({ telegramId: String(telegramId) });
+    if (!user) {
+      return bot.sendMessage(chatId, '❌ User not found.');
+    }
+    
     const p = user.searchSettings || {};
     const ageMin = p.ageMin || 18;
     const ageMax = p.ageMax || 99;
@@ -29,6 +34,7 @@ async function sendSearchMenu(bot, chatId, telegramId, User) {
     const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
     const gender = p.genderPreference || 'Any';
     const hideLiked = p.hideLiked === true;
+    
     bot.sendMessage(chatId,
       `🔍 *Search Preferences*\n\n` +
       `🎂 *Age Range:* ${ageMin}–${ageMax}\n` +
@@ -39,6 +45,7 @@ async function sendSearchMenu(bot, chatId, telegramId, User) {
       { parse_mode: 'Markdown', reply_markup: SEARCH_KEYBOARD }
     );
   } catch (err) {
+    console.error('[Settings] Error loading search menu:', err);
     bot.sendMessage(chatId, '❌ Failed to load search settings. Please try again.');
   }
 }
@@ -185,8 +192,8 @@ function setupSettingsCommands(bot, userStates, User) {
               { $set: { 'searchSettings.genderPreference': genderPreference, lookingFor: genderPreference === 'Any' ? 'Both' : genderPreference } }
             );
             invalidateUserCache(String(telegramId));
-            await sendSearchMenu(bot, chatId, telegramId, User);
             await bot.sendMessage(chatId, `✅ *Gender preference set to ${genderPreference}.*`, { parse_mode: 'Markdown' });
+            await sendSearchMenu(bot, chatId, telegramId, User);
           } catch (err) {
             console.error('Set gender preference error:', err.response?.data || err.message);
             bot.sendMessage(chatId, '❌ Failed to update gender preference. Please try again.');
