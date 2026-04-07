@@ -59,34 +59,13 @@ async function requireBrowseAccess(bot, chatId, telegramId, User) {
     return false;
 }
 
-// Matches gate: women free, men need VIP
+// Matches gate: free access for everyone
 async function requireMatchesAccess(bot, chatId, telegramId, User) {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
 
-    const gender = (user.gender || '').toLowerCase();
-
-    // Women & others: free access to matches
-    if (gender === 'female' || gender === 'other' || gender === 'non-binary') return true;
-
-    // VIP men: allowed
-    if (user.isVip) return true;
-
-    await bot.sendMessage(chatId,
-        `🔒 *Subscription Required*\n\n` +
-        `Subscribe to unlock your matches and start chatting! 💕\n\n` +
-        `*(Women browse and match for free!)*`,
-        {
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-                    [{ text: '🏠 Menu', callback_data: 'main_menu' }]
-                ]
-            }
-        }
-    );
-    return false;
+    // Everyone has free access to matches
+    return true;
 }
 
 // Likes gate: everyone needs VIP to see who liked them

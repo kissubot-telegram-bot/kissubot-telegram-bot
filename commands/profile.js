@@ -603,11 +603,15 @@ function setupProfileCommands(bot, userStates, User) {
       const photos = user.photos || [];
       const photoCount = photos.length;
 
+      // Get the most current gender preference
+      const genderPref = user.searchSettings?.genderPreference || user.lookingFor || 'Not set';
+      const displayLookingFor = genderPref === 'Any' ? 'Both' : genderPref;
+      
       const profileMsg =
         `💖 *Your Profile*\n\n` +
         `📝 *Name:* ${user.name || 'Not set'}\n` +
         `👤 *Gender:* ${user.gender || 'Not set'}\n` +
-        `👀 *Looking For:* ${user.lookingFor || 'Not set'}\n` +
+        `👀 *Looking For:* ${displayLookingFor}\n` +
         `🎂 *Age:* ${user.age || 'Not set'}\n` +
         `📍 *Location:* ${user.location || 'Not set'}\n` +
         `📞 *Phone:* ${user.phone ? '✅ Added' : '❌ Required'}\n` +
