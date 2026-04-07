@@ -219,13 +219,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         profiles = await q;
       } else {
         // Normal browse: full filters with progressive fallback
-        // 1st try: full filters
+        // 1st try: full filters including gender
         profiles = await runQuery({
           photos: { $exists: true, $not: { $size: 0 } },
           ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
         });
 
-        // 2nd try: drop gender preference
+        // 2nd try: drop gender preference if no matches
         if (profiles.length === 0 && Object.keys(genderFilter).length > 0) {
           profiles = await runQuery({
             photos: { $exists: true, $not: { $size: 0 } },
@@ -476,18 +476,24 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const valid = matchDetails.filter(Boolean);
 
+      console.log('[Matches] Valid matches count:', valid.length);
+      console.log('[Matches] Match details:', valid.map(v => ({ name: v.other?.name, hasPhotos: v.other?.photos?.length > 0 })));
+
       // Send header message
       await bot.sendMessage(chatId, `💕 *YOUR MATCHES (${valid.length})* 💕\n\nSwipe through your matches below! 👇`, {
         parse_mode: 'Markdown'
       });
 
       // Send each match as a card with photo
-      for (const { match, other } of valid.slice(0, 10)) {
+      for (let i = 0; i < valid.slice(0, 10).length; i++) {
+        const { match, other } = valid[i];
+        console.log(`[Matches] Processing card ${i + 1}/${valid.length} for:`, other?.name);
+        
         try {
           const genderIcon = other.gender === 'Male' ? '👔' : other.gender === 'Female' ? '👗' : '🧒';
           const vipBadge = other.isVip ? ' 👑' : '';
           
-          let caption = `${genderIcon} *${other.name}*${vipBadge}, ${other.age}\n`;
+          let caption = `${genderIcon} ${other.name}${vipBadge}, ${other.age}\n`;
           caption += `📍 ${other.location}\n`;
           
           if (other.bio) {
@@ -497,7 +503,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           
           // Check if chat is unlocked
           if (match.chatUnlocked) {
-            caption += `\n🎉 *Private chat unlocked!*`;
+            caption += `\n🎉 Private chat unlocked!`;
           } else if (match.messageCount?.user1 > 0 || match.messageCount?.user2 > 0) {
             const myMsgs = match.messageCount?.user1 || 0;
             const theirMsgs = match.messageCount?.user2 || 0;
@@ -513,24 +519,47 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             ]
           };
 
-          // Send with photo if available
+          // Always try text first to ensure card displays
+          let sent = false;
+          
+          // Try sending with photo
           if (other.photos && other.photos.length > 0) {
-            await bot.sendPhoto(chatId, other.photos[0], {
-              caption: caption,
-              parse_mode: 'Markdown',
-              reply_markup: matchButtons
-            });
-          } else {
-            // Send as text if no photo
+            try {
+              await bot.sendPhoto(chatId, other.photos[0], {
+                caption: caption,
+                parse_mode: 'Markdown',
+                reply_markup: matchButtons
+              });
+              sent = true;
+              console.log('[Matches] ✓ Photo card sent for:', other.name);
+            } catch (photoError) {
+              console.error('[Matches] Photo failed:', photoError.message);
+            }
+          }
+          
+          // Fallback to text if photo failed or no photo
+          if (!sent) {
             await bot.sendMessage(chatId, caption, {
               parse_mode: 'Markdown',
               reply_markup: matchButtons
             });
+            console.log('[Matches] ✓ Text card sent for:', other.name);
           }
+          
         } catch (cardError) {
-          console.error('[Matches] Error sending match card:', cardError);
-          console.error('[Matches] Failed for user:', other?.name, other?.telegramId);
-          // Continue to next match even if one fails
+          console.error('[Matches] ✗ Card failed for:', other?.name, '-', cardError.message);
+          // Send minimal fallback card
+          try {
+            await bot.sendMessage(chatId, `${other?.name || 'Match'}, ${other?.age || '?'}`, {
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` }
+                ]]
+              }
+            });
+          } catch (e) {
+            console.error('[Matches] Even fallback failed:', e.message);
+          }
         }
       }
 
@@ -540,7 +569,10 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         });
       }
 
-      bot.sendMessage(chatId, '💡 Tap the buttons to chat or view full profiles!', { reply_markup: MAIN_KEYBOARD });
+      // Send final message after all cards are sent
+      await bot.sendMessage(chatId, '💡 Tap the buttons above to chat or view full profiles!', { 
+        reply_markup: MAIN_KEYBOARD 
+      });
 
     } catch (err) {
       console.error('[Matches] Error:', err);
