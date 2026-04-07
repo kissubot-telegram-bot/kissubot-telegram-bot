@@ -59,12 +59,46 @@ async function requireBrowseAccess(bot, chatId, telegramId, User) {
     return false;
 }
 
-// Matches gate: free access for everyone
-async function requireMatchesAccess(bot, chatId, telegramId, User) {
+// Matches gate: everyone can view matches, but males need VIP to chat
+async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'view') {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
 
-    // Everyone has free access to matches
+    // Everyone can view matches
+    if (action === 'view') return true;
+
+    // For chat action, check gender and VIP status
+    if (action === 'chat') {
+        const gender = (user.gender || '').toLowerCase();
+        
+        // Women & others: free chat access
+        if (gender === 'female' || gender === 'other' || gender === 'non-binary') return true;
+        
+        // VIP men: allowed to chat
+        if (user.isVip) return true;
+        
+        // Non-VIP men: show subtle VIP prompt
+        await bot.sendMessage(chatId,
+            `💬 *Start Chatting with Your Matches!*\n\n` +
+            `You've got great matches waiting! Upgrade to unlock unlimited conversations and stand out.\n\n` +
+            `✨ *VIP Benefits:*\n` +
+            `• Unlimited chat with all matches\n` +
+            `• Priority profile visibility\n` +
+            `• See who liked you\n` +
+            `• Exclusive badges & features`,
+            {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '✨ Upgrade to VIP', callback_data: 'manage_vip' }],
+                        [{ text: '💕 Back to Matches', callback_data: 'view_matches' }]
+                    ]
+                }
+            }
+        );
+        return false;
+    }
+
     return true;
 }
 

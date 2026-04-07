@@ -950,13 +950,14 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           bot.sendMessage(chatId, `❌ Failed to load profile. Error: ${error.message}`);
         }
 
-        // ── �� CHAT GATE ──────────────────────────────────────────────────
+        // ── 💬 CHAT GATE ──────────────────────────────────────────────────
       } else if (data.startsWith('chat_gate_') || data.startsWith('chat_')) {
         const targetId = data.startsWith('chat_gate_')
           ? data.replace('chat_gate_', '')
           : data.replace('chat_', '');
 
-        if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
+        // Check if user has chat access (males need VIP)
+        if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User, 'chat'))) {
           return;
         }
 
