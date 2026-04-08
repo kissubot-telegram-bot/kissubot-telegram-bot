@@ -8,6 +8,21 @@ async function getCachedUserProfile(telegramId, User) {
 
   const user = await User.findOne({ telegramId });
   if (user) {
+    // Check if VIP has expired and auto-disable
+    if (user.isVip && user.vipExpiresAt) {
+      const now = new Date();
+      if (user.vipExpiresAt < now) {
+        user.isVip = false;
+        await user.save();
+        console.log(`[VIP EXPIRY] User ${telegramId} VIP expired on ${user.vipExpiresAt}`);
+      }
+    }
+    // If VIP is active but no expiry date, set default 30 days
+    if (user.isVip && !user.vipExpiresAt) {
+      user.vipExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await user.save();
+      console.log(`[VIP EXPIRY] User ${telegramId} had no expiry date, set to 30 days from now`);
+    }
     userProfileCache.set(telegramId, user);
   }
   return user;

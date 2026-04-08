@@ -25,7 +25,13 @@ async function sendVipMenu(bot, chatId, telegramId, User) {
   try {
     const user = await getCachedUserProfile(telegramId, User);
     if (user.isVip) {
-      const expiry = user.vipExpiresAt ? new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Lifetime';
+      // All VIP must have expiry date - no lifetime VIP
+      if (!user.vipExpiresAt) {
+        // If no expiry date, set default 30 days from now
+        user.vipExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await user.save();
+      }
+      const expiry = new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
       return bot.sendMessage(chatId,
         `👑 *VIP Active!* ✨\n\n` +
         `🎉 You're a VIP member until *${expiry}*!\n\n` +
@@ -184,7 +190,6 @@ function setupPremiumCommands(bot, User, userStates) {
         case 'vip_purchase_monthly':
         case 'vip_purchase_6months':
         case 'vip_purchase_yearly':
-        case 'vip_purchase_lifetime':
           // Check if user is registered
           try {
             const checkUser = await getCachedUserProfile(telegramId, User);
@@ -228,7 +233,7 @@ function setupPremiumCommands(bot, User, userStates) {
           } else if (data === 'buy_vip_6' || data === 'vip_purchase_6months') {
             planType = 'biannual'; // 6 months
           } else {
-            planType = data.split('_')[2]; // monthly, yearly, or lifetime
+            planType = data.split('_')[2]; // monthly, yearly, etc
           }
 
           try {
@@ -241,8 +246,7 @@ function setupPremiumCommands(bot, User, userStates) {
               monthly: '1 Month',
               quarterly: '3 Months',
               biannual: '6 Months',
-              yearly: 'Yearly',
-              lifetime: 'Lifetime'
+              yearly: 'Yearly'
             };
 
             const successMessage = `🎉 **Congratulations!** 🎉\n\nYour ${planNames[planType] || planType} VIP subscription is now active!\n\n` +
@@ -522,7 +526,13 @@ function setupPremiumCommands(bot, User, userStates) {
         try {
           const user = await getCachedUserProfile(telegramId, User);
           if (user.isVip) {
-            const expiry = user.vipExpiresAt ? new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Lifetime';
+            // All VIP must have expiry date - no lifetime VIP
+            if (!user.vipExpiresAt) {
+              // If no expiry date, set default 30 days from now
+              user.vipExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+              await user.save();
+            }
+            const expiry = new Date(user.vipExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
             bot.sendMessage(chatId,
               `📊 *My VIP Subscription*\n\n` +
               `✅ *Status:* Active\n` +

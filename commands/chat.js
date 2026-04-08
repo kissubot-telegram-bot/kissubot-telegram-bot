@@ -1,4 +1,4 @@
-const { MAIN_KEYBOARD } = require('../keyboard');
+const { MAIN_KEYBOARD, ALL_KB_BUTTONS } = require('../keyboard');
 
 function setupChatCommands(bot, User, userStates) {
   
@@ -103,6 +103,9 @@ function setupChatCommands(bot, User, userStates) {
 
     // Ignore commands (messages starting with /)
     if (text.startsWith('/')) return;
+
+    // Ignore all keyboard button clicks (from any menu)
+    if (ALL_KB_BUTTONS.includes(text)) return;
 
     const state = userStates.get(telegramId);
     if (!state || state.action !== 'in_bot_chat') return;

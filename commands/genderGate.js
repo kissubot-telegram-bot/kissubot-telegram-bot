@@ -64,6 +64,8 @@ async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'vie
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
 
+    console.log('[CHAT GATE] Action:', action, 'User:', telegramId, 'Gender:', user.gender, 'VIP:', user.isVip);
+
     // Everyone can view matches
     if (action === 'view') return true;
 
@@ -71,11 +73,21 @@ async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'vie
     if (action === 'chat') {
         const gender = (user.gender || '').toLowerCase();
         
+        console.log('[CHAT GATE] Chat check - Gender:', gender, 'VIP:', user.isVip);
+        
         // Women & others: free chat access
-        if (gender === 'female' || gender === 'other' || gender === 'non-binary') return true;
+        if (gender === 'female' || gender === 'other' || gender === 'non-binary') {
+            console.log('[CHAT GATE] Female/Other - Access granted');
+            return true;
+        }
         
         // VIP men: allowed to chat
-        if (user.isVip) return true;
+        if (user.isVip) {
+            console.log('[CHAT GATE] VIP Male - Access granted');
+            return true;
+        }
+        
+        console.log('[CHAT GATE] Non-VIP Male - Access DENIED');
         
         // Non-VIP men: show subtle VIP prompt
         await bot.sendMessage(chatId,

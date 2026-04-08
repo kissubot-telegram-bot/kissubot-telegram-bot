@@ -186,11 +186,22 @@ function setupSettingsCommands(bot, userStates, User) {
             if (data === 'gender_male') genderPreference = 'Male';
             else if (data === 'gender_female') genderPreference = 'Female';
             else genderPreference = 'Any';
+            
+            const lookingForValue = genderPreference === 'Any' ? 'Both' : genderPreference;
+            console.log(`[SETTINGS] Updating gender preference for ${telegramId}:`, {
+              genderPreference,
+              lookingFor: lookingForValue
+            });
+            
             const { invalidateUserCache } = require('./auth');
-            await User.findOneAndUpdate(
+            const result = await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
-              { $set: { 'searchSettings.genderPreference': genderPreference, lookingFor: genderPreference === 'Any' ? 'Both' : genderPreference } }
+              { $set: { 'searchSettings.genderPreference': genderPreference, lookingFor: lookingForValue } },
+              { new: true }
             );
+            
+            console.log(`[SETTINGS] After update - lookingFor:`, result?.lookingFor, 'genderPreference:', result?.searchSettings?.genderPreference);
+            
             invalidateUserCache(String(telegramId));
             await bot.sendMessage(chatId, `✅ *Gender preference set to ${genderPreference}.*`, { parse_mode: 'Markdown' });
             await sendSearchMenu(bot, chatId, telegramId, User);
@@ -516,7 +527,21 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         const genderMap = { '👨 Men': 'Male', '👩 Women': 'Female', '👥 Everyone': 'Any' };
         const gender = genderMap[text];
         if (!gender) return;
-        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.genderPreference': gender, lookingFor: gender === 'Any' ? 'Both' : gender } });
+        
+        const lookingForValue = gender === 'Any' ? 'Both' : gender;
+        console.log(`[SETTINGS KB] Updating gender preference for ${telegramId}:`, {
+          genderPreference: gender,
+          lookingFor: lookingForValue
+        });
+        
+        const result = await User.findOneAndUpdate(
+          { telegramId: String(telegramId) }, 
+          { $set: { 'searchSettings.genderPreference': gender, lookingFor: lookingForValue } },
+          { new: true }
+        );
+        
+        console.log(`[SETTINGS KB] After update - lookingFor:`, result?.lookingFor, 'genderPreference:', result?.searchSettings?.genderPreference);
+        
         invalidateUserCache(String(telegramId));
         await bot.sendMessage(chatId, `✅ *Gender preference set to ${gender}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
