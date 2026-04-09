@@ -693,8 +693,8 @@ bot.setMyCommands([
   console.error('❌ Failed to register bot command menu:', err.message);
 });
 
-// Export bot and userStates so bot.js can import them
-module.exports = { bot, userStates };
+// Export bot, userStates, and User model so bot.js can import them
+module.exports = { bot, userStates, User };
 
 // Load bot.js to register event handlers for webhook
 require('./bot');
