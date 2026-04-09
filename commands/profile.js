@@ -598,14 +598,16 @@ function setupProfileCommands(bot, userStates, User) {
     const telegramId = msg.from.id;
 
     try {
-      const user = await getCachedUserProfile(telegramId, User);
+      // Force fresh fetch from database to ensure latest values (especially lookingFor)
+      const user = await User.findOne({ telegramId: String(telegramId) });
       if (!user) return bot.sendMessage(chatId, '❌ User not found. Please use /start to register.');
       const photos = user.photos || [];
       const photoCount = photos.length;
 
-      // Get the most current gender preference
-      const genderPref = user.searchSettings?.genderPreference || user.lookingFor || 'Not set';
-      const displayLookingFor = genderPref === 'Any' ? 'Both' : genderPref;
+      // Get the most current gender preference - prioritize lookingFor as it's the source of truth
+      const displayLookingFor = user.lookingFor === 'Both' || user.lookingFor === 'Any' 
+        ? 'Both' 
+        : (user.lookingFor || user.searchSettings?.genderPreference || 'Not set');
       
       const profileMsg =
         `💖 *Your Profile*\n\n` +
