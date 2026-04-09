@@ -360,9 +360,14 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Gender filtering disabled - show all genders
-
-      const genderFilter = {};
+      // Gender filtering: use lookingFor to show profiles matching what user wants to see
+      // If user is looking for "Male", show Male profiles
+      // If user is looking for "Female", show Female profiles
+      // If user is looking for "Both" or "Any", show all genders
+      const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
+      const genderFilter = (lookingFor === 'Both' || lookingFor === 'Any') 
+        ? {} 
+        : { gender: lookingFor };
 
 
 
@@ -434,13 +439,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         // Normal browse: full filters with progressive fallback
 
-        // 1st try: full filters (no gender filtering)
+        // 1st try: full filters including gender preference
 
         profiles = await runQuery({
 
           photos: { $exists: true, $not: { $size: 0 } },
 
-          ...ageFilter, ...locationFilter, ...hideLikedFilter
+          ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
 
         });
 
@@ -1018,59 +1023,31 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
           // Send with photo if available
-
           if (other.photos && other.photos.length > 0) {
-
             console.log('[Matches] Sending photo for:', other.name, 'URL:', other.photos[0]);
-
-            try {
-
             try {
               await bot.sendPhoto(chatId, other.photos[0], {
-
                 caption: caption,
-
                 parse_mode: 'Markdown',
-
                 reply_markup: matchButtons
-
               });
-
               console.log('[Matches] Photo sent successfully for:', other.name);
-
             } catch (photoError) {
-
               console.error('[Matches] Photo failed, sending text instead:', photoError.message);
-
               // Fallback to text if photo fails
-
               await bot.sendMessage(chatId, caption, {
-
                 parse_mode: 'Markdown',
-
                 reply_markup: matchButtons
-
               });
-
             }
-
           } else {
-
             console.log('[Matches] No photos, sending text for:', other.name);
-
             // Send as text if no photo
-
             await bot.sendMessage(chatId, caption, {
-
               parse_mode: 'Markdown',
-
               reply_markup: matchButtons
-
             });
-
             console.log('[Matches] Text sent successfully for:', other.name);
-
-            console.log('[Matches] ✓ Text card sent for:', other.name);
           }
 
           
