@@ -17,6 +17,31 @@ const { setupSocialCommands } = require('./commands/social');
 const { setupLikesCommands } = require('./commands/likes');
 const { setupMatchesCommands } = require('./commands/matches');
 
+// Debug command to check database values
+bot.onText(/\/checkdb/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = String(msg.from.id);
+  try {
+    const { User } = require('./server');
+    const user = await User.findOne({ telegramId });
+    if (!user) return bot.sendMessage(chatId, '❌ User not found in database');
+    
+    const dbMsg = `🔍 *Database Check*\n\n` +
+      `*Gender Preference Fields:*\n` +
+      `• lookingFor: ${user.lookingFor || 'null'}\n` +
+      `• searchSettings.genderPreference: ${user.searchSettings?.genderPreference || 'null'}\n\n` +
+      `*Your Gender:*\n` +
+      `• gender: ${user.gender || 'null'}\n\n` +
+      `*VIP Status:*\n` +
+      `• isVip: ${user.isVip}\n` +
+      `• vipExpiresAt: ${user.vipExpiresAt || 'null'}`;
+    
+    bot.sendMessage(chatId, dbMsg, { parse_mode: 'Markdown' });
+  } catch (err) {
+    bot.sendMessage(chatId, `❌ Error: ${err.message}`);
+  }
+});
+
 
 // Helper functions for optimized callback handling
 function handleReportFlow(chatId, telegramId, reportType) {
