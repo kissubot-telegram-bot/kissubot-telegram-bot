@@ -889,6 +889,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       if (!user) return bot.sendMessage(chatId, '❌ User not found.');
 
+      // Check if user is non-VIP male
+      const gender = (user.gender || '').toLowerCase();
+      const isNonVipMale = (gender === 'male' || gender === '') && !user.isVip;
 
 
       const matches = user.matches || [];
@@ -946,13 +949,26 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       console.log('[Matches] Match details:', valid.map(v => ({ name: v.other?.name, hasPhotos: v.other?.photos?.length > 0 })));
 
 
-      // Send header message
-
-      await bot.sendMessage(chatId, `💕 *YOUR MATCHES (${valid.length})* 💕\n\nSwipe through your matches below! 👇`, {
-
-        parse_mode: 'Markdown'
-
-      });
+      // Send header message with VIP prompt for non-VIP males
+      if (isNonVipMale) {
+        await bot.sendMessage(chatId, 
+          `💕 *YOUR MATCHES (${valid.length})* 💕\n\n` +
+          `🔒 *Upgrade to VIP to view photos and chat with your matches!*\n\n` +
+          `👇 See who matched with you below:`, 
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '👑 Upgrade to VIP', callback_data: 'manage_vip' }
+              ]]
+            }
+          }
+        );
+      } else {
+        await bot.sendMessage(chatId, `💕 *YOUR MATCHES (${valid.length})* 💕\n\nSwipe through your matches below! 👇`, {
+          parse_mode: 'Markdown'
+        });
+      }
 
 
 
@@ -1004,26 +1020,27 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-          const matchButtons = {
-
+          // Buttons: non-VIP males get VIP upgrade prompt instead of chat
+          const matchButtons = isNonVipMale ? {
             inline_keyboard: [
-
               [
-
-                { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` },
-
+                { text: '🔒 Unlock Chat (VIP)', callback_data: 'manage_vip' },
                 { text: '👤 Profile', callback_data: `view_match_profile_${other.telegramId}` }
-
               ]
-
             ]
-
+          } : {
+            inline_keyboard: [
+              [
+                { text: '💬 Chat', callback_data: `chat_gate_${other.telegramId}` },
+                { text: '👤 Profile', callback_data: `view_match_profile_${other.telegramId}` }
+              ]
+            ]
           };
 
 
 
-          // Send with photo if available
-          if (other.photos && other.photos.length > 0) {
+          // Send with photo if available (blurred for non-VIP males)
+          if (other.photos && other.photos.length > 0 && !isNonVipMale) {
             console.log('[Matches] Sending photo for:', other.name, 'URL:', other.photos[0]);
             try {
               await bot.sendPhoto(chatId, other.photos[0], {
@@ -1041,9 +1058,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
               });
             }
           } else {
-            console.log('[Matches] No photos, sending text for:', other.name);
-            // Send as text if no photo
-            await bot.sendMessage(chatId, caption, {
+            console.log('[Matches] Sending text card for:', other.name, isNonVipMale ? '(non-VIP male - photo hidden)' : '(no photo)');
+            // Send as text if no photo OR if non-VIP male (hide photos)
+            const displayCaption = isNonVipMale 
+              ? caption + '\n\n🔒 _Photo hidden - Upgrade to VIP to view_'
+              : caption;
+            await bot.sendMessage(chatId, displayCaption, {
               parse_mode: 'Markdown',
               reply_markup: matchButtons
             });
@@ -1847,7 +1867,8 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-        if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User))) {
+        // Check if user has chat access (males need VIP)
+        if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User, 'chat'))) {
 
           return;
 
