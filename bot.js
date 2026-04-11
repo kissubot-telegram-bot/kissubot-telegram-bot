@@ -42,6 +42,35 @@ bot.onText(/\/checkdb/, async (msg) => {
   }
 });
 
+// Debug command to toggle VIP status for testing
+bot.onText(/\/togglevip/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = String(msg.from.id);
+  try {
+    const { User } = require('./server');
+    const user = await User.findOne({ telegramId });
+    if (!user) return bot.sendMessage(chatId, '❌ User not found in database');
+    
+    const newVipStatus = !user.isVip;
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $set: { isVip: newVipStatus } }
+    );
+    
+    const { invalidateUserCache } = require('./commands/auth');
+    invalidateUserCache(telegramId);
+    
+    bot.sendMessage(chatId, 
+      `🔄 *VIP Status Toggled*\n\n` +
+      `${newVipStatus ? '✅ VIP Enabled' : '❌ VIP Disabled'}\n\n` +
+      `_Use /matches to test restrictions_`,
+      { parse_mode: 'Markdown' }
+    );
+  } catch (err) {
+    bot.sendMessage(chatId, `❌ Error: ${err.message}`);
+  }
+});
+
 
 // Helper functions for optimized callback handling
 function handleReportFlow(chatId, telegramId, reportType) {
