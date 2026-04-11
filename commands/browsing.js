@@ -892,6 +892,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       // Check if user is non-VIP male
       const gender = (user.gender || '').toLowerCase();
       const isNonVipMale = (gender === 'male' || gender === '') && !user.isVip;
+      
+      console.log('[MATCHES] User check:', {
+        telegramId,
+        gender: user.gender,
+        isVip: user.isVip,
+        isNonVipMale
+      });
 
 
       const matches = user.matches || [];
@@ -1865,14 +1872,16 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
           : data.replace('chat_', '');
 
-
+        console.log('[BROWSING] Chat button clicked - checking access for user:', telegramId);
 
         // Check if user has chat access (males need VIP)
         if (!(await requireMatchesAccess(bot, chatId, String(telegramId), User, 'chat'))) {
-
+          console.log('[BROWSING] Chat access DENIED by requireMatchesAccess');
           return;
 
         }
+        
+        console.log('[BROWSING] Chat access GRANTED - starting chat');
 
 
 
