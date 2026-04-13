@@ -71,6 +71,53 @@ bot.onText(/\/togglevip/, async (msg) => {
   }
 });
 
+// Debug command to test match notification with photos and hearts
+bot.onText(/\/testmatch/, async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = String(msg.from.id);
+  try {
+    const { User } = require('./server');
+    const user = await User.findOne({ telegramId });
+    if (!user) return bot.sendMessage(chatId, '❌ User not found in database');
+    
+    // Use user's own photos or placeholder
+    const userPhoto = (user.photos || [])[0] || 'https://via.placeholder.com/400x400.png?text=Your+Photo';
+    const matchPhoto = 'https://via.placeholder.com/400x400.png?text=Match+Photo';
+    
+    const starters = [
+      "Ask about their favourite travel destination 🌍",
+      "Comment on something from their bio 💬",
+      "Ask what they're looking for 💕",
+      "Share a fun fact about yourself ✨",
+      "Ask about their weekend plans 🎉"
+    ];
+    const starter = starters[Math.floor(Math.random() * starters.length)];
+    
+    // Send photos with red heart overlay
+    await bot.sendMediaGroup(chatId, [
+      { type: 'photo', media: userPhoto, caption: '❤️', parse_mode: 'Markdown' },
+      { type: 'photo', media: matchPhoto, caption: '❤️', parse_mode: 'Markdown' }
+    ]);
+    
+    // Send match notification with inline buttons
+    await bot.sendMessage(chatId,
+      `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *Test User* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '💬 Start Chatting', callback_data: 'view_matches' }],
+            [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
+          ]
+        }
+      }
+    );
+    
+  } catch (err) {
+    bot.sendMessage(chatId, `❌ Error: ${err.message}`);
+  }
+});
+
 
 // Helper functions for optimized callback handling
 function handleReportFlow(chatId, telegramId, reportType) {

@@ -1148,32 +1148,20 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const starter = starters[Math.floor(Math.random() * starters.length)];
 
-
-
       const myPhoto = (myUser.photos || [])[0];
-
       const theirPhoto = otherUser && (otherUser.photos || [])[0];
 
-
-
+      // Send photos with red heart overlay
       if (myPhoto && theirPhoto) {
-
         await bot.sendMediaGroup(otherTelegramId, [
-
-          { type: 'photo', media: theirPhoto, caption: '💖', parse_mode: 'Markdown' },
-
-          { type: 'photo', media: myPhoto, caption: '💖', parse_mode: 'Markdown' }
-
+          { type: 'photo', media: theirPhoto, caption: '❤️', parse_mode: 'Markdown' },
+          { type: 'photo', media: myPhoto, caption: '❤️', parse_mode: 'Markdown' }
         ]).catch(() => { });
-
       } else if (myPhoto) {
-
-        await bot.sendPhoto(otherTelegramId, myPhoto).catch(() => { });
-
+        await bot.sendPhoto(otherTelegramId, myPhoto, { caption: '❤️' }).catch(() => { });
       }
 
-
-
+      // Send match notification with inline buttons
       await bot.sendMessage(
 
         String(otherTelegramId),
@@ -1182,9 +1170,17 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         `*${myUser.name}* liked you back!\n\n` +
 
-        `💡 *Conversation starter:*\n${starter}\n\n_Tap_ *💕 Matches* _to start chatting!_`,
+        `💡 *Conversation starter:*\n${starter}`,
 
-        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+        { 
+          parse_mode: 'Markdown', 
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💬 Start Chatting', callback_data: `chat_gate_${myUser.telegramId}` }],
+              [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
+            ]
+          }
+        }
 
       );
 
@@ -1299,34 +1295,33 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       const starter = starters[Math.floor(Math.random() * starters.length)];
 
       const fromPhoto = (fromUser.photos || [])[0];
-
       const toPhoto = (toUser.photos || [])[0];
 
+      // Send photos with red heart overlay
       if (fromPhoto && toPhoto) {
-
         await bot.sendMediaGroup(chatId, [
-
-          { type: 'photo', media: fromPhoto, caption: '💖', parse_mode: 'Markdown' },
-
-          { type: 'photo', media: toPhoto, caption: '💖', parse_mode: 'Markdown' }
-
+          { type: 'photo', media: fromPhoto, caption: '❤️', parse_mode: 'Markdown' },
+          { type: 'photo', media: toPhoto, caption: '❤️', parse_mode: 'Markdown' }
         ]).catch(() => { });
-
       } else if (toPhoto) {
-
-        await bot.sendPhoto(chatId, toPhoto).catch(() => { });
-
+        await bot.sendPhoto(chatId, toPhoto, { caption: '❤️' }).catch(() => { });
       }
 
+      // Send match notification with inline buttons
       await bot.sendMessage(chatId,
 
-        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}\n\n_Tap_ *💕 Matches* _to open a chat!_`,
+        `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${toUser.name}* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
 
         {
 
           parse_mode: 'Markdown',
 
-          reply_markup: MAIN_KEYBOARD
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💬 Start Chatting', callback_data: `chat_gate_${targetTelegramId}` }],
+              [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
+            ]
+          }
 
         }
 
