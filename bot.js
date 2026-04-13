@@ -80,10 +80,6 @@ bot.onText(/\/testmatch/, async (msg) => {
     const user = await User.findOne({ telegramId });
     if (!user) return bot.sendMessage(chatId, '❌ User not found in database');
     
-    // Use user's own photos or placeholder
-    const userPhoto = (user.photos || [])[0] || 'https://via.placeholder.com/400x400.png?text=Your+Photo';
-    const matchPhoto = 'https://via.placeholder.com/400x400.png?text=Match+Photo';
-    
     const starters = [
       "Ask about their favourite travel destination 🌍",
       "Comment on something from their bio 💬",
@@ -93,11 +89,30 @@ bot.onText(/\/testmatch/, async (msg) => {
     ];
     const starter = starters[Math.floor(Math.random() * starters.length)];
     
-    // Send photos with red heart overlay
-    await bot.sendMediaGroup(chatId, [
-      { type: 'photo', media: userPhoto, caption: '❤️', parse_mode: 'Markdown' },
-      { type: 'photo', media: matchPhoto, caption: '❤️', parse_mode: 'Markdown' }
-    ]);
+    // Check if user has photos
+    const userPhotos = user.photos || [];
+    
+    if (userPhotos.length >= 2) {
+      // Use user's own photos if they have at least 2
+      await bot.sendMediaGroup(chatId, [
+        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' },
+        { type: 'photo', media: userPhotos[1], caption: '❤️', parse_mode: 'Markdown' }
+      ]);
+    } else if (userPhotos.length === 1) {
+      // Use user's photo twice if they only have one
+      await bot.sendMediaGroup(chatId, [
+        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' },
+        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' }
+      ]);
+    } else {
+      // No photos - send text-only notification
+      await bot.sendMessage(chatId, 
+        '⚠️ *Note:* Upload at least one profile photo to test the match notification with photos.\n\n' +
+        'Use /photo to upload photos, then run /testmatch again.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
     
     // Send match notification with inline buttons
     await bot.sendMessage(chatId,
