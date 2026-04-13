@@ -80,6 +80,49 @@ bot.onText(/\/testmatch/, async (msg) => {
     const user = await User.findOne({ telegramId });
     if (!user) return bot.sendMessage(chatId, '❌ User not found in database');
     
+    // Check if user has photos
+    const userPhoto = (user.photos || [])[0];
+    if (!userPhoto) {
+      await bot.sendMessage(chatId, 
+        '⚠️ *Note:* Upload at least one profile photo to test the match notification with photos.\n\n' +
+        'Use /photo to upload photos, then run /testmatch again.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+    
+    // Get user's matches
+    const matches = user.matches || [];
+    if (matches.length === 0) {
+      await bot.sendMessage(chatId, 
+        '⚠️ You have no matches yet.\n\n' +
+        'Use /browse to find matches, then run /testmatch again.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+    
+    // Get the first match's details
+    const firstMatchId = matches[0].userId;
+    const matchUser = await User.findOne({ telegramId: String(firstMatchId) });
+    
+    if (!matchUser) {
+      await bot.sendMessage(chatId, '❌ Match user not found.');
+      return;
+    }
+    
+    const matchPhoto = (matchUser.photos || [])[0];
+    if (!matchPhoto) {
+      await bot.sendMessage(chatId, 
+        '⚠️ Your match doesn\'t have photos.\n\n' +
+        'Try /testmatch again when they upload photos.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+    
+    const matchName = matchUser.name || 'Your Match';
+    
     const starters = [
       "Ask about their favourite travel destination 🌍",
       "Comment on something from their bio 💬",
@@ -89,39 +132,20 @@ bot.onText(/\/testmatch/, async (msg) => {
     ];
     const starter = starters[Math.floor(Math.random() * starters.length)];
     
-    // Check if user has photos
-    const userPhotos = user.photos || [];
-    
-    if (userPhotos.length >= 2) {
-      // Use user's own photos if they have at least 2
-      await bot.sendMediaGroup(chatId, [
-        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' },
-        { type: 'photo', media: userPhotos[1], caption: '❤️', parse_mode: 'Markdown' }
-      ]);
-    } else if (userPhotos.length === 1) {
-      // Use user's photo twice if they only have one
-      await bot.sendMediaGroup(chatId, [
-        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' },
-        { type: 'photo', media: userPhotos[0], caption: '❤️', parse_mode: 'Markdown' }
-      ]);
-    } else {
-      // No photos - send text-only notification
-      await bot.sendMessage(chatId, 
-        '⚠️ *Note:* Upload at least one profile photo to test the match notification with photos.\n\n' +
-        'Use /photo to upload photos, then run /testmatch again.',
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
+    // Send photos with red heart overlay (your photo + match's photo)
+    await bot.sendMediaGroup(chatId, [
+      { type: 'photo', media: userPhoto, caption: '❤️', parse_mode: 'Markdown' },
+      { type: 'photo', media: matchPhoto, caption: '❤️', parse_mode: 'Markdown' }
+    ]);
     
     // Send match notification with inline buttons
     await bot.sendMessage(chatId,
-      `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *Test User* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
+      `🎉💖 *IT'S A MATCH!* 💖🎉\n\nYou and *${matchName}* liked each other!\n\n💡 *Conversation starter:*\n${starter}`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '💬 Start Chatting', callback_data: 'view_matches' }],
+            [{ text: '💬 Start Chatting', callback_data: `chat_gate_${firstMatchId}` }],
             [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
           ]
         }
