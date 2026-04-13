@@ -644,6 +644,26 @@ const reportSchema = new mongoose.Schema({
 });
 const Report = mongoose.model('Report', reportSchema);
 
+// ChatRoom Schema - Private chat rooms for matched users
+const chatRoomSchema = new mongoose.Schema({
+  roomId: { type: String, required: true, unique: true },
+  participants: [{ type: String, required: true }], // [user1_telegramId, user2_telegramId]
+  messages: [{
+    from: { type: String, required: true },
+    text: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    read: { type: Boolean, default: false },
+    deleted: { type: Boolean, default: false }
+  }],
+  settings: {
+    muted: { type: Map, of: Boolean, default: {} }, // { user1_id: false, user2_id: true }
+    blocked: { type: Boolean, default: false }
+  },
+  lastActivity: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now }
+});
+const ChatRoom = mongoose.model('ChatRoom', chatRoomSchema);
+
 // Setup command handlers (must be after User model is defined)
 // Note: Match and Like models don't exist in this codebase, passing undefined
 const Match = undefined;
@@ -652,6 +672,7 @@ const Like = undefined;
 const { setupOnboardingCommands } = require('./commands/onboarding');
 const { setupReportCommands } = require('./commands/report');
 const { setupVipPerksCommands } = require('./commands/vipPerks');
+const { setupChatRoomCommands } = require('./commands/chatRoom');
 
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
@@ -660,6 +681,10 @@ const onboardingHandlers = setupOnboardingCommands(bot, userStates, User);
 global.startOnboarding = onboardingHandlers.startOnboarding;
 const chatHandlers = setupChatCommands(bot, User, userStates);
 global.startInBotChat = chatHandlers.startInBotChat;
+const chatRoomHandlers = setupChatRoomCommands(bot, User, ChatRoom, userStates);
+global.enterChatRoom = chatRoomHandlers.enterChatRoom;
+global.exitChatRoom = chatRoomHandlers.exitChatRoom;
+global.sendChatMessage = chatRoomHandlers.sendChatMessage;
 setupBrowsingCommands(bot, User, Match, Like, userStates);
 setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot, User);
@@ -693,8 +718,8 @@ bot.setMyCommands([
   console.error('❌ Failed to register bot command menu:', err.message);
 });
 
-// Export bot, userStates, and User model so bot.js can import them
-module.exports = { bot, userStates, User };
+// Export bot, userStates, User model, and ChatRoom model so bot.js can import them
+module.exports = { bot, userStates, User, ChatRoom };
 
 // Load bot.js to register event handlers for webhook
 require('./bot');

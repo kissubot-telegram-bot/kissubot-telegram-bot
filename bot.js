@@ -250,6 +250,26 @@ function getTimeAgo(date) {
 // /setname -> commands/profile.js
 
 
+// Message handler for chat room mode
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const telegramId = msg.from.id;
+  const text = msg.text;
+  
+  // Skip if no text or is a command
+  if (!text || text.startsWith('/')) return;
+  
+  const userState = userStates.get(String(telegramId));
+  
+  // If user is in chat room mode, route message to chat room
+  if (userState && userState.mode === 'chat_room') {
+    if (global.sendChatMessage) {
+      await global.sendChatMessage(chatId, telegramId, text);
+    }
+    return; // Don't process further
+  }
+});
+
 // Media handlers for photos and videos
 bot.on('photo', async (msg) => {
   const chatId = msg.chat.id;

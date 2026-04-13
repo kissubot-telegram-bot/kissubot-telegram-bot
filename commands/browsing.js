@@ -1876,21 +1876,41 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         }
         
-        console.log('[BROWSING] Chat access GRANTED - starting chat');
+        console.log('[BROWSING] Chat access GRANTED - entering chat room');
 
-
-
-        // Use the new in-bot chat system
-
-        if (global.startInBotChat) {
-
-          await global.startInBotChat(chatId, telegramId, targetId);
-
+        // Use the new private chat room system
+        if (global.enterChatRoom) {
+          await global.enterChatRoom(chatId, telegramId, targetId);
         } else {
-
           bot.sendMessage(chatId, '❌ Chat system is initializing. Please try again in a moment.');
-
         }
+
+      // ── CHAT ROOM CONTROLS ──────────────────────────────────────────────────
+      } else if (data.startsWith('enter_chat_')) {
+        const targetId = data.replace('enter_chat_', '');
+        if (global.enterChatRoom) {
+          await global.enterChatRoom(chatId, telegramId, targetId);
+        }
+
+      } else if (data === 'exit_chat_room') {
+        if (global.exitChatRoom) {
+          await global.exitChatRoom(chatId, telegramId);
+        }
+
+      } else if (data.startsWith('chat_history_')) {
+        const targetId = data.replace('chat_history_', '');
+        const { viewChatHistory } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
+        await viewChatHistory(chatId, telegramId, targetId);
+
+      } else if (data.startsWith('mute_chat_')) {
+        const targetId = data.replace('mute_chat_', '');
+        const { muteChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
+        await muteChat(chatId, telegramId, targetId);
+
+      } else if (data.startsWith('block_chat_')) {
+        const targetId = data.replace('block_chat_', '');
+        const { blockChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
+        await blockChat(chatId, telegramId, targetId);
 
       }
 
