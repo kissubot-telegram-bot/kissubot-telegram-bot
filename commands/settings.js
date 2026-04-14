@@ -30,15 +30,14 @@ async function sendSearchMenu(bot, chatId, telegramId, User) {
     const p = user.searchSettings || {};
     const ageMin = p.ageMin || 18;
     const ageMax = p.ageMax || 99;
-    const dist = p.maxDistance || 50;
-    const distLabel = dist >= 100000 ? 'Unlimited' : `${dist} km`;
+    const location = p.locationPreference || 'Nearby';
     const gender = p.genderPreference || 'Any';
     const hideLiked = p.hideLiked === true;
     
     bot.sendMessage(chatId,
       `🔍 *Search Preferences*\n\n` +
       `🎂 *Age Range:* ${ageMin}–${ageMax}\n` +
-      `📍 *Distance:* ${distLabel}\n` +
+      `📍 *Location:* ${location}\n` +
       `👥 *Gender:* ${gender}\n` +
       `🚫 *Hide Already Liked:* ${hideLiked ? '✅ On' : '❌ Off'}\n\n` +
       `Tap a button to change a setting:`,
@@ -86,18 +85,19 @@ function setupSettingsCommands(bot, userStates, User) {
           break;
 
         case 'set_distance':
-          bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum distance:', {
+        case 'set_location':
+          bot.sendMessage(chatId, '📍 *Set Location Preference*\n\nWhere would you like to find matches?', {
             parse_mode: 'Markdown',
             reply_markup: {
               keyboard: [
-                [{ text: '10 km' }, { text: '25 km' }],
-                [{ text: '50 km' }, { text: '100 km' }],
-                [{ text: '250 km' }, { text: '🌍 Unlimited' }]
+                [{ text: '🏙️ Same City' }],
+                [{ text: '📍 Nearby' }],
+                [{ text: '🌍 Anywhere' }]
               ],
               resize_keyboard: true, one_time_keyboard: true
             }
           });
-          userStates.set(telegramId, { settingPicker: 'distance' });
+          userStates.set(telegramId, { settingPicker: 'location' });
           break;
 
         case 'set_gender_pref':
@@ -145,35 +145,28 @@ function setupSettingsCommands(bot, userStates, User) {
           }
           break;
 
-        // Distance selections
-        case 'distance_10':
-        case 'distance_25':
-        case 'distance_50':
-        case 'distance_100':
-        case 'distance_250':
-        case 'distance_unlimited':
+        // Location preference selections
+        case 'location_same_city':
+        case 'location_nearby':
+        case 'location_anywhere':
           try {
-            let maxDistance;
+            let locationPreference;
             switch (data) {
-              case 'distance_10': maxDistance = 10; break;
-              case 'distance_25': maxDistance = 25; break;
-              case 'distance_50': maxDistance = 50; break;
-              case 'distance_100': maxDistance = 100; break;
-              case 'distance_250': maxDistance = 250; break;
-              case 'distance_unlimited': maxDistance = 100000; break;
+              case 'location_same_city': locationPreference = 'Same City'; break;
+              case 'location_nearby': locationPreference = 'Nearby'; break;
+              case 'location_anywhere': locationPreference = 'Anywhere'; break;
             }
             const { invalidateUserCache } = require('./auth');
             await User.findOneAndUpdate(
               { telegramId: String(telegramId) },
-              { $set: { 'searchSettings.maxDistance': maxDistance } }
+              { $set: { 'searchSettings.locationPreference': locationPreference } }
             );
             invalidateUserCache(String(telegramId));
-            const label = data === 'distance_unlimited' ? 'Unlimited' : `${maxDistance} km`;
             await sendSearchMenu(bot, chatId, telegramId, User);
-            await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*`, { parse_mode: 'Markdown' });
+            await bot.sendMessage(chatId, `✅ *Location preference set to ${locationPreference}.*`, { parse_mode: 'Markdown' });
           } catch (err) {
-            console.error('Set distance error:', err.response?.data || err.message);
-            bot.sendMessage(chatId, '❌ Failed to update distance. Please try again.');
+            console.error('Set location error:', err.response?.data || err.message);
+            bot.sendMessage(chatId, '❌ Failed to update location preference. Please try again.');
           }
           break;
 
@@ -432,17 +425,18 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         }).then(() => userStates.set(telegramId, { settingPicker: 'age_range' }));
 
       case '📍 Distance':
-        return bot.sendMessage(chatId, '📍 *Set Distance*\n\nChoose maximum match distance:', {
+      case '📍 Location':
+        return bot.sendMessage(chatId, '📍 *Set Location Preference*\n\nWhere would you like to find matches?', {
           parse_mode: 'Markdown',
           reply_markup: {
             keyboard: [
-              [{ text: '10 km' }, { text: '25 km' }],
-              [{ text: '50 km' }, { text: '100 km' }],
-              [{ text: '250 km' }, { text: '🌍 Unlimited' }]
+              [{ text: '🏙️ Same City' }],
+              [{ text: '📍 Nearby' }],
+              [{ text: '🌍 Anywhere' }]
             ],
             resize_keyboard: true, one_time_keyboard: true
           }
-        }).then(() => userStates.set(telegramId, { settingPicker: 'distance' }));
+        }).then(() => userStates.set(telegramId, { settingPicker: 'location' }));
 
       case '👥 Gender Preference':
         return bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
@@ -547,12 +541,12 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
       if (picker === 'location') {
-        if (text === '🔙 Back to Search') return sendSearchMenu(bot, chatId, telegramId, User);
-        const locationMap = { '📍 Current City': 'current_city', '🏙️ Nearby Cities': 'nearby_cities', '🌆 Specific City': 'specific_city', '🌍 Anywhere': null };
-        if (!(text in locationMap)) return;
+        const locationMap = { '🏙️ Same City': 'Same City', '📍 Nearby': 'Nearby', '� Anywhere': 'Anywhere' };
         const locationPreference = locationMap[text];
-        await axios.post(`${API_BASE}/search-settings/${telegramId}`, { locationPreference }).catch(() => {});
-        await bot.sendMessage(chatId, `✅ *Location preference updated to ${text.replace(/[^\w\s]/gu, '').trim() || 'Anywhere'}.*`, { parse_mode: 'Markdown' });
+        if (!locationPreference) return;
+        await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.locationPreference': locationPreference } });
+        invalidateUserCache(String(telegramId));
+        await bot.sendMessage(chatId, `✅ *Location preference set to ${locationPreference}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
     } catch (err) {

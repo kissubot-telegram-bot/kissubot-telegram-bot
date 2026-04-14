@@ -354,7 +354,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const ageMax = ss.ageMax || 99;
 
-      const maxDistance = ss.maxDistance || 100000;
+      const locationPreference = ss.locationPreference || 'Nearby';
 
       const hideLiked = ss.hideLiked === true; // default false; seenProfiles already handles exclusion
 
@@ -377,17 +377,21 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Location filter — approximate text match when distance is not unlimited
-
+      // Location filter based on preference
       let locationFilter = {};
 
-      if (maxDistance < 100000 && currentUser.location) {
-
+      if (locationPreference === 'Same City' && currentUser.location) {
+        // Match exact city (first part of location)
         const city = currentUser.location.split(',')[0].trim();
+        if (city) locationFilter = { location: { $regex: new RegExp(`^${city}`, 'i') } };
 
+      } else if (locationPreference === 'Nearby' && currentUser.location) {
+        // Match city or country (more flexible)
+        const city = currentUser.location.split(',')[0].trim();
         if (city) locationFilter = { location: { $regex: new RegExp(city, 'i') } };
 
       }
+      // If 'Anywhere', locationFilter stays empty (no location restriction)
 
 
 

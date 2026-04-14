@@ -59,13 +59,13 @@ const SETTINGS_KB_BUTTONS = ['👤 Profile Info', '🔍 Search Preferences', '�
 
 const SEARCH_KEYBOARD = {
   keyboard: [
-    [{ text: '🎂 Age Range' }, { text: '📍 Distance' }],
+    [{ text: '🎂 Age Range' }, { text: '📍 Location' }],
     [{ text: '👥 Gender Preference' }, { text: '🚫 Toggle Hide Liked' }],
     [{ text: '🔄 Reset Browse History' }, { text: '⚙️ Back to Settings' }]
   ],
   resize_keyboard: true
 };
-const SEARCH_KB_BUTTONS = ['🎂 Age Range', '📍 Distance', '👥 Gender Preference', '🚫 Toggle Hide Liked', '🔄 Reset Browse History', '⚙️ Back to Settings'];
+const SEARCH_KB_BUTTONS = ['🎂 Age Range', '📍 Location', '👥 Gender Preference', '🚫 Toggle Hide Liked', '🔄 Reset Browse History', '⚙️ Back to Settings'];
 
 const HELP_KEYBOARD = {
   keyboard: [

@@ -70,41 +70,50 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
         await chatRoom.save();
       }
 
-      // Get recent messages for display
+      // Get recent messages for display with chat-like formatting
       const recentMessages = chatRoom.messages
         .filter(msg => !msg.deleted)
         .slice(-5)
         .map(msg => {
-          const sender = msg.from === String(telegramId) ? 'You' : targetUser.name;
+          const isMe = msg.from === String(telegramId);
           const time = new Date(msg.timestamp).toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit' 
           });
-          return `${time} - ${sender}: ${msg.text}`;
+          
+          if (isMe) {
+            // Right-aligned for user's messages
+            return `                    _${time}_\n                    *You:* ${msg.text} ✓`;
+          } else {
+            // Left-aligned for match's messages
+            return `_${time}_\n*${targetUser.name}:* ${msg.text}`;
+          }
         })
-        .join('\n');
+        .join('\n\n');
 
       const totalMessages = chatRoom.messages.filter(msg => !msg.deleted).length;
 
-      let welcomeMsg = `╔════════════════════════════╗\n`;
-      welcomeMsg += `║  💬 Private Chat with ${targetUser.name}  ║\n`;
-      welcomeMsg += `╚════════════════════════════╝\n\n`;
-      welcomeMsg += `🔒 *This is your private space*\n`;
-      welcomeMsg += `Only you and ${targetUser.name} can see this\n\n`;
+      let welcomeMsg = `┌─────────────────────────┐\n`;
+      welcomeMsg += `│   💬 Chat with ${targetUser.name}   │\n`;
+      welcomeMsg += `└─────────────────────────┘\n\n`;
       
       if (totalMessages > 0) {
-        welcomeMsg += `📜 *Recent Messages:*\n${recentMessages}\n\n`;
+        welcomeMsg += `${recentMessages}\n\n`;
+        welcomeMsg += `─────────────────────────\n`;
+        welcomeMsg += `� _Type your message below..._`;
       } else {
-        welcomeMsg += `💡 *Start the conversation!*\nBe the first to say hi!\n\n`;
+        welcomeMsg += `� *Private conversation*\n`;
+        welcomeMsg += `Only you and ${targetUser.name} can see this\n\n`;
+        welcomeMsg += `💡 Say hi to start chatting!\n\n`;
+        welcomeMsg += `─────────────────────────\n`;
+        welcomeMsg += `💬 _Type your message below..._`;
       }
-      
-      welcomeMsg += `Type your message below to send it to ${targetUser.name}`;
 
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '📜 View Full History', callback_data: `chat_history_${targetTelegramId}` },
-            { text: '🚪 Exit Chat', callback_data: 'exit_chat_room' }
+            { text: '📜 History', callback_data: `chat_history_${targetTelegramId}` },
+            { text: '🚪 Exit', callback_data: 'exit_chat_room' }
           ],
           [
             { text: '🔇 Mute', callback_data: `mute_chat_${targetTelegramId}` },
@@ -171,9 +180,14 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
       chatRoom.lastActivity = new Date();
       await chatRoom.save();
 
-      // Confirm message sent
+      // Show message in chat-like format
+      const time = new Date().toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
       await bot.sendMessage(chatId, 
-        `✅ Message sent to ${targetName}\n\n_Continue typing to send more messages_`,
+        `                    _${time}_\n                    *You:* ${messageText} ✓\n\n─────────────────────────\n💬 _Continue typing..._`,
         { parse_mode: 'Markdown' }
       );
 
@@ -231,7 +245,7 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
         .filter(msg => !msg.deleted)
         .slice(-20) // Last 20 messages
         .map(msg => {
-          const sender = msg.from === String(telegramId) ? 'You' : targetName;
+          const isMe = msg.from === String(telegramId);
           const time = new Date(msg.timestamp).toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
@@ -239,13 +253,21 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
             day: 'numeric'
           });
           const readStatus = msg.read ? '✓✓' : '✓';
-          return `${time} - *${sender}*: ${msg.text} ${msg.from === String(telegramId) ? readStatus : ''}`;
+          
+          if (isMe) {
+            return `                    _${time}_\n                    *You:* ${msg.text} ${readStatus}`;
+          } else {
+            return `_${time}_\n*${targetName}:* ${msg.text}`;
+          }
         })
         .join('\n\n');
 
-      let historyMsg = `📜 *Chat History with ${targetName}*\n\n`;
+      let historyMsg = `┌─────────────────────────┐\n`;
+      historyMsg += `│   📜 Chat History   │\n`;
+      historyMsg += `└─────────────────────────┘\n\n`;
       historyMsg += `${messages}\n\n`;
-      historyMsg += `_Showing last 20 messages_`;
+      historyMsg += `─────────────────────────\n`;
+      historyMsg += `_Last 20 messages_`;
 
       await bot.sendMessage(chatId, historyMsg, {
         parse_mode: 'Markdown',
