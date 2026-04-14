@@ -1258,20 +1258,6 @@ app.post('/superlike', async (req, res) => {
 
 
 
-// Get user gifts
-app.get('/gifts/:telegramId', async (req, res) => {
-  const { telegramId } = req.params;
-  try {
-    const user = await User.findOne({ telegramId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user.gifts);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch gifts' });
-  }
-});
-
 // Get user coins and available packages
 app.get('/coins/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
@@ -1779,33 +1765,6 @@ function getGiftPrice(giftType) {
   return prices[giftType] || 0;
 }
 
-// Purchase coins
-app.post('/coins/purchase/:telegramId', async (req, res) => {
-  const { telegramId } = req.params;
-  const { amount } = req.body;
-
-  if (!amount || amount <= 0) {
-    return res.status(400).json({ error: 'Invalid coin amount' });
-  }
-
-  try {
-    const user = await User.findOne({ telegramId });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    user.coins += amount;
-    await user.save();
-
-    res.json({
-      message: 'Coins purchased successfully',
-      newBalance: user.coins
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to purchase coins' });
-  }
-});
-
 // Update user profile
 app.post('/profile/update/:telegramId', async (req, res) => {
   const { telegramId } = req.params;
@@ -2202,7 +2161,6 @@ app.delete('/stories/:telegramId/:storyId', async (req, res) => {
   }
 });
 
-// Update user profile
 // Get user search settings
 app.get('/search-settings/:telegramId', async (req, res) => {
   const { telegramId } = req.params;

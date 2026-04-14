@@ -1916,6 +1916,51 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         const { blockChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
         await blockChat(chatId, telegramId, targetId);
 
+      } else if (data.startsWith('open_private_chat_')) {
+        const targetId = data.replace('open_private_chat_', '');
+        try {
+          const targetUser = await User.findOne({ telegramId: String(targetId) });
+          if (!targetUser) {
+            return bot.sendMessage(chatId, '❌ User not found.');
+          }
+
+          if (targetUser.username) {
+            // User has a username - provide direct link
+            await bot.sendMessage(chatId, 
+              `💬 *Direct Telegram Chat*\n\n` +
+              `${targetUser.name} has a public Telegram username!\n\n` +
+              `Click the button below to open a direct chat with them on Telegram.`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [[
+                    { text: `💬 Chat with @${targetUser.username}`, url: `https://t.me/${targetUser.username}` }
+                  ]]
+                }
+              }
+            );
+          } else {
+            // No username - suggest using the in-bot chat room
+            await bot.sendMessage(chatId, 
+              `💬 *Private Chat*\n\n` +
+              `${targetUser.name} doesn't have a public Telegram username.\n\n` +
+              `✅ *You can still chat privately!*\n` +
+              `Use this chat room to send messages - they're completely private and only visible to you two.`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [[
+                    { text: '🔙 Back to Chat', callback_data: `enter_chat_${targetId}` }
+                  ]]
+                }
+              }
+            );
+          }
+        } catch (err) {
+          console.error('[BROWSING] Error opening private chat:', err);
+          bot.sendMessage(chatId, '❌ Failed to open private chat. Please try again.');
+        }
+
       }
 
 
