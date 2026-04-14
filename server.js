@@ -51,6 +51,20 @@ const userStates = new Map();
 const app = express();
 app.use(bodyParser.json());
 
+// CORS middleware for admin dashboard
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Serve admin dashboard static files
+app.use('/admin', express.static('admin'));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', bot: !!bot, uptime: process.uptime() });
@@ -1038,18 +1052,245 @@ app.get('/admin/stats', async (req, res) => {
       }])
     ]);
     const agg = statsAgg[0] || {};
+    
+    // Calculate total revenue (mock data - replace with real revenue tracking)
+    const totalRevenue = vipUsers * 9.99; // Assuming $9.99 per VIP
+    
     res.json({
       totalUsers,
       vipUsers,
       pendingReports,
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
-      totalMatches: Math.round((agg.totalMatches || 0) / 2) // each match counted twice
+      totalMatches: Math.round((agg.totalMatches || 0) / 2), // each match counted twice
+      totalRevenue: totalRevenue.toFixed(2)
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
+
+// ── Admin: Get all users ──────────────────────────────────────────────────
+app.get('/admin/users', async (req, res) => {
+  try {
+    const users = await User.find()
+      .select('telegramId name gender location isVip createdAt')
+      .sort({ createdAt: -1 })
+      .limit(100);
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// ── Admin: Ban user ───────────────────────────────────────────────────────
+app.post('/admin/users/:telegramId/ban', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $set: { isBanned: true, bannedAt: new Date() } }
+    );
+    res.json({ message: 'User banned successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to ban user' });
+  }
+});
+
+// ── Admin: Get all reports ────────────────────────────────────────────────
+app.get('/admin/reports', async (req, res) => {
+  try {
+    const reports = await Report.find()
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch reports' });
+  }
+});
+
+// ── Admin: Get recent activity ────────────────────────────────────────────
+app.get('/admin/activity', async (req, res) => {
+  try {
+    const activities = [];
+    
+    // Get recent users (last 24 hours)
+    const recentUsers = await User.find({
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    }).sort({ createdAt: -1 }).limit(5);
+    
+    recentUsers.forEach(user => {
+      activities.push({
+        type: 'user_registered',
+        icon: '👤',
+        text: `New user registered: ${user.name}`,
+        time: getTimeAgo(user.createdAt),
+        timestamp: user.createdAt
+      });
+    });
+    
+    // Get recent VIP subscriptions
+    const recentVips = await User.find({
+      isVip: true,
+      vipExpiresAt: { $gte: new Date() }
+    }).sort({ vipExpiresAt: -1 }).limit(3);
+    
+    recentVips.forEach(user => {
+      activities.push({
+        type: 'vip_subscription',
+        icon: '👑',
+        text: `VIP subscription purchased by ${user.name}`,
+        time: 'Recently',
+        timestamp: user.vipExpiresAt
+      });
+    });
+    
+    // Get recent reports
+    const recentReports = await Report.find()
+      .sort({ createdAt: -1 })
+      .limit(2);
+    
+    recentReports.forEach(report => {
+      activities.push({
+        type: 'report',
+        icon: '🚨',
+        text: `New ${report.type} report submitted`,
+        time: getTimeAgo(report.createdAt),
+        timestamp: report.createdAt
+      });
+    });
+    
+    // Sort all activities by timestamp
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    res.json(activities.slice(0, 10));
+  } catch (err) {
+    console.error('Activity fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch activity' });
+  }
+});
+
+// ── Admin: Get revenue data ───────────────────────────────────────────────
+app.get('/admin/revenue', async (req, res) => {
+  try {
+    const vipUsers = await User.countDocuments({ 
+      isVip: true,
+      vipExpiresAt: { $gte: new Date() }
+    });
+    
+    const totalUsers = await User.countDocuments();
+    
+    // Calculate revenue (mock calculation - replace with real payment tracking)
+    const monthlyRevenue = vipUsers * 9.99;
+    const avgRevenuePerUser = totalUsers > 0 ? (monthlyRevenue / totalUsers).toFixed(2) : 0;
+    
+    // Generate last 6 months revenue data
+    const revenueData = [];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    for (let i = 0; i < 6; i++) {
+      revenueData.push({
+        month: months[i],
+        revenue: Math.floor(Math.random() * 2000) + 1000 // Mock data
+      });
+    }
+    
+    res.json({
+      monthlyRevenue: monthlyRevenue.toFixed(2),
+      avgRevenuePerUser,
+      totalRevenue: (monthlyRevenue * 6).toFixed(2),
+      revenueData
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch revenue data' });
+  }
+});
+
+// ── Admin: Get match statistics ───────────────────────────────────────────
+app.get('/admin/matches', async (req, res) => {
+  try {
+    // Count total matches
+    const usersWithMatches = await User.aggregate([
+      { $unwind: '$matches' },
+      { $group: { _id: null, totalMatches: { $sum: 1 } } }
+    ]);
+    const totalMatches = usersWithMatches[0]?.totalMatches || 0;
+    
+    // Count matches today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const matchesToday = await User.aggregate([
+      { $unwind: '$matches' },
+      { $match: { 'matches.matchedAt': { $gte: today } } },
+      { $group: { _id: null, count: { $sum: 1 } } }
+    ]);
+    const todayCount = matchesToday[0]?.count || 0;
+    
+    // Calculate match rate
+    const totalUsers = await User.countDocuments();
+    const usersWithMatch = await User.countDocuments({ 'matches.0': { $exists: true } });
+    const matchRate = totalUsers > 0 ? ((usersWithMatch / totalUsers) * 100).toFixed(1) : 0;
+    
+    // Get last 7 days match data
+    const matchData = [];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    for (let i = 0; i < 7; i++) {
+      matchData.push({
+        day: days[i],
+        matches: Math.floor(Math.random() * 50) + 20 // Mock data
+      });
+    }
+    
+    res.json({
+      totalMatches: Math.floor(totalMatches / 2), // Each match counted twice
+      todayMatches: Math.floor(todayCount / 2),
+      matchRate,
+      matchData
+    });
+  } catch (err) {
+    console.error('Match stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch match statistics' });
+  }
+});
+
+// ── Admin: Get user growth data ───────────────────────────────────────────
+app.get('/admin/user-growth', async (req, res) => {
+  try {
+    const growthData = [];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      const count = await User.countDocuments({
+        createdAt: { $gte: date, $lt: nextDate }
+      });
+      
+      growthData.push({
+        day: days[6 - i],
+        users: count
+      });
+    }
+    
+    res.json(growthData);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user growth data' });
+  }
+});
+
+// Helper function for time ago
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  return `${Math.floor(seconds / 86400)} days ago`;
+}
 
 
 // Get users who liked you

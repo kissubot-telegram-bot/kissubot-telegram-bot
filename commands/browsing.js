@@ -390,6 +390,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         const city = currentUser.location.split(',')[0].trim();
         if (city) locationFilter = { location: { $regex: new RegExp(city, 'i') } };
 
+      } else if (locationPreference === 'Custom' && ss.customLocation) {
+        // Match custom location entered by user
+        const customLoc = ss.customLocation.trim();
+        if (customLoc) locationFilter = { location: { $regex: new RegExp(customLoc, 'i') } };
+
       }
       // If 'Anywhere', locationFilter stays empty (no location restriction)
 

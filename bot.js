@@ -259,6 +259,21 @@ bot.on('message', async (msg) => {
   // Skip if no text or is a command
   if (!text || text.startsWith('/')) return;
   
+  // List of all keyboard button texts that should not be treated as chat messages
+  const allKeyboardButtons = [
+    ...MAIN_KB_BUTTONS,
+    ...PROFILE_KB_BUTTONS,
+    ...SETTINGS_KB_BUTTONS,
+    ...SEARCH_KB_BUTTONS,
+    ...HELP_KB_BUTTONS,
+    ...REPORT_KB_BUTTONS,
+    ...VIP_KB_BUTTONS,
+    '🏠 Menu'
+  ];
+  
+  // Skip if text is a keyboard button
+  if (allKeyboardButtons.includes(text)) return;
+  
   const userState = userStates.get(String(telegramId));
   
   // If user is in chat room mode, route message to chat room

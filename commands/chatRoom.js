@@ -112,11 +112,11 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '� Private Chat', callback_data: `open_private_chat_${targetTelegramId}` },
+            { text: '📜 History', callback_data: `chat_history_${targetTelegramId}` },
             { text: '🚪 Exit', callback_data: 'exit_chat_room' }
           ],
           [
-            { text: '� View History', callback_data: `chat_history_${targetTelegramId}` },
+            { text: '🔇 Mute', callback_data: `mute_chat_${targetTelegramId}` },
             { text: '🚫 Block', callback_data: `block_chat_${targetTelegramId}` }
           ]
         ]

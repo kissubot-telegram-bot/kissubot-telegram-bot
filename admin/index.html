@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kissubot Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>💘 Kissubot</h1>
+                <p>Admin Dashboard</p>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="overview">
+                    <span class="icon">📊</span>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-page="users">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </a>
+                <a href="#" class="nav-item" data-page="revenue">
+                    <span class="icon">💰</span>
+                    <span>Revenue</span>
+                </a>
+                <a href="#" class="nav-item" data-page="matches">
+                    <span class="icon">💘</span>
+                    <span>Matches</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <span class="icon">🚨</span>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="icon">⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="logout-btn">🚪 Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2 id="page-title">Dashboard Overview</h2>
+                    <p id="page-subtitle">Real-time bot statistics and analytics</p>
+                </div>
+                <div class="header-right">
+                    <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+                    <div class="admin-profile">
+                        <span>Admin</span>
+                        <div class="avatar">👤</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Overview Page -->
+            <div id="overview-page" class="page active">
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="total-users">0</h3>
+                            <p>Total Users</p>
+                            <span class="stat-change positive">+12% this week</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💘</div>
+                        <div class="stat-info">
+                            <h3 id="total-matches">0</h3>
+                            <p>Total Matches</p>
+                            <span class="stat-change positive">+8% this week</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👑</div>
+                        <div class="stat-info">
+                            <h3 id="vip-users">0</h3>
+                            <p>VIP Users</p>
+                            <span class="stat-change positive">+15% this month</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <h3 id="total-revenue">$0</h3>
+                            <p>Total Revenue</p>
+                            <span class="stat-change positive">+23% this month</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>User Growth</h3>
+                        <canvas id="userGrowthChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Match Activity</h3>
+                        <canvas id="matchActivityChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="activity-section">
+                    <h3>Recent Activity</h3>
+                    <div class="activity-list" id="recent-activity">
+                        <!-- Activity items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Page -->
+            <div id="users-page" class="page">
+                <div class="page-header">
+                    <input type="text" class="search-input" placeholder="Search users...">
+                    <button class="btn-primary">Export Users</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th>Location</th>
+                                <th>VIP Status</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Revenue Page -->
+            <div id="revenue-page" class="page">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">💵</div>
+                        <div class="stat-info">
+                            <h3 id="monthly-revenue">$0</h3>
+                            <p>This Month</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-info">
+                            <h3 id="avg-revenue">$0</h3>
+                            <p>Average per User</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Revenue Over Time</h3>
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Matches Page -->
+            <div id="matches-page" class="page">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">💘</div>
+                        <div class="stat-info">
+                            <h3 id="today-matches">0</h3>
+                            <p>Matches Today</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <h3 id="match-rate">0%</h3>
+                            <p>Match Rate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="page">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Report ID</th>
+                                <th>Type</th>
+                                <th>Reporter</th>
+                                <th>Reported User</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reports-table-body">
+                            <!-- Reports will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settings-page" class="page">
+                <div class="settings-section">
+                    <h3>Bot Configuration</h3>
+                    <div class="setting-item">
+                        <label>Bot Name</label>
+                        <input type="text" value="Kissubot" class="setting-input">
+                    </div>
+                    <div class="setting-item">
+                        <label>Admin Telegram ID</label>
+                        <input type="text" placeholder="Your Telegram ID" class="setting-input">
+                    </div>
+                    <button class="btn-primary">Save Settings</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
