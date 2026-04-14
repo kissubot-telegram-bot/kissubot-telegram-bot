@@ -1911,11 +1911,6 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         const { viewChatHistory } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
         await viewChatHistory(chatId, telegramId, targetId);
 
-      } else if (data.startsWith('mute_chat_')) {
-        const targetId = data.replace('mute_chat_', '');
-        const { muteChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
-        await muteChat(chatId, telegramId, targetId);
-
       } else if (data.startsWith('block_chat_')) {
         const targetId = data.replace('block_chat_', '');
         const { blockChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);

@@ -565,7 +565,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
       }
       if (picker === 'location') {
         // Handle manual location input
-        if (text === '� Enter Specific Location') {
+        if (text === '📝 Enter Specific Location') {
           userStates.set(telegramId, { settingPicker: 'manual_location' });
           await bot.sendMessage(chatId, 
             '📍 *Enter Specific Location*\n\n' +
@@ -579,7 +579,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           return;
         }
 
-        const locationMap = { '🏙️ Same City': 'Same City', '📍 Nearby': 'Nearby', '� Anywhere': 'Anywhere' };
+        const locationMap = { '🏙️ Same City': 'Same City', '📍 Nearby': 'Nearby', '🌍 Anywhere': 'Anywhere' };
         const locationPreference = locationMap[text];
         if (!locationPreference) return;
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.locationPreference': locationPreference } });
