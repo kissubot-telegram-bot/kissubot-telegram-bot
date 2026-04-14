@@ -360,6 +360,41 @@ app.get('/webhook-info', async (req, res) => {
   }
 });
 
+// Reset webhook endpoint - manually reset webhook
+app.get('/reset-webhook', async (req, res) => {
+  try {
+    const webhookUrl = process.env.WEBHOOK_URL;
+    if (!webhookUrl) {
+      return res.status(400).json({ error: 'WEBHOOK_URL not set in environment variables' });
+    }
+
+    const baseWebhookUrl = webhookUrl.replace(/\/$/, '').replace(/\/webhook\/telegram$/, '');
+    const fullWebhookUrl = `${baseWebhookUrl}/webhook/telegram`;
+    
+    console.log(`🔄 Resetting webhook to: ${fullWebhookUrl}`);
+    
+    // Delete old webhook first
+    await bot.deleteWebHook();
+    console.log('✅ Old webhook deleted');
+    
+    // Set new webhook
+    await bot.setWebHook(fullWebhookUrl);
+    console.log('✅ New webhook registered');
+    
+    // Get info to confirm
+    const webhookInfo = await bot.getWebHookInfo();
+    
+    res.json({
+      success: true,
+      message: 'Webhook reset successfully',
+      webhookInfo
+    });
+  } catch (err) {
+    console.error('❌ Error resetting webhook:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Telegram webhook endpoint - receives updates from Telegram
 app.post('/webhook/telegram', async (req, res) => {
   try {

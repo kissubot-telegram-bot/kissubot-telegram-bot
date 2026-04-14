@@ -1,7 +1,18 @@
 const { bot, userStates } = require('./server');
 const axios = require('axios');
 const { API_BASE } = require('./config');
-const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, PROFILE_KB_BUTTONS, ALL_KB_BUTTONS, PROFILE_KEYBOARD } = require('./keyboard');
+const { 
+  MAIN_KEYBOARD, 
+  MAIN_KB_BUTTONS, 
+  PROFILE_KB_BUTTONS, 
+  SETTINGS_KB_BUTTONS,
+  SEARCH_KB_BUTTONS,
+  HELP_KB_BUTTONS,
+  REPORT_KB_BUTTONS,
+  VIP_KB_BUTTONS,
+  ALL_KB_BUTTONS, 
+  PROFILE_KEYBOARD 
+} = require('./keyboard');
 require('dotenv').config();
 
 // Import command modules
