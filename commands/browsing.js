@@ -990,7 +990,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       // Send each match as a card with photo
 
-      for (const { match, other } of valid.slice(0, 10)) {
+      for (const { match, other } of valid) {
 
         console.log('[Matches] Processing card for:', other?.name);
 
@@ -1098,18 +1098,6 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           // Continue to next match even if one fails
 
         }
-
-      }
-
-
-
-      if (valid.length > 10) {
-
-        await bot.sendMessage(chatId, `_...and ${valid.length - 10} more matches! Use /matches to see all._`, {
-
-          parse_mode: 'Markdown'
-
-        });
 
       }
 
