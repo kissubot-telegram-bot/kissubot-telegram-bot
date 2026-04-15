@@ -510,7 +510,16 @@ function setupProfileCommands(bot, userStates, User) {
               }
             });
           }
-          await User.findOneAndUpdate({ telegramId }, { lookingFor });
+          
+          // Update both lookingFor and searchSettings.genderPreference
+          const genderPreference = lookingFor === 'Both' ? 'Any' : lookingFor;
+          await User.findOneAndUpdate(
+            { telegramId }, 
+            { 
+              lookingFor,
+              'searchSettings.genderPreference': genderPreference
+            }
+          );
           invalidateUserCache(telegramId);
           userStates.delete(telegramId);
           return bot.sendMessage(chatId, `✅ *Preferences updated!*`, {
