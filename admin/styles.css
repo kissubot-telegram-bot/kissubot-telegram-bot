@@ -440,23 +440,158 @@ body {
     font-size: 14px;
 }
 
+/* Mobile Menu Toggle */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+}
+
 /* Responsive */
-@media (max-width: 768px) {
-    .sidebar {
-        width: 70px;
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    .sidebar .logo p,
-    .sidebar .nav-item span:not(.icon) {
-        display: none;
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+    }
+    
+    .sidebar.mobile-open {
+        transform: translateX(0);
     }
     
     .main-content {
-        margin-left: 70px;
+        margin-left: 0;
+        padding: 90px 15px 20px;
     }
     
-    .stats-grid,
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    
+    .stat-info h3 {
+        font-size: 24px;
+    }
+    
     .charts-grid {
         grid-template-columns: 1fr;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        min-width: 600px;
+    }
+    
+    .admin-profile span {
+        display: none;
+    }
+    
+    .refresh-btn {
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-content {
+        padding: 80px 10px 15px;
+    }
+    
+    .header-left h2 {
+        font-size: 22px;
+    }
+    
+    .header-left p {
+        font-size: 13px;
+    }
+    
+    .stat-card {
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .stat-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .stat-info h3 {
+        font-size: 20px;
+    }
+    
+    .stat-info p {
+        font-size: 13px;
+    }
+    
+    .chart-card,
+    .activity-section,
+    .settings-section {
+        padding: 15px;
+    }
+    
+    .btn-primary {
+        width: 100%;
     }
 }
