@@ -1,6 +1,24 @@
 // Dashboard JavaScript
 // Update this URL to your deployed bot backend
+// For local testing, use: http://localhost:3002
+// For production, use your Render URL
 const API_BASE = 'https://kissubot-telegram-bot-3.onrender.com';
+
+// Test connection on load
+async function testConnection() {
+    try {
+        console.log('Testing connection to:', API_BASE);
+        const response = await fetch(`${API_BASE}/health`);
+        const data = await response.json();
+        console.log('✅ Backend connected:', data);
+        return true;
+    } catch (error) {
+        console.error('❌ Backend connection failed:', error);
+        console.error('Make sure your backend is deployed and running at:', API_BASE);
+        showNotification(`Cannot connect to backend at ${API_BASE}. Check console for details.`, 'error');
+        return false;
+    }
+}
 
 // Navigation
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -36,8 +54,15 @@ document.querySelectorAll('.nav-item').forEach(item => {
 async function loadDashboardData() {
     try {
         // Fetch stats
+        console.log('Fetching from:', `${API_BASE}/admin/stats`);
         const statsRes = await fetch(`${API_BASE}/admin/stats`);
+        
+        if (!statsRes.ok) {
+            throw new Error(`HTTP ${statsRes.status}: ${statsRes.statusText}`);
+        }
+        
         const stats = await statsRes.json();
+        console.log('Stats loaded:', stats);
         
         // Update stats cards
         document.getElementById('total-users').textContent = stats.totalUsers || 0;
@@ -54,7 +79,14 @@ async function loadDashboardData() {
         
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        showNotification('Failed to load dashboard data', 'error');
+        const errorMsg = `Failed to load dashboard: ${error.message}. Check if backend is running at ${API_BASE}`;
+        showNotification(errorMsg, 'error');
+        
+        // Show error in UI
+        document.getElementById('total-users').textContent = 'Error';
+        document.getElementById('total-matches').textContent = 'Error';
+        document.getElementById('vip-users').textContent = 'Error';
+        document.getElementById('total-revenue').textContent = 'Error';
     }
 }
 
@@ -372,8 +404,18 @@ function reviewReport(reportId) {
 }
 
 // Initialize dashboard
-document.addEventListener('DOMContentLoaded', () => {
-    loadDashboardData();
+document.addEventListener('DOMContentLoaded', async () => {
+    // Test connection first
+    const connected = await testConnection();
+    if (connected) {
+        loadDashboardData();
+    } else {
+        // Show error state
+        document.getElementById('total-users').textContent = 'N/A';
+        document.getElementById('total-matches').textContent = 'N/A';
+        document.getElementById('vip-users').textContent = 'N/A';
+        document.getElementById('total-revenue').textContent = 'N/A';
+    }
 });
 
 // Auto-refresh every 30 seconds

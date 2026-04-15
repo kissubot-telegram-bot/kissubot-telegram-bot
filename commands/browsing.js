@@ -128,11 +128,26 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-  function buildProfileCaption(profile, viewerTelegramId) {
+  async function buildProfileCaption(profile, viewerTelegramId) {
 
     const genderIcon = profile.gender === 'Male' ? '👔' : profile.gender === 'Female' ? '👗' : '🧒';
 
     const vipBadge = profile.isVip ? ' 👑' : '';
+    
+    // Check if this person superliked the viewer
+    let superLikeBadge = '';
+    if (viewerTelegramId && Like) {
+      try {
+        const superLike = await Like.findOne({ 
+          fromUserId: String(profile.telegramId), 
+          toUserId: String(viewerTelegramId),
+          superLike: true 
+        });
+        if (superLike) {
+          superLikeBadge = ' ⭐';
+        }
+      } catch (e) { /* ignore */ }
+    }
 
     const lookingFor = profile.lookingFor
 
@@ -157,16 +172,24 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       ? `\n\n💡 *Psst! This person may already like you...*`
 
       : '';
+      
+    const superLikeHint = superLikeBadge 
+
+      ? `\n\n✨⭐ *This person SUPER LIKED you!* ⭐✨`
+
+      : '';
 
     return (
 
-      `${genderIcon} *${profile.name}*${vipBadge}, ${profile.age}${photoCount}\n` +
+      `${genderIcon} *${profile.name}*${vipBadge}${superLikeBadge}, ${profile.age}${photoCount}\n` +
 
       `📍 ${profile.location}${lookingFor}\n\n` +
 
       `💬 ${bio}` +
 
-      mutualHint
+      mutualHint +
+      
+      superLikeHint
 
     );
 
@@ -606,7 +629,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         : profiles[Math.floor(Math.random() * profiles.length)];
 
-      const caption = buildProfileCaption(profile, telegramId);
+      const caption = await buildProfileCaption(profile, telegramId);
 
       const keyboard = buildProfileKeyboard();
 
@@ -1381,12 +1404,16 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
     const FREE_SL_LIMIT = 5;
 
     const useFreeSuperLike = fromUser.isVip && freeSLUsed < FREE_SL_LIMIT;
+    
+    // VIP users: use free perks first, then automatically deduct from coins
+    // Non-VIP users: always use coins
+    const willUseCoins = !useFreeSuperLike;
 
-    if (!useFreeSuperLike && (fromUser.coins || 0) < 10) {
+    if (willUseCoins && (fromUser.coins || 0) < 10) {
 
       return bot.sendMessage(chatId,
 
-        `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n_VIP free super likes today: ${freeSLUsed}/${FREE_SL_LIMIT}_` : ''}`,
+        `❌ *Not Enough Coins*\n\nYou need 10 coins to send a Super Like.${fromUser.isVip ? `\n\n💡 _VIP free super likes used today: ${freeSLUsed}/${FREE_SL_LIMIT}_\n_Now using coins for additional super likes._` : ''}`,
 
         { parse_mode: 'Markdown', reply_markup: COINS_STORE_KEYBOARD }
 
@@ -1430,15 +1457,37 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       await bot.sendMessage(String(targetTelegramId),
 
-        `⭐ *Someone Super Liked You!*\n\n*${fromUser.name}* thinks you're special!\n\nBrowse their profile to see if you're interested! 💕`,
+        `✨⭐ *SUPER LIKE ALERT!* ⭐✨\n\n` +
+        `🎉 *${fromUser.name}* just Super Liked you!\n\n` +
+        `💫 This means they're REALLY interested in you!\n\n` +
+        `👀 Check out their profile in /likesyou to see if you feel the same way! 💕`,
 
-        { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+        { 
+          parse_mode: 'Markdown', 
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⭐ View Who Super Liked You', callback_data: 'view_likes' }],
+              [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+            ]
+          }
+        }
 
       );
 
     } catch (e) { /* user may have blocked bot */ }
 
-    await bot.sendMessage(chatId, `⭐ Super Like sent to *${toUser.name}*! They've been notified.`, { parse_mode: 'Markdown' });
+    // Show different confirmation based on payment method
+    let confirmMsg = `⭐ *Super Like sent to ${toUser.name}!*\n\nThey've been notified with a special alert! 💫`;
+    
+    if (useFreeSuperLike) {
+      confirmMsg += `\n\n💎 _Used VIP free super like (${freeSLUsed + 1}/${FREE_SL_LIMIT} today)_`;
+    } else if (fromUser.isVip) {
+      confirmMsg += `\n\n🪙 _10 coins deducted (VIP daily limit reached)_`;
+    } else {
+      confirmMsg += `\n\n🪙 _10 coins deducted_`;
+    }
+    
+    await bot.sendMessage(chatId, confirmMsg, { parse_mode: 'Markdown' });
 
     await browseProfiles(chatId, telegramId);
 
@@ -1610,7 +1659,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         if (!undoProfile) return bot.sendMessage(chatId, '❌ Profile no longer available.');
 
-        const undoCaption = buildProfileCaption(undoProfile, telegramId);
+        const undoCaption = await buildProfileCaption(undoProfile, telegramId);
 
         const undoKeyboard = buildProfileKeyboard();
 

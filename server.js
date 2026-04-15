@@ -62,13 +62,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint for dashboard
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    bot: !!bot,
+    uptime: process.uptime(),
+    endpoints: {
+      admin_stats: '/admin/stats',
+      admin_users: '/admin/users',
+      admin_revenue: '/admin/revenue'
+    }
+  });
+});
+
 // Serve admin dashboard static files
 app.use('/admin', express.static('admin'));
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', bot: !!bot, uptime: process.uptime() });
-});
 
 // Health check endpoint (original)
 app.get('/', (req, res) => {
@@ -644,6 +655,7 @@ const userSchema = new mongoose.Schema({
   stats: {
     likesGiven: { type: Number, default: 0 },
     likesReceived: { type: Number, default: 0 },
+    superLikesReceived: { type: Number, default: 0 },
     matchCount: { type: Number, default: 0 },
     reportCount: { type: Number, default: 0 }
   },
@@ -714,9 +726,8 @@ const chatRoomSchema = new mongoose.Schema({
 const ChatRoom = mongoose.model('ChatRoom', chatRoomSchema);
 
 // Setup command handlers (must be after User model is defined)
-// Note: Match and Like models don't exist in this codebase, passing undefined
 const Match = undefined;
-const Like = undefined;
+const Like = require('./models/Like');
 
 const { setupOnboardingCommands } = require('./commands/onboarding');
 const { setupReportCommands } = require('./commands/report');
@@ -1337,30 +1348,50 @@ app.get('/likes/:telegramId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Get users who liked this user with more detailed info
+    // Get all likes for this user from Like model
+    const likeRecords = await Like.find({ toUserId: telegramId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Get user details for each liker
+    const likerIds = likeRecords.map(like => like.fromUserId);
     const likers = await User.find({
-      telegramId: { $in: user.likes }
+      telegramId: { $in: likerIds }
     }).select('telegramId name age location bio isVip profilePhoto createdAt lastActive');
 
-    // Add like timestamp and sort by most recent
-    const likersWithTimestamp = likers.map(liker => {
-      const likeIndex = user.likes.indexOf(liker.telegramId);
+    // Create a map for quick lookup
+    const likerMap = {};
+    likers.forEach(liker => {
+      likerMap[liker.telegramId] = liker;
+    });
+
+    // Combine like records with user details
+    const likersWithDetails = likeRecords.map(like => {
+      const liker = likerMap[like.fromUserId];
+      if (!liker) return null;
+      
       return {
         ...liker.toObject(),
-        likedAt: new Date(Date.now() - (likeIndex * 60000)), // Approximate timestamp
+        likedAt: like.createdAt,
+        superLike: like.superLike || false,
         isOnline: liker.lastActive && (Date.now() - liker.lastActive.getTime()) < 300000 // 5 minutes
       };
-    }).sort((a, b) => b.likedAt - a.likedAt);
+    }).filter(Boolean);
+
+    // Count superlikes
+    const superLikeCount = likersWithDetails.filter(l => l.superLike).length;
 
     res.json({
-      likes: likersWithTimestamp,
-      totalLikes: likersWithTimestamp.length,
-      visibleLikes: likersWithTimestamp.length,
+      likes: likersWithDetails,
+      totalLikes: likersWithDetails.length,
+      superLikes: superLikeCount,
+      visibleLikes: likersWithDetails.length,
       hasHiddenLikes: false,
       isVip: user.isVip,
       previewCount: 0
     });
   } catch (err) {
+    console.error('Error fetching likes:', err);
     res.status(500).json({ error: 'Failed to fetch likes' });
   }
 });
@@ -1996,6 +2027,64 @@ app.get('/gifts/:telegramId', async (req, res) => {
   } catch (err) {
     console.error('Error fetching gifts:', err);
     res.status(500).json({ error: 'Failed to fetch gifts' });
+  }
+});
+
+// Get received gifts for likesyou hub (with full sender details)
+app.get('/gifts/received/:telegramId', async (req, res) => {
+  const { telegramId } = req.params;
+
+  try {
+    const user = await User.findOne({ telegramId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all senders
+    const senderIds = [...new Set(user.gifts.map(g => g.from))];
+    const senders = await User.find({ telegramId: { $in: senderIds } })
+      .select('telegramId name username isVip');
+
+    const senderMap = {};
+    senders.forEach(s => {
+      senderMap[s.telegramId] = s;
+    });
+
+    // Map gift types to emojis and names
+    const giftInfo = {
+      rose: { emoji: '🌹', name: 'Rose' },
+      chocolate: { emoji: '🍫', name: 'Chocolate' },
+      teddy: { emoji: '🧸', name: 'Teddy Bear' },
+      perfume: { emoji: '💐', name: 'Perfume' },
+      jewelry: { emoji: '💎', name: 'Jewelry' },
+      watch: { emoji: '⌚', name: 'Watch' },
+      car: { emoji: '🚗', name: 'Car' },
+      yacht: { emoji: '🛥️', name: 'Yacht' },
+      mansion: { emoji: '🏰', name: 'Mansion' },
+      ring: { emoji: '💍', name: 'Diamond Ring' }
+    };
+
+    // Format gifts with full details
+    const formattedGifts = user.gifts.map(gift => {
+      const sender = senderMap[gift.from];
+      const giftData = giftInfo[gift.giftType] || { emoji: '🎁', name: gift.giftType };
+      
+      return {
+        senderId: gift.from,
+        senderName: sender?.name || sender?.username || 'Anonymous',
+        senderIsVip: sender?.isVip || false,
+        giftType: gift.giftType,
+        giftEmoji: giftData.emoji,
+        giftName: giftData.name,
+        message: gift.message || '',
+        sentAt: gift.sentAt
+      };
+    });
+
+    res.json({ gifts: formattedGifts });
+  } catch (err) {
+    console.error('Error fetching received gifts:', err);
+    res.status(500).json({ error: 'Failed to fetch received gifts' });
   }
 });
 
