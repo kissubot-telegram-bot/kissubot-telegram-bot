@@ -112,14 +112,14 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '💬✨ Open Private DM', url: `tg://user?id=${targetTelegramId}` }
+            { text: '💬 Open Private DM', url: `tg://user?id=${targetTelegramId}` }
           ],
           [
-            { text: '📜💫 View Full History', callback_data: `chat_history_${targetTelegramId}` },
-            { text: '🚪🔥 Exit Chat', callback_data: 'exit_chat_room' }
+            { text: '📜 View Full History', callback_data: `chat_history_${targetTelegramId}` },
+            { text: '🚪 Exit Chat', callback_data: 'exit_chat_room' }
           ],
           [
-            { text: '🚫⛔ Block User', callback_data: `block_chat_${targetTelegramId}` }
+            { text: '🚫 Block User', callback_data: `block_chat_${targetTelegramId}` }
           ]
         ]
       };
@@ -241,6 +241,9 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
       }
 
       const targetUser = await User.findOne({ telegramId: String(targetUserId) });
+      if (!targetUser) {
+        return bot.sendMessage(chatId, '❌ User not found.');
+      }
       const targetName = targetUser?.name || 'User';
 
       const messages = chatRoom.messages
@@ -309,7 +312,7 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
     }
   }
 
-  // Block chat
+  // Block/Unblock chat
   async function blockChat(chatId, telegramId, targetUserId) {
     try {
       const roomId = generateRoomId(String(telegramId), String(targetUserId));
@@ -319,15 +322,20 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
         return bot.sendMessage(chatId, '❌ Chat room not found.');
       }
 
-      chatRoom.settings.blocked = true;
+      const isBlocked = chatRoom.settings.blocked || false;
+      chatRoom.settings.blocked = !isBlocked;
       await chatRoom.save();
 
-      await bot.sendMessage(chatId, '🚫 Chat blocked. This conversation has been closed.');
-      exitChatRoom(chatId, telegramId);
+      if (!isBlocked) {
+        await bot.sendMessage(chatId, '🚫 Chat blocked. This conversation has been closed.');
+        exitChatRoom(chatId, telegramId);
+      } else {
+        await bot.sendMessage(chatId, '✅ Chat unblocked. You can now continue the conversation.');
+      }
 
     } catch (error) {
-      console.error('[CHAT ROOM] Error blocking chat:', error);
-      bot.sendMessage(chatId, '❌ Failed to block chat.');
+      console.error('[CHAT ROOM] Error blocking/unblocking chat:', error);
+      bot.sendMessage(chatId, '❌ Failed to update block status.');
     }
   }
 

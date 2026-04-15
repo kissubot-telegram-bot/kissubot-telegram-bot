@@ -1,6 +1,6 @@
 // Dashboard JavaScript
 // Update this URL to your deployed bot backend
-const API_BASE = 'https://kisu1bot-backend-repo.onrender.com';
+const API_BASE = 'https://kissubot-telegram-bot-3.onrender.com';
 
 // Navigation
 document.querySelectorAll('.nav-item').forEach(item => {
