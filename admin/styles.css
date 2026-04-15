@@ -24,11 +24,14 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: var(--light-gray);
     color: var(--dark);
+    overflow-x: hidden;
 }
 
 .dashboard-container {
     display: flex;
     min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* Sidebar */
@@ -114,6 +117,8 @@ body {
     flex: 1;
     margin-left: 260px;
     padding: 30px;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 /* Header */
@@ -355,12 +360,14 @@ body {
     background: var(--white);
     border-radius: 12px;
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 100%;
 }
 
 .data-table thead {
@@ -511,6 +518,9 @@ body {
         margin-left: 0;
         padding: 20px 15px;
         width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        box-sizing: border-box;
     }
     
     .header {
@@ -533,10 +543,15 @@ body {
     .stats-grid {
         grid-template-columns: 1fr;
         gap: 15px;
+        width: 100%;
+        max-width: 100%;
     }
     
     .stat-card {
         padding: 20px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .stat-icon {
@@ -551,6 +566,28 @@ body {
     
     .charts-grid {
         grid-template-columns: 1fr;
+        width: 100%;
+        max-width: 100%;
+        gap: 15px;
+    }
+    
+    .chart-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    
+    .activity-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .activity-item {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     .page-header {
@@ -565,10 +602,20 @@ body {
     
     .table-container {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
     }
     
     .data-table {
-        min-width: 600px;
+        min-width: 100%;
+        width: max-content;
+    }
+    
+    .data-table th,
+    .data-table td {
+        white-space: nowrap;
+        padding: 12px 10px;
     }
     
     .admin-profile {
@@ -655,10 +702,23 @@ body {
         padding: 15px;
     }
     
+    .chart-card,
+    .activity-section {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+    
     .chart-card h3,
     .activity-section h3 {
         font-size: 16px;
         margin-bottom: 15px;
+    }
+    
+    .chart-card canvas {
+        max-width: 100%;
+        height: auto !important;
     }
     
     .btn-primary {
