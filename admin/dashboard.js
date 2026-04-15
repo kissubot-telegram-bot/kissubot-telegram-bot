@@ -23,20 +23,20 @@ async function testConnection() {
 // Mobile menu toggle
 function toggleMobileMenu() {
     const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('mobileBackdrop');
+    
     sidebar.classList.toggle('mobile-open');
+    backdrop.classList.toggle('active');
 }
 
-// Close mobile menu when clicking outside
-document.addEventListener('click', (e) => {
+// Close mobile menu
+function closeMobileMenu() {
     const sidebar = document.getElementById('sidebar');
-    const menuToggle = document.querySelector('.mobile-menu-toggle');
+    const backdrop = document.getElementById('mobileBackdrop');
     
-    if (sidebar && sidebar.classList.contains('mobile-open')) {
-        if (!sidebar.contains(e.target) && !menuToggle.contains(e.target)) {
-            sidebar.classList.remove('mobile-open');
-        }
-    }
-});
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('active');
+}
 
 // Navigation
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -49,10 +49,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.add('active');
         
         // Close mobile menu on navigation
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar && sidebar.classList.contains('mobile-open')) {
-            sidebar.classList.remove('mobile-open');
-        }
+        closeMobileMenu();
         
         // Update active page
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

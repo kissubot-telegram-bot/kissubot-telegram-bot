@@ -458,6 +458,22 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+/* Mobile Menu Backdrop */
+.mobile-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.mobile-backdrop.active {
+    display: block;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .stats-grid {
@@ -477,29 +493,41 @@ body {
     }
     
     .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
         transform: translateX(-100%);
         transition: transform 0.3s ease;
         z-index: 1000;
+        width: 260px;
     }
     
     .sidebar.mobile-open {
         transform: translateX(0);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.3);
     }
     
     .main-content {
         margin-left: 0;
-        padding: 90px 15px 20px;
+        padding: 20px 15px;
+        width: 100%;
     }
     
     .header {
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
+        margin-top: 50px;
+    }
+    
+    .header-left h2 {
+        font-size: 24px;
     }
     
     .header-right {
         width: 100%;
-        justify-content: space-between;
+        justify-content: flex-end;
+        gap: 10px;
     }
     
     .stats-grid {
@@ -543,19 +571,42 @@ body {
         min-width: 600px;
     }
     
+    .admin-profile {
+        padding: 6px 12px;
+    }
+    
     .admin-profile span {
         display: none;
     }
     
+    .avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+    }
+    
     .refresh-btn {
-        padding: 10px 15px;
+        padding: 8px 12px;
         font-size: 13px;
     }
 }
 
 @media (max-width: 480px) {
+    .mobile-menu-toggle {
+        top: 15px;
+        left: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
     .main-content {
-        padding: 80px 10px 15px;
+        padding: 15px 10px;
+    }
+    
+    .header {
+        margin-top: 45px;
+        margin-bottom: 20px;
     }
     
     .header-left h2 {
@@ -563,12 +614,21 @@ body {
     }
     
     .header-left p {
-        font-size: 13px;
+        font-size: 12px;
+    }
+    
+    .header-right {
+        gap: 8px;
+    }
+    
+    .refresh-btn {
+        padding: 8px 10px;
+        font-size: 12px;
     }
     
     .stat-card {
         padding: 15px;
-        gap: 15px;
+        gap: 12px;
     }
     
     .stat-icon {
@@ -578,11 +638,15 @@ body {
     }
     
     .stat-info h3 {
-        font-size: 20px;
+        font-size: 22px;
     }
     
     .stat-info p {
-        font-size: 13px;
+        font-size: 12px;
+    }
+    
+    .stat-change {
+        font-size: 11px;
     }
     
     .chart-card,
@@ -591,7 +655,21 @@ body {
         padding: 15px;
     }
     
+    .chart-card h3,
+    .activity-section h3 {
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+    
     .btn-primary {
         width: 100%;
+    }
+    
+    .logo h1 {
+        font-size: 20px;
+    }
+    
+    .nav-item {
+        padding: 12px 15px;
     }
 }
