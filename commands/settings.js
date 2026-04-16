@@ -4,6 +4,7 @@ const {
   MAIN_KEYBOARD, SETTINGS_KEYBOARD, SETTINGS_KB_BUTTONS,
   SEARCH_KEYBOARD, SEARCH_KB_BUTTONS
 } = require('../keyboard');
+const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
@@ -588,17 +589,69 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
       if (picker === 'manual_location') {
-        // Save custom location
+        // Search for cities matching the input
+        if (text.length < 2 || text.length > 100) {
+          return bot.sendMessage(chatId, '❌ Please enter a city name (2–100 characters):');
+        }
+        
+        const cities = await searchCities(text);
+        if (cities.length === 0) {
+          return bot.sendMessage(chatId,
+            '❌ *No cities found.*\n\nPlease try:\n' +
+            '• A different spelling\n' +
+            '• A larger city nearby\n' +
+            '• Just the city name (e.g. "London" instead of "Greater London")',
+            { parse_mode: 'Markdown' }
+          );
+        }
+        
+        // Store cities and wait for selection
+        userStates.set(telegramId, { settingPicker: 'location_pick', cities });
+        return bot.sendMessage(chatId,
+          `📍 *Select your preferred location:*\n\n${formatCityList(cities)}\n\n👇👇👇 Press the number button`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: buildCityKeyboard(cities)
+          }
+        );
+      }
+      
+      if (picker === 'location_pick') {
+        const cities = userState.cities || [];
+        
+        // Handle back button
+        if (text === '⬅️ Back') {
+          userStates.set(telegramId, { settingPicker: 'manual_location' });
+          return bot.sendMessage(chatId, 
+            '📍 *Enter Specific Location*\n\n' +
+            'Type the city or location you want to search in.\n\n' +
+            '_Example: Lagos, Nigeria or New York, USA_',
+            { 
+              parse_mode: 'Markdown',
+              reply_markup: { remove_keyboard: true }
+            }
+          );
+        }
+        
+        // Handle number selection
+        const idx = parseInt(text, 10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= cities.length) {
+          return bot.sendMessage(chatId, '❌ Invalid selection. Please tap a number button.');
+        }
+        
+        const selectedCity = cities[idx];
+        
+        // Save the selected location
         await User.findOneAndUpdate({ 
           telegramId: String(telegramId) 
         }, { 
           $set: { 
             'searchSettings.locationPreference': 'Custom',
-            'searchSettings.customLocation': text
+            'searchSettings.customLocation': selectedCity.label
           } 
         });
         invalidateUserCache(String(telegramId));
-        await bot.sendMessage(chatId, `✅ *Location preference set to: ${text}*`, { parse_mode: 'Markdown' });
+        await bot.sendMessage(chatId, `✅ *Location preference set to: ${selectedCity.label}*`, { parse_mode: 'Markdown' });
         userStates.delete(telegramId);
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
