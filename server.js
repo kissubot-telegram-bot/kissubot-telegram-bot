@@ -78,7 +78,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Serve admin dashboard static files
+// Explicit route for admin dashboard index (must come before static middleware)
+app.get('/admin', (req, res) => {
+  res.sendFile(__dirname + '/admin/index.html');
+});
+
+app.get('/admin/', (req, res) => {
+  res.sendFile(__dirname + '/admin/index.html');
+});
+
+// Serve admin dashboard static files (CSS, JS, etc.)
 app.use('/admin', express.static('admin'));
 
 // Health check endpoint (original)
