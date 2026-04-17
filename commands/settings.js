@@ -518,7 +518,6 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
     const state = userStates.get(telegramId);
     if (!state || !state.settingPicker) return;
     const picker = state.settingPicker;
-    userStates.delete(telegramId);
     const { invalidateUserCache } = require('./auth');
 
     try {
@@ -528,6 +527,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         if (!range) return;
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.ageMin': range[0], 'searchSettings.ageMax': range[1] } });
         invalidateUserCache(String(telegramId));
+        userStates.delete(telegramId);
         await bot.sendMessage(chatId, `✅ *Age range set to ${range[0]}–${range[1]}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
@@ -537,6 +537,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         if (!dist) return;
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.maxDistance': dist } });
         invalidateUserCache(String(telegramId));
+        userStates.delete(telegramId);
         const label = dist >= 100000 ? 'Unlimited' : `${dist} km`;
         await bot.sendMessage(chatId, `✅ *Distance set to ${label}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
@@ -561,6 +562,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         console.log(`[SETTINGS KB] After update - lookingFor:`, result?.lookingFor, 'genderPreference:', result?.searchSettings?.genderPreference);
         
         invalidateUserCache(String(telegramId));
+        userStates.delete(telegramId);
         await bot.sendMessage(chatId, `✅ *Gender preference set to ${gender}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
@@ -585,6 +587,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         if (!locationPreference) return;
         await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { 'searchSettings.locationPreference': locationPreference } });
         invalidateUserCache(String(telegramId));
+        userStates.delete(telegramId);
         await bot.sendMessage(chatId, `✅ *Location preference set to ${locationPreference}.*`, { parse_mode: 'Markdown' });
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
@@ -617,7 +620,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
       }
       
       if (picker === 'location_pick') {
-        const cities = userState.cities || [];
+        const cities = state.cities || [];
         
         // Handle back button
         if (text === '⬅️ Back') {
