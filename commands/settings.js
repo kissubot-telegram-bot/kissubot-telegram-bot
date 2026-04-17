@@ -516,6 +516,12 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
     const telegramId = msg.from.id;
     if (!text) return;
     const state = userStates.get(telegramId);
+    
+    // Debug logging
+    if (state && state.settingPicker) {
+      console.log(`[SETTINGS HANDLER] User ${telegramId} - picker: ${state.settingPicker}, text: "${text}"`);
+    }
+    
     if (!state || !state.settingPicker) return;
     const picker = state.settingPicker;
     const { invalidateUserCache } = require('./auth');
@@ -592,13 +598,20 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         return sendSearchMenu(bot, chatId, telegramId, User);
       }
       if (picker === 'manual_location') {
+        console.log(`[LOCATION SEARCH] User ${telegramId} searching for: "${text}"`);
+        
         // Search for cities matching the input
         if (text.length < 2 || text.length > 100) {
+          console.log(`[LOCATION SEARCH] Invalid length: ${text.length}`);
           return bot.sendMessage(chatId, '❌ Please enter a city name (2–100 characters):');
         }
         
+        console.log(`[LOCATION SEARCH] Calling searchCities API...`);
         const cities = await searchCities(text);
+        console.log(`[LOCATION SEARCH] Found ${cities.length} cities:`, cities.map(c => c.label));
+        
         if (cities.length === 0) {
+          console.log(`[LOCATION SEARCH] No cities found for: "${text}"`);
           return bot.sendMessage(chatId,
             '❌ *No cities found.*\n\nPlease try:\n' +
             '• A different spelling\n' +
@@ -609,6 +622,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         }
         
         // Store cities and wait for selection
+        console.log(`[LOCATION SEARCH] Storing cities and showing selection keyboard`);
         userStates.set(telegramId, { settingPicker: 'location_pick', cities });
         return bot.sendMessage(chatId,
           `📍 *Select your preferred location:*\n\n${formatCityList(cities)}\n\n👇👇👇 Press the number button`,
