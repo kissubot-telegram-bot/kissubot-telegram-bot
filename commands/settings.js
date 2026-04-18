@@ -462,7 +462,21 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           }
         }).then(() => userStates.set(telegramId, { settingPicker: 'distance' }));
 
-      case '👥 Gender Preference':
+      case '� Location':
+        return bot.sendMessage(chatId, '📍 *Set Location Preference*\n\nWhere would you like to find matches?', {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [
+              [{ text: '🏙️ Same City' }],
+              [{ text: '📍 Nearby' }],
+              [{ text: '🌍 Anywhere' }],
+              [{ text: '📝 Enter Specific Location' }]
+            ],
+            resize_keyboard: true, one_time_keyboard: true
+          }
+        }).then(() => userStates.set(telegramId, { settingPicker: 'location' }));
+
+      case '�👥 Gender Preference':
         return bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
           parse_mode: 'Markdown',
           reply_markup: {
