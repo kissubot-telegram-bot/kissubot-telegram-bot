@@ -1,0 +1,24 @@
+[build]
+  # Publish the admin folder as the site
+  publish = "admin"
+  
+  # No build command needed for static site
+  command = ""
+
+[build.environment]
+  # Node version (if needed in future)
+  NODE_VERSION = "18"
+
+# Redirect rules (optional)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers for security and CORS
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
