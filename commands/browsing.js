@@ -232,8 +232,10 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
   async function browseProfiles(chatId, telegramId, bypassSeen = false) {
 
     try {
+      console.log(`[BROWSE] Starting browse for user ${telegramId}, bypassSeen: ${bypassSeen}`);
 
       const user = await getCachedUserProfile(telegramId, User);
+      console.log(`[BROWSE] User profile loaded:`, user ? 'Found' : 'Not found');
 
 
 
@@ -476,7 +478,6 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         // Normal browse: full filters with progressive fallback
         
         console.log(`[BROWSE] User ${telegramId} preferences:`, {
-          gender: currentGender,
           lookingFor,
           ageRange: `${ageMin}-${ageMax}`,
           location: locationPreference,
@@ -490,16 +491,20 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         });
 
         // 1st try: full filters including gender preference
+        try {
+          profiles = await runQuery({
 
-        profiles = await runQuery({
+            photos: { $exists: true, $not: { $size: 0 } },
 
-          photos: { $exists: true, $not: { $size: 0 } },
+            ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
 
-          ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
-
-        });
-        
-        console.log(`[BROWSE] 1st try (full filters): ${profiles.length} profiles found`);
+          });
+          
+          console.log(`[BROWSE] 1st try (full filters): ${profiles.length} profiles found`);
+        } catch (err) {
+          console.error(`[BROWSE] Error in 1st query:`, err);
+          profiles = [];
+        }
 
 
 
@@ -752,6 +757,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
     } catch (err) {
 
       console.error('[Browse] Error:', err);
+      console.error('[Browse] Error stack:', err.stack);
+      console.error('[Browse] Error details:', {
+        message: err.message,
+        name: err.name,
+        telegramId,
+        bypassSeen
+      });
 
       return bot.sendMessage(chatId, '❌ Failed to load profiles. Please try again.');
 
