@@ -108,7 +108,7 @@ function setupProfileCommands(bot, userStates, User) {
             reply_markup: {
               keyboard: [
                 [{ text: '👨 Male' }, { text: '👩 Female' }],
-                [{ text: '� Cancel' }]
+                [{ text: '🚫 Cancel' }]
               ],
               resize_keyboard: true,
               one_time_keyboard: true
@@ -675,7 +675,7 @@ function setupProfileCommands(bot, userStates, User) {
       return bot.sendMessage(chatId, '👫 *Your Gender*\n\nHow do you identify?', {
         parse_mode: 'Markdown',
         reply_markup: {
-          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '❌ Cancel' }]],
+          keyboard: [[{ text: '👨 Male' }, { text: '👩 Female' }], [{ text: '🚫 Cancel' }]],
           resize_keyboard: true, one_time_keyboard: true
         }
       });
@@ -685,7 +685,7 @@ function setupProfileCommands(bot, userStates, User) {
       return bot.sendMessage(chatId, '💘 *Your Preferences*\n\nWho would you like to meet?', {
         parse_mode: 'Markdown',
         reply_markup: {
-          keyboard: [[{ text: '👔 Men' }, { text: '👗 Women' }], [{ text: '💘 Everyone' }], [{ text: '❌ Cancel' }]],
+          keyboard: [[{ text: '👔 Men' }, { text: '👗 Women' }], [{ text: '💘 Everyone' }], [{ text: '🚫 Cancel' }]],
           resize_keyboard: true, one_time_keyboard: true
         }
       });
