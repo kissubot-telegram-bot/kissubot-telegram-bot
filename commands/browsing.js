@@ -386,25 +386,26 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       // Gender filtering: mutual compatibility
       // Show profiles where:
       // 1. Their gender matches what current user is looking for
-      // 2. Current user's gender matches what they are looking for
+      // 2. They are looking for current user's gender (or Both/Any)
       const currentGender = currentUser.gender || 'Other';
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
       
       let genderFilter = {};
       
-      // Step 1: Filter by what current user wants to see
+      // Step 1: Filter by what current user wants to see (their gender)
       if (lookingFor !== 'Both' && lookingFor !== 'Any') {
         genderFilter.gender = lookingFor;
       }
       
-      // Step 2: Filter by mutual compatibility - they should also be looking for current user's gender
-      // Only apply if current user has a defined gender
+      // Step 2: Filter by mutual compatibility - they should be interested in current user's gender
+      // Example: If user is Male looking for Female, show Females who are looking for Male or Both
+      // This prevents showing Females who are only looking for Female
       if (currentGender && currentGender !== 'Other') {
         genderFilter.$or = [
-          { lookingFor: currentGender },      // They're looking for current user's gender
-          { lookingFor: 'Both' },             // They're looking for everyone
-          { lookingFor: 'Any' },              // They're looking for anyone
-          { lookingFor: { $exists: false } }  // No preference set (default to Both)
+          { lookingFor: currentGender },      // They want current user's gender specifically
+          { lookingFor: 'Both' },             // They want everyone
+          { lookingFor: 'Any' },              // They want anyone
+          { lookingFor: { $exists: false } }  // No preference (defaults to Both)
         ];
       }
 
