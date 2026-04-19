@@ -59,6 +59,8 @@ function setupSettingsCommands(bot, userStates, User) {
     const telegramId = query.from.id;
     const data = query.data;
 
+    console.log(`[SETTINGS CALLBACK] Received: ${data}`);
+
     try {
       switch (data) {
         case 'main_settings':
@@ -285,9 +287,12 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         case 'notif_toggle_superlikes':
         case 'notif_toggle_gifts':
         case 'notif_toggle_messages':
+          console.log(`[NOTIF TOGGLE] Handler triggered for: ${data}`);
           try {
             const notifType = data.replace('notif_toggle_', '');
+            console.log(`[NOTIF TOGGLE] Notification type: ${notifType}`);
             const user = await User.findOne({ telegramId: String(telegramId) });
+            console.log(`[NOTIF TOGGLE] User found:`, user ? 'Yes' : 'No');
             const currentValue = user?.notificationSettings?.[notifType] !== false;
             
             await User.findOneAndUpdate(
