@@ -279,6 +279,80 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           );
           break;
 
+        // Notification toggle handlers
+        case 'notif_toggle_matches':
+        case 'notif_toggle_likes':
+        case 'notif_toggle_superlikes':
+        case 'notif_toggle_gifts':
+        case 'notif_toggle_messages':
+          try {
+            const notifType = data.replace('notif_toggle_', '');
+            const user = await User.findOne({ telegramId: String(telegramId) });
+            const currentValue = user?.notificationSettings?.[notifType] !== false;
+            
+            await User.findOneAndUpdate(
+              { telegramId: String(telegramId) },
+              { $set: { [`notificationSettings.${notifType}`]: !currentValue } }
+            );
+            
+            const newValue = !currentValue;
+            const status = newValue ? '✅ On' : '❌ Off';
+            const labels = {
+              matches: 'Match Alerts',
+              likes: 'Like Notifications',
+              superlikes: 'Super Like Alerts',
+              gifts: 'Gift Notifications',
+              messages: 'Message Alerts'
+            };
+            
+            await bot.answerCallbackQuery(query.id, {
+              text: `${labels[notifType]}: ${status}`,
+              show_alert: false
+            });
+            
+            // Refresh notification settings display
+            const updatedUser = await User.findOne({ telegramId: String(telegramId) });
+            const notif = updatedUser?.notificationSettings || {};
+            
+            const matchNotif = notif.matches !== false ? '✅' : '❌';
+            const likeNotif = notif.likes !== false ? '✅' : '❌';
+            const superlikeNotif = notif.superlikes !== false ? '✅' : '❌';
+            const giftNotif = notif.gifts !== false ? '✅' : '❌';
+            const messageNotif = notif.messages !== false ? '✅' : '❌';
+            
+            await bot.editMessageText(
+              `🔔 *Notification Settings*\n\n` +
+              `${matchNotif} Match Alerts\n` +
+              `${likeNotif} Like Notifications\n` +
+              `${superlikeNotif} Super Like Alerts\n` +
+              `${giftNotif} Gift Notifications\n` +
+              `${messageNotif} Message Alerts\n\n` +
+              `Tap a button to toggle:`,
+              {
+                chat_id: chatId,
+                message_id: query.message.message_id,
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [
+                    [{ text: `${matchNotif} Matches`, callback_data: 'notif_toggle_matches' }],
+                    [{ text: `${likeNotif} Likes`, callback_data: 'notif_toggle_likes' }],
+                    [{ text: `${superlikeNotif} Super Likes`, callback_data: 'notif_toggle_superlikes' }],
+                    [{ text: `${giftNotif} Gifts`, callback_data: 'notif_toggle_gifts' }],
+                    [{ text: `${messageNotif} Messages`, callback_data: 'notif_toggle_messages' }],
+                    [{ text: '⚙️ Back to Settings', callback_data: 'settings_menu' }]
+                  ]
+                }
+              }
+            );
+          } catch (err) {
+            console.error('[Notification Toggle] Error:', err);
+            bot.answerCallbackQuery(query.id, {
+              text: '❌ Failed to update notification setting',
+              show_alert: true
+            });
+          }
+          break;
+
         case 'settings_privacy':
           bot.sendMessage(chatId,
             `🔒 *Privacy Settings*\n\nPrivacy controls are coming soon!\n\n_You'll be able to manage profile visibility, last seen, and blocked users._`,
@@ -396,10 +470,42 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         break;
 
       case '🔔 Notifications':
-        bot.sendMessage(chatId,
-          `🔔 *Notifications*\n\nControls are coming soon! You’ll be able to manage:\n• Match alerts • Message notifications • Like alerts`,
-          { parse_mode: 'Markdown', reply_markup: SETTINGS_KEYBOARD }
-        );
+        try {
+          const user = await User.findOne({ telegramId: String(telegramId) });
+          const notif = user?.notificationSettings || {};
+          
+          const matchNotif = notif.matches !== false ? '✅' : '❌';
+          const likeNotif = notif.likes !== false ? '✅' : '❌';
+          const superlikeNotif = notif.superlikes !== false ? '✅' : '❌';
+          const giftNotif = notif.gifts !== false ? '✅' : '❌';
+          const messageNotif = notif.messages !== false ? '✅' : '❌';
+          
+          bot.sendMessage(chatId,
+            `🔔 *Notification Settings*\n\n` +
+            `${matchNotif} Match Alerts\n` +
+            `${likeNotif} Like Notifications\n` +
+            `${superlikeNotif} Super Like Alerts\n` +
+            `${giftNotif} Gift Notifications\n` +
+            `${messageNotif} Message Alerts\n\n` +
+            `Tap a button to toggle:`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: `${matchNotif} Matches`, callback_data: 'notif_toggle_matches' }],
+                  [{ text: `${likeNotif} Likes`, callback_data: 'notif_toggle_likes' }],
+                  [{ text: `${superlikeNotif} Super Likes`, callback_data: 'notif_toggle_superlikes' }],
+                  [{ text: `${giftNotif} Gifts`, callback_data: 'notif_toggle_gifts' }],
+                  [{ text: `${messageNotif} Messages`, callback_data: 'notif_toggle_messages' }],
+                  [{ text: '⚙️ Back to Settings', callback_data: 'settings_menu' }]
+                ]
+              }
+            }
+          );
+        } catch (err) {
+          console.error('[Settings] Notifications error:', err);
+          bot.sendMessage(chatId, '❌ Failed to load notification settings.', { reply_markup: SETTINGS_KEYBOARD });
+        }
         break;
 
       case '🔒 Privacy':
