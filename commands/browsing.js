@@ -386,8 +386,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
       // Gender filtering: based on user's lookingFor preference
-      // Show profiles matching the gender the user wants to see
-      // Exclude same-gender seekers (Males looking for Male, Females looking for Female)
+      // Logic:
+      // - Male looking for Female → sees Females looking for (Male OR Both), NOT Females looking for Female
+      // - Female looking for Male → sees Males looking for (Female OR Both), NOT Males looking for Male
+      // - Male looking for Male → sees Males looking for (Male OR Both)
+      // - Female looking for Female → sees Females looking for (Female OR Both)
+      const currentGender = currentUser.gender || 'Other';
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
       
       let genderFilter = {};
@@ -396,10 +400,22 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       if (lookingFor !== 'Both' && lookingFor !== 'Any') {
         genderFilter.gender = lookingFor;
         
-        // Exclude profiles where gender and lookingFor are the same
-        // Example: If showing Males, exclude Males looking for Male
-        // Example: If showing Females, exclude Females looking for Female
-        genderFilter.lookingFor = { $ne: lookingFor };
+        // Check if user is seeking same gender (Male→Male or Female→Female)
+        const isSameGenderSeeker = currentGender === lookingFor;
+        
+        if (isSameGenderSeeker) {
+          // Same-gender seeker: show profiles looking for same gender OR Both
+          // Example: Male looking for Male → sees Males looking for (Male OR Both)
+          genderFilter.$or = [
+            { lookingFor: lookingFor },      // Same gender seekers
+            { lookingFor: 'Both' },          // Open to everyone
+            { lookingFor: 'Any' }            // Open to anyone
+          ];
+        } else {
+          // Opposite-gender seeker: exclude same-gender seekers
+          // Example: Female looking for Male → exclude Males looking for Male
+          genderFilter.lookingFor = { $ne: lookingFor };
+        }
       }
       // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)
 
