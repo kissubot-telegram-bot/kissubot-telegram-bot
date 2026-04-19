@@ -426,9 +426,19 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
   // ── Search Settings Reply Keyboard handler ───────────────────────────
   bot.on('message', async (msg) => {
     const text = msg.text;
+    
+    // Debug logging
+    if (text && text.includes('Location')) {
+      console.log(`[SEARCH KB] Received text: "${text}"`);
+      console.log(`[SEARCH KB] Text in SEARCH_KB_BUTTONS:`, SEARCH_KB_BUTTONS.includes(text));
+      console.log(`[SEARCH KB] SEARCH_KB_BUTTONS:`, SEARCH_KB_BUTTONS);
+    }
+    
     if (!text || !SEARCH_KB_BUTTONS.includes(text)) return;
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
+    
+    console.log(`[SEARCH KB] Processing: "${text}"`);
 
     if (text === '⚙️ Back to Settings') {
       return sendSettingsMenu(bot, chatId);
@@ -463,6 +473,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
         }).then(() => userStates.set(telegramId, { settingPicker: 'distance' }));
 
       case '📍 Location':
+        console.log(`[SEARCH KB] Location case matched!`);
         return bot.sendMessage(chatId, '📍 *Set Location Preference*\n\nWhere would you like to find matches?', {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -474,7 +485,10 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
             ],
             resize_keyboard: true, one_time_keyboard: true
           }
-        }).then(() => userStates.set(telegramId, { settingPicker: 'location' }));
+        }).then(() => {
+          console.log(`[SEARCH KB] Setting location picker state`);
+          userStates.set(telegramId, { settingPicker: 'location' });
+        });
 
       case '👥 Gender Preference':
         return bot.sendMessage(chatId, '👥 *Gender Preference*\n\nWho would you like to see?', {
