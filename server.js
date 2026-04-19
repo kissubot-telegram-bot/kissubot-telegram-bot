@@ -27,7 +27,9 @@ if (!token) {
   console.error('❌ BOT_TOKEN is required in .env file');
   process.exit(1);
 }
-const bot = new TelegramBot(token, { polling: false });
+// Use polling for local development, webhook for production
+const useWebhook = process.env.USE_WEBHOOK === 'true';
+const bot = new TelegramBot(token, { polling: !useWebhook });
 
 // Import and setup command modules
 const { setupAuthCommands } = require('./commands/auth');
