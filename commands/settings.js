@@ -607,7 +607,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           await bot.sendMessage(chatId, 
             '📍 *Enter Specific Location*\n\n' +
             'Type the city or location you want to search in.\n\n' +
-            '_Example: Lagos, Nigeria or New York, USA_',
+            '_Example: London, Paris, or New York_',
             { 
               parse_mode: 'Markdown',
               reply_markup: { remove_keyboard: true }
@@ -670,7 +670,7 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
           return bot.sendMessage(chatId, 
             '📍 *Enter Specific Location*\n\n' +
             'Type the city or location you want to search in.\n\n' +
-            '_Example: Lagos, Nigeria or New York, USA_',
+            '_Example: London, Paris, or New York_',
             { 
               parse_mode: 'Markdown',
               reply_markup: { remove_keyboard: true }
