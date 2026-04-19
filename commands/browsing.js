@@ -383,14 +383,30 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Gender filtering: use lookingFor to show profiles matching what user wants to see
-      // If user is looking for "Male", show Male profiles
-      // If user is looking for "Female", show Female profiles
-      // If user is looking for "Both" or "Any", show all genders
+      // Gender filtering: mutual compatibility
+      // Show profiles where:
+      // 1. Their gender matches what current user is looking for
+      // 2. Current user's gender matches what they are looking for
+      const currentGender = currentUser.gender || 'Other';
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
-      const genderFilter = (lookingFor === 'Both' || lookingFor === 'Any') 
-        ? {} 
-        : { gender: lookingFor };
+      
+      let genderFilter = {};
+      
+      // Step 1: Filter by what current user wants to see
+      if (lookingFor !== 'Both' && lookingFor !== 'Any') {
+        genderFilter.gender = lookingFor;
+      }
+      
+      // Step 2: Filter by mutual compatibility - they should also be looking for current user's gender
+      // Only apply if current user has a defined gender
+      if (currentGender && currentGender !== 'Other') {
+        genderFilter.$or = [
+          { lookingFor: currentGender },      // They're looking for current user's gender
+          { lookingFor: 'Both' },             // They're looking for everyone
+          { lookingFor: 'Any' },              // They're looking for anyone
+          { lookingFor: { $exists: false } }  // No preference set (default to Both)
+        ];
+      }
 
 
 
@@ -470,6 +486,20 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       } else {
 
         // Normal browse: full filters with progressive fallback
+        
+        console.log(`[BROWSE] User ${telegramId} preferences:`, {
+          gender: currentGender,
+          lookingFor,
+          ageRange: `${ageMin}-${ageMax}`,
+          location: locationPreference,
+          customLocation: ss.customLocation
+        });
+        console.log(`[BROWSE] Filters:`, {
+          genderFilter,
+          ageFilter,
+          locationFilter,
+          hideLiked
+        });
 
         // 1st try: full filters including gender preference
 
@@ -480,10 +510,28 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           ...ageFilter, ...genderFilter, ...locationFilter, ...hideLikedFilter
 
         });
+        
+        console.log(`[BROWSE] 1st try (full filters): ${profiles.length} profiles found`);
 
 
 
-        // 3rd try: drop location filter, keep photos
+        // 2nd try: drop gender filter, keep age and location
+
+        if (profiles.length === 0) {
+
+          profiles = await runQuery({
+
+            photos: { $exists: true, $not: { $size: 0 } },
+
+            ...ageFilter, ...locationFilter, ...hideLikedFilter
+
+          });
+          
+          console.log(`[BROWSE] 2nd try (no gender filter): ${profiles.length} profiles found`);
+
+        }
+
+        // 3rd try: drop location filter, keep photos and age
 
         if (profiles.length === 0) {
 
@@ -494,12 +542,14 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             ...ageFilter, ...hideLikedFilter
 
           });
+          
+          console.log(`[BROWSE] 3rd try (no location filter): ${profiles.length} profiles found`);
 
         }
 
 
 
-        // 4th try: drop age filter, keep photos
+        // 4th try: drop age filter, keep photos only
 
         if (profiles.length === 0) {
 
@@ -508,6 +558,8 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             photos: { $exists: true, $not: { $size: 0 } }
 
           });
+          
+          console.log(`[BROWSE] 4th try (photos only): ${profiles.length} profiles found`);
 
         }
 
