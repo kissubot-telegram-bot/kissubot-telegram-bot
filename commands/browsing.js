@@ -385,10 +385,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Gender filtering: based on user's lookingFor preference only
+      // Gender filtering: based on user's lookingFor preference
       // Show profiles matching the gender the user wants to see
-      // User's lookingFor determines which gender profiles to show
-      // Profile's lookingFor is NOT considered - user sees all profiles of their preferred gender
+      // Exclude same-gender seekers (Males looking for Male, Females looking for Female)
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
       
       let genderFilter = {};
@@ -396,6 +395,11 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       // Filter by what current user wants to see (profile's gender)
       if (lookingFor !== 'Both' && lookingFor !== 'Any') {
         genderFilter.gender = lookingFor;
+        
+        // Exclude profiles where gender and lookingFor are the same
+        // Example: If showing Males, exclude Males looking for Male
+        // Example: If showing Females, exclude Females looking for Female
+        genderFilter.lookingFor = { $ne: lookingFor };
       }
       // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)
 
