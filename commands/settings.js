@@ -325,30 +325,37 @@ ${!current ? 'Liked profiles won’t appear in browse.' : 'Liked profiles may ap
             const giftNotif = notif.gifts !== false ? '✅' : '❌';
             const messageNotif = notif.messages !== false ? '✅' : '❌';
             
-            await bot.editMessageText(
-              `🔔 *Notification Settings*\n\n` +
-              `${matchNotif} Match Alerts\n` +
-              `${likeNotif} Like Notifications\n` +
-              `${superlikeNotif} Super Like Alerts\n` +
-              `${giftNotif} Gift Notifications\n` +
-              `${messageNotif} Message Alerts\n\n` +
-              `Tap a button to toggle:`,
-              {
-                chat_id: chatId,
-                message_id: query.message.message_id,
-                parse_mode: 'Markdown',
-                reply_markup: {
-                  inline_keyboard: [
-                    [{ text: `${matchNotif} Matches`, callback_data: 'notif_toggle_matches' }],
-                    [{ text: `${likeNotif} Likes`, callback_data: 'notif_toggle_likes' }],
-                    [{ text: `${superlikeNotif} Super Likes`, callback_data: 'notif_toggle_superlikes' }],
-                    [{ text: `${giftNotif} Gifts`, callback_data: 'notif_toggle_gifts' }],
-                    [{ text: `${messageNotif} Messages`, callback_data: 'notif_toggle_messages' }],
-                    [{ text: '⚙️ Back to Settings', callback_data: 'settings_menu' }]
-                  ]
+            try {
+              await bot.editMessageText(
+                `🔔 *Notification Settings*\n\n` +
+                `${matchNotif} Match Alerts\n` +
+                `${likeNotif} Like Notifications\n` +
+                `${superlikeNotif} Super Like Alerts\n` +
+                `${giftNotif} Gift Notifications\n` +
+                `${messageNotif} Message Alerts\n\n` +
+                `Tap a button to toggle:`,
+                {
+                  chat_id: chatId,
+                  message_id: query.message.message_id,
+                  parse_mode: 'Markdown',
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: `${matchNotif} Matches`, callback_data: 'notif_toggle_matches' }],
+                      [{ text: `${likeNotif} Likes`, callback_data: 'notif_toggle_likes' }],
+                      [{ text: `${superlikeNotif} Super Likes`, callback_data: 'notif_toggle_superlikes' }],
+                      [{ text: `${giftNotif} Gifts`, callback_data: 'notif_toggle_gifts' }],
+                      [{ text: `${messageNotif} Messages`, callback_data: 'notif_toggle_messages' }],
+                      [{ text: '⚙️ Back to Settings', callback_data: 'settings_menu' }]
+                    ]
+                  }
                 }
+              );
+            } catch (editErr) {
+              // Ignore "message is not modified" error - this happens when toggling rapidly
+              if (!editErr.message?.includes('message is not modified')) {
+                console.error('[Notification Toggle] Edit message error:', editErr);
               }
-            );
+            }
           } catch (err) {
             console.error('[Notification Toggle] Error:', err);
             bot.answerCallbackQuery(query.id, {
