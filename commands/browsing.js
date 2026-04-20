@@ -412,9 +412,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
             { lookingFor: 'Any' }            // Open to anyone
           ];
         } else {
-          // Opposite-gender seeker: exclude same-gender seekers
-          // Example: Female looking for Male → exclude Males looking for Male
-          genderFilter.lookingFor = { $ne: lookingFor };
+          // Opposite-gender seeker: show profiles looking for current user's gender OR Both/Any
+          // Example: Male looking for Female → sees Females looking for (Male OR Both OR Any)
+          genderFilter.$or = [
+            { lookingFor: currentGender },   // Looking for current user's gender
+            { lookingFor: 'Both' },          // Open to everyone
+            { lookingFor: 'Any' }            // Open to anyone
+          ];
         }
       }
       // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)

@@ -112,10 +112,7 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '💬 Open Private DM', url: `tg://user?id=${targetTelegramId}` }
-          ],
-          [
-            { text: '📜 View Full History', callback_data: `chat_history_${targetTelegramId}` },
+            { text: ' View Full History', callback_data: `chat_history_${targetTelegramId}` },
             { text: '🚪 Exit Chat', callback_data: 'exit_chat_room' }
           ],
           [
