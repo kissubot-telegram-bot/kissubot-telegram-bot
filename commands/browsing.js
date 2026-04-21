@@ -1155,16 +1155,22 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-          // Send with photo if available (blurred for non-VIP males)
-          if (other.photos && other.photos.length > 0 && !isNonVipMale) {
+          // Send with photo if available
+          if (other.photos && other.photos.length > 0) {
             console.log('[Matches] Sending photo for:', other.name, 'URL:', other.photos[0]);
             try {
+              // For non-VIP males, add blur message and use spoiler
+              const photoCaption = isNonVipMale 
+                ? caption + '\n\n🔒 _Photo blurred - Upgrade to VIP to view clearly_'
+                : caption;
+              
               await bot.sendPhoto(chatId, other.photos[0], {
-                caption: caption,
+                caption: photoCaption,
                 parse_mode: 'Markdown',
-                reply_markup: matchButtons
+                reply_markup: matchButtons,
+                has_spoiler: isNonVipMale  // Blur photo for non-VIP males
               });
-              console.log('[Matches] Photo sent successfully for:', other.name);
+              console.log('[Matches] Photo sent successfully for:', other.name, isNonVipMale ? '(blurred)' : '(clear)');
             } catch (photoError) {
               console.error('[Matches] Photo failed, sending text instead:', photoError.message);
               // Fallback to text if photo fails
@@ -1174,12 +1180,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
               });
             }
           } else {
-            console.log('[Matches] Sending text card for:', other.name, isNonVipMale ? '(non-VIP male - photo hidden)' : '(no photo)');
-            // Send as text if no photo OR if non-VIP male (hide photos)
-            const displayCaption = isNonVipMale 
-              ? caption + '\n\n🔒 _Photo hidden - Upgrade to VIP to view_'
-              : caption;
-            await bot.sendMessage(chatId, displayCaption, {
+            console.log('[Matches] Sending text card for:', other.name, '(no photo)');
+            // Send as text if no photo available
+            await bot.sendMessage(chatId, caption, {
               parse_mode: 'Markdown',
               reply_markup: matchButtons
             });
