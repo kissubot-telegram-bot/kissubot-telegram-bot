@@ -18,7 +18,7 @@ function getTimeAgo(date) {
     return Math.floor(seconds) + " seconds ago";
 }
 
-async function showLikesYouHub(bot, chatId, telegramId, section = 'overview') {
+async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overview') {
     try {
         if (!(await requireLikesAccess(bot, chatId, String(telegramId), User))) return;
         
@@ -162,7 +162,7 @@ function setupLikesCommands(bot, User) {
     bot.onText(/\/likesyou/, async (msg) => {
         const chatId = msg.chat.id;
         const telegramId = msg.from.id;
-        await showLikesYouHub(bot, chatId, telegramId, 'overview');
+        await showLikesYouHub(bot, chatId, telegramId, User, 'overview');
     });
     
     // Callback handlers for navigation
@@ -173,23 +173,23 @@ function setupLikesCommands(bot, User) {
         
         if (data === 'likesyou_overview') {
             await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-            await showLikesYouHub(bot, chatId, telegramId, 'overview');
+            await showLikesYouHub(bot, chatId, telegramId, User, 'overview');
             bot.answerCallbackQuery(query.id);
         } else if (data === 'likesyou_regular') {
             await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-            await showLikesYouHub(bot, chatId, telegramId, 'regular');
+            await showLikesYouHub(bot, chatId, telegramId, User, 'regular');
             bot.answerCallbackQuery(query.id);
         } else if (data === 'likesyou_super') {
             await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-            await showLikesYouHub(bot, chatId, telegramId, 'super');
+            await showLikesYouHub(bot, chatId, telegramId, User, 'super');
             bot.answerCallbackQuery(query.id);
         } else if (data === 'likesyou_gifts') {
             await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-            await showLikesYouHub(bot, chatId, telegramId, 'gifts');
+            await showLikesYouHub(bot, chatId, telegramId, User, 'gifts');
             bot.answerCallbackQuery(query.id);
         } else if (data === 'view_likes') {
             // From superlike notification
-            await showLikesYouHub(bot, chatId, telegramId, 'overview');
+            await showLikesYouHub(bot, chatId, telegramId, User, 'overview');
             bot.answerCallbackQuery(query.id);
         }
     });

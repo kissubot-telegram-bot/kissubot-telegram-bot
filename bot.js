@@ -287,8 +287,16 @@ bot.on('message', async (msg) => {
   
   const userState = userStates.get(String(telegramId));
   
+  // Filter out profile setup responses and system messages
+  const profileSetupResponses = [
+    '👨 Male', '👩 Female',
+    '👔 Men', '👗 Women', '💘 Everyone',
+    '🚫 Cancel', '❌ Cancel'
+  ];
+  
   // If user is in chat room mode, route message to chat room
-  if (userState && userState.mode === 'chat_room') {
+  // BUT exclude profile setup responses and editing states
+  if (userState && userState.mode === 'chat_room' && !profileSetupResponses.includes(text) && !userState.editing) {
     if (global.sendChatMessage) {
       await global.sendChatMessage(chatId, telegramId, text);
     }
