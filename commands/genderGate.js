@@ -114,28 +114,13 @@ async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'vie
     return true;
 }
 
-// Likes gate: everyone needs VIP to see who liked them
+// Likes gate: everyone can see who liked them
 async function requireLikesAccess(bot, chatId, telegramId, User) {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
 
-    if (user.isVip) return true;
-
-    const gender = (user.gender || '').toLowerCase();
-    const msg = gender === 'female'
-        ? `� *Someone liked you!*\n\nSubscribe to see exactly who liked your profile and match with them instantly 💕`
-        : `💘 *You have admirers!*\n\nSubscribe to see who liked you and get more matches 💕`;
-
-    await bot.sendMessage(chatId, msg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '👑 Subscribe Now', callback_data: 'manage_vip' }],
-                [{ text: '🏠 Menu', callback_data: 'main_menu' }]
-            ]
-        }
-    });
-    return false;
+    // Allow all users to see their likes
+    return true;
 }
 
 // Legacy alias kept for modules that still import requireSubscription

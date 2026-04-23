@@ -1831,6 +1831,33 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         try {
 
+          // Check if current user is non-VIP male
+          const currentUser = await User.findOne({ telegramId: String(telegramId) });
+          const gender = (currentUser?.gender || '').toLowerCase();
+          const isNonVipMale = (gender === 'male' || gender === '') && !currentUser?.isVip;
+
+          if (isNonVipMale) {
+            // Block non-VIP males from viewing match profiles
+            return bot.sendMessage(chatId,
+              '🔒 *Profile Viewing Locked*\n\n' +
+              'Upgrade to VIP to view your matches\' full profiles!\n\n' +
+              '✨ *VIP Benefits:*\n' +
+              '• View match profiles\n' +
+              '• See all photos\n' +
+              '• Unlimited messaging\n' +
+              '• Priority in browse\n\n' +
+              'Tap below to upgrade now! 👇',
+              {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [[
+                    { text: '👑 Upgrade to VIP', callback_data: 'manage_vip' }
+                  ]]
+                }
+              }
+            );
+          }
+
           const targetUser = await User.findOne({ telegramId: String(targetId) });
 
           console.log('[VIEW PROFILE] User found:', targetUser ? targetUser.name : 'null');
