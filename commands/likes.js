@@ -59,7 +59,8 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
                     { text: `⭐ Super Likes (${superLikes.length})`, callback_data: 'likesyou_super' }
                 ],
                 [{ text: `🎁 Gifts (${gifts.length})`, callback_data: 'likesyou_gifts' }],
-                [{ text: '🔄 Refresh', callback_data: 'likesyou_overview' }]
+                [{ text: '🔄 Refresh', callback_data: 'likesyou_overview' }],
+                [{ text: '🔙 Back to Main Menu', callback_data: 'back_to_main' }]
             ];
 
             bot.sendMessage(chatId, message, {
@@ -246,7 +247,10 @@ function setupLikesCommands(bot, User) {
         const telegramId = query.from.id;
         const data = query.data;
         
-        if (data === 'likesyou_overview') {
+        if (data === 'back_to_main') {
+            bot.answerCallbackQuery(query.id);
+            return bot.sendMessage(chatId, '🏠 Main Menu', { reply_markup: MAIN_KEYBOARD });
+        } else if (data === 'likesyou_overview') {
             await bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
             await showLikesYouHub(bot, chatId, telegramId, User, 'overview');
             bot.answerCallbackQuery(query.id);
