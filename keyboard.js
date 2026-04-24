@@ -10,9 +10,9 @@
 const MAIN_KEYBOARD = {
   keyboard: [
     [{ text: '✨ Discover' }],
-    [{ text: '💘 Matches' }, { text: '🎀 My Profile' }],
-    [{ text: '⚙️ Settings' }, { text: '👑 VIP' }],
-    [{ text: '🆘 Help' }]
+    [{ text: '💘 Matches' }, { text: '👀 Likes You' }],
+    [{ text: '🎀 My Profile' }, { text: '⚙️ Settings' }],
+    [{ text: '👑 VIP' }, { text: '🆘 Help' }]
   ],
   resize_keyboard: true,
   persistent: true
@@ -22,6 +22,7 @@ const MAIN_KEYBOARD = {
 const MAIN_KB_BUTTONS = [
   '✨ Discover',
   '💘 Matches',
+  '👀 Likes You',
   '🎀 My Profile',
   '⚙️ Settings',
   '👑 VIP',

@@ -64,6 +64,7 @@ function setupSettingsCommands(bot, userStates, User) {
     try {
       switch (data) {
         case 'main_settings':
+        case 'settings_menu':
           sendSettingsMenu(bot, chatId);
           break;
 
