@@ -22,9 +22,10 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
     try {
         if (!(await requireLikesAccess(bot, chatId, String(telegramId), User))) return;
 
-        // Get current user's VIP status
+        // Get current user's VIP status and gender
         const currentUser = await User.findOne({ telegramId: String(telegramId) });
         const isVip = currentUser?.isVip || false;
+        const isFemale = (currentUser?.gender || '').toLowerCase() === 'female';
 
         const [likesRes, giftsRes] = await Promise.all([
             axios.get(`${API_BASE}/likes/${telegramId}`),
@@ -43,7 +44,14 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
             message += `💕 Regular Likes · *${regularLikes.length}*\n`;
             message += `⭐ Super Likes · *${superLikes.length}*\n`;
             message += `🎁 Gifts Received · *${gifts.length}*\n\n`;
-            message += isVip ? `_Tap a section to see who liked you_` : `🔒 *Upgrade to VIP to view full profiles*\n_Tap a section to see who liked you_`;
+
+            if (isVip) {
+                message += `👑 *VIP* · Full access to all likes, profiles & chat`;
+            } else if (isFemale) {
+                message += `👧 You can view profiles · 🔒 _First 10 visible · Upgrade VIP for all_`;
+            } else {
+                message += `🔒 _Free users see first 10 likes · Upgrade to VIP for full access_`;
+            }
 
             const keyboard = [
                 [
@@ -59,9 +67,9 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
                 reply_markup: { inline_keyboard: keyboard }
             });
         } else if (section === 'regular') {
-            showLikesList(bot, chatId, regularLikes, '💕 Regular Likes', false, offset, isVip);
+            showLikesList(bot, chatId, regularLikes, '💕 Regular Likes', false, offset, isVip, isFemale);
         } else if (section === 'super') {
-            showLikesList(bot, chatId, superLikes, '⭐ Super Likes', true, offset, isVip);
+            showLikesList(bot, chatId, superLikes, '⭐ Super Likes', true, offset, isVip, isFemale);
         } else if (section === 'gifts') {
             showGiftsList(bot, chatId, gifts);
         }
@@ -71,33 +79,46 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
     }
 }
 
-async function showLikesList(bot, chatId, likes, title, isSuperLike, offset = 0, isVip = false) {
+async function showLikesList(bot, chatId, likes, title, isSuperLike, offset = 0, isVip = false, isFemale = false) {
+    // Access rules
+    const canViewProfile = isVip || isFemale;  // VIP or female can view profiles
+    const canSeeAll = isVip;                    // Only VIP gets pagination beyond 10
+    const sectionKey = isSuperLike ? 'super' : 'regular';
+    const badge = isSuperLike ? '⭐' : '💕';
+    const PAGE = 10;
+
     if (likes.length === 0) {
         const emptyMsg = isSuperLike
             ? `⭐ *No Super Likes Yet*\n\nKeep your profile updated and someone special will super like you soon! 🚀`
             : `💕 *No Likes Yet*\n\nKeep browsing and update your profile to get noticed! 💪`;
-        bot.sendMessage(chatId, emptyMsg, {
+        return bot.sendMessage(chatId, emptyMsg, {
             parse_mode: 'Markdown',
-            reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'likesyou_overview' }]] }
+            reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]] }
         });
-        return;
     }
 
-    const PAGE = 10;
-    const badge = isSuperLike ? '⭐' : '💕';
     const sortedLikes = [...likes].sort((a, b) => new Date(b.lastActive || 0) - new Date(a.lastActive || 0));
-    const page = sortedLikes.slice(offset, offset + PAGE);
-    const remaining = likes.length - (offset + PAGE);
-    const sectionKey = isSuperLike ? 'super' : 'regular';
 
-    if (offset === 0) {
+    // Non-VIP always starts at 0; VIP uses passed offset
+    const effectiveOffset = canSeeAll ? offset : 0;
+    const pageItems = sortedLikes.slice(effectiveOffset, effectiveOffset + PAGE);
+    const lockedCount = !canSeeAll ? Math.max(0, likes.length - PAGE) : 0;
+    const remaining = canSeeAll ? Math.max(0, likes.length - (effectiveOffset + PAGE)) : 0;
+
+    // Header — only on first page
+    if (effectiveOffset === 0) {
+        let hint = '';
+        if (isVip) hint = `👑 Full access`;
+        else if (isFemale) hint = `👧 Profile viewing enabled · 🔒 Upgrade VIP to see all`;
+        else hint = `🔒 Non-VIP · First 10 only · No profile access`;
         await bot.sendMessage(chatId,
-            `${badge} *${title}*\n_${likes.length} total${!isVip ? ' · 🔒 Upgrade VIP to view profiles' : ''}_`,
+            `${badge} *${title}*\n_${likes.length} total · ${hint}_`,
             { parse_mode: 'Markdown' }
         );
     }
 
-    for (const liker of page) {
+    // Render visible cards
+    for (const liker of pageItems) {
         const name = liker.name || 'Unknown';
         const age = liker.age ? `, ${liker.age}` : '';
         const location = liker.location || 'Unknown location';
@@ -112,11 +133,12 @@ async function showLikesList(bot, chatId, likes, title, isSuperLike, offset = 0,
         if (bio) card += `💬 _"${bio}"_\n`;
         card += superBadge;
 
-        // VIP lock: non-VIP users see a locked button
-        const viewBtn = isVip
-            ? { text: `👤 View ${name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }
-            : { text: `🔒 View Profile (VIP Only)`, callback_data: 'manage_vip' };
-        const buttons = [[viewBtn]];
+        let buttons;
+        if (canViewProfile) {
+            buttons = [[{ text: `👤 View ${name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }]];
+        } else {
+            buttons = [[{ text: `🔒 View Profile — VIP Only`, callback_data: 'manage_vip' }]];
+        }
 
         try {
             if (liker.photos && liker.photos.length > 0) {
@@ -138,15 +160,32 @@ async function showLikesList(bot, chatId, likes, title, isSuperLike, offset = 0,
         }
     }
 
-    // Navigation row
-    const navButtons = [];
-    if (remaining > 0) {
-        navButtons.push({ text: `📋 Show More (${remaining} left)`, callback_data: `likesyou_more_${sectionKey}_${offset + PAGE}` });
+    // Footer nav message
+    let footerText, footerRows;
+
+    if (lockedCount > 0) {
+        // Non-VIP: show locked remaining count
+        footerText = `🔒 *${lockedCount} more likes are hidden*\n_Upgrade to VIP to unlock all your likes_`;
+        footerRows = [
+            [{ text: '👑 Upgrade to VIP', callback_data: 'manage_vip' }],
+            [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]
+        ];
+    } else if (remaining > 0) {
+        // VIP: show more button
+        footerText = `_Showing ${effectiveOffset + 1}–${effectiveOffset + pageItems.length} of ${likes.length}_`;
+        footerRows = [
+            [{ text: `📋 Show More (${remaining} left)`, callback_data: `likesyou_more_${sectionKey}_${effectiveOffset + PAGE}` }],
+            [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]
+        ];
+    } else {
+        // All shown
+        footerText = `✓ _All ${likes.length} shown_`;
+        footerRows = [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]];
     }
-    const navRow = navButtons.length ? [navButtons, [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]] : [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]];
-    bot.sendMessage(chatId, remaining > 0 ? `_Showing ${offset + 1}–${offset + page.length} of ${likes.length}_` : `_All ${likes.length} shown_`, {
+
+    bot.sendMessage(chatId, footerText, {
         parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: navRow }
+        reply_markup: { inline_keyboard: footerRows }
     });
 }
 
@@ -237,20 +276,48 @@ function setupLikesCommands(bot, User) {
             const targetId = data.replace('view_liker_', '');
             bot.answerCallbackQuery(query.id);
             try {
-                const targetUser = await User.findOne({ telegramId: String(targetId) });
+                // Re-check viewer's access before showing profile
+                const [viewerUser, targetUser] = await Promise.all([
+                    User.findOne({ telegramId: String(telegramId) }),
+                    User.findOne({ telegramId: String(targetId) })
+                ]);
                 if (!targetUser) return bot.sendMessage(chatId, '❌ User not found.');
+
+                const viewerIsVip = viewerUser?.isVip || false;
+                const viewerIsFemale = (viewerUser?.gender || '').toLowerCase() === 'female';
+                const canViewProfile = viewerIsVip || viewerIsFemale;
+
+                if (!canViewProfile) {
+                    return bot.sendMessage(chatId,
+                        `🔒 *Profile Locked*\n\nUpgrade to VIP to view full profiles of people who liked you.`,
+                        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [
+                            [{ text: '👑 Upgrade to VIP', callback_data: 'manage_vip' }],
+                            [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]
+                        ]}}
+                    );
+                }
 
                 const genderIcon = targetUser.gender === 'Male' ? '👔' : targetUser.gender === 'Female' ? '👗' : '🧒';
                 const vipBadge = targetUser.isVip ? ' 👑' : '';
-                let profile = `${genderIcon} *${targetUser.name}${vipBadge}*, ${targetUser.age}\n`;
-                profile += `📍 ${targetUser.location}\n`;
+                let profile = `${genderIcon} *${targetUser.name}${vipBadge}*, ${targetUser.age || '?'}\n`;
+                profile += `📍 ${targetUser.location || 'Unknown'}\n`;
                 profile += `💘 Looking for: ${targetUser.lookingFor || 'Everyone'}\n`;
                 if (targetUser.bio) profile += `\n💬 ${targetUser.bio}\n`;
 
-                const buttons = [[
-                    { text: '❤️ Like Back', callback_data: `like_${targetId}` },
-                    { text: '🔙 Back', callback_data: 'likesyou_overview' }
-                ]];
+                // VIP viewers also get a Chat button
+                const actionRow = viewerIsVip
+                    ? [
+                        { text: '❤️ Like Back', callback_data: `like_${targetId}` },
+                        { text: '💬 Chat', callback_data: `chat_gate_${targetId}` }
+                      ]
+                    : [
+                        { text: '❤️ Like Back', callback_data: `like_${targetId}` }
+                      ];
+
+                const buttons = [
+                    actionRow,
+                    [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]
+                ];
 
                 if (targetUser.photos && targetUser.photos.length > 0) {
                     await bot.sendPhoto(chatId, targetUser.photos[0], {
@@ -262,7 +329,9 @@ function setupLikesCommands(bot, User) {
                 }
             } catch (err) {
                 console.error('[VIEW LIKER]', err);
-                bot.sendMessage(chatId, '❌ Failed to load profile.');
+                bot.sendMessage(chatId, '❌ Failed to load profile.', {
+                    reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]] }
+                });
             }
         }
     });
