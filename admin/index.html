@@ -119,35 +119,36 @@
                             <span class="stat-change positive" style="font-size:11px">👁 Click to manage</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" onclick="navigateTo('matches')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">💘</div>
                         <div class="stat-info">
                             <h3 id="total-matches">0</h3>
                             <p>Total Matches</p>
-                            <span class="stat-change positive">+8% this week</span>
+                            <span class="stat-change positive" style="font-size:11px">👁 Click to view</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" onclick="navigateToWithFilter('users', 'vip')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">👑</div>
                         <div class="stat-info">
                             <h3 id="vip-users">0</h3>
                             <p>VIP Users</p>
-                            <span class="stat-change positive">+15% this month</span>
+                            <span class="stat-change positive" style="font-size:11px">👁 Click to manage</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" onclick="navigateTo('revenue')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">💰</div>
                         <div class="stat-info">
                             <h3 id="total-revenue">$0</h3>
                             <p>Total Revenue</p>
-                            <span class="stat-change positive">+23% this month</span>
+                            <span class="stat-change positive" style="font-size:11px">👁 Click to view</span>
                         </div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card" onclick="navigateToWithFilter('users', 'banned')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">🚫</div>
                         <div class="stat-info">
                             <h3 id="banned-users">0</h3>
                             <p>Banned Users</p>
+                            <span class="stat-change positive" style="font-size:11px">👁 Click to manage</span>
                         </div>
                     </div>
                 </div>

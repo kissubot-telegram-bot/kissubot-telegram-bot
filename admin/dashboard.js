@@ -36,6 +36,17 @@ function navigateTo(page) {
     loadPageData(page);
 }
 
+function navigateToWithFilter(page, filter) {
+    usersCurrentFilter = filter;
+    // Update active filter tab after nav renders
+    setTimeout(() => {
+        document.querySelectorAll('.filter-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.filter === filter);
+        });
+    }, 50);
+    navigateTo(page);
+}
+
 // Test connection on load
 async function testConnection() {
     try {
@@ -277,9 +288,10 @@ async function loadUsers(page = usersCurrentPage) {
         if (usersCurrentFilter) url += `&filter=${usersCurrentFilter}`;
 
         const data = await apiFetch(url);
-        const users = data.users || [];
-        const total = data.total || 0;
-        const pages = data.pages || 1;
+        // Handle both legacy array response and new paginated object
+        const users = Array.isArray(data) ? data : (data.users || []);
+        const total = Array.isArray(data) ? data.length : (data.total || 0);
+        const pages = Array.isArray(data) ? 1 : (data.pages || 1);
 
         // Update count label
         const countEl = document.getElementById('users-count-label');
