@@ -18,28 +18,32 @@ function getTimeAgo(date) {
     return Math.floor(seconds) + " seconds ago";
 }
 
-async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overview') {
+async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overview', offset = 0) {
     try {
         if (!(await requireLikesAccess(bot, chatId, String(telegramId), User))) return;
-        
+
+        // Get current user's VIP status
+        const currentUser = await User.findOne({ telegramId: String(telegramId) });
+        const isVip = currentUser?.isVip || false;
+
         const [likesRes, giftsRes] = await Promise.all([
             axios.get(`${API_BASE}/likes/${telegramId}`),
             axios.get(`${API_BASE}/gifts/received/${telegramId}`).catch(() => ({ data: { gifts: [] } }))
         ]);
-        
+
         const likes = likesRes.data.likes || [];
         const superLikes = likes.filter(l => l.superLike);
         const regularLikes = likes.filter(l => !l.superLike);
         const gifts = giftsRes.data.gifts || [];
-        
+
         if (section === 'overview') {
             const totalLikes = regularLikes.length + superLikes.length;
             let message = `💖 *Likes You Hub*\n\n`;
-            message += `� *${totalLikes} people liked your profile!*\n\n`;
+            message += `👀 *${totalLikes} people liked your profile!*\n\n`;
             message += `💕 Regular Likes · *${regularLikes.length}*\n`;
             message += `⭐ Super Likes · *${superLikes.length}*\n`;
             message += `🎁 Gifts Received · *${gifts.length}*\n\n`;
-            message += `_Tap a section to see who liked you_`;
+            message += isVip ? `_Tap a section to see who liked you_` : `🔒 *Upgrade to VIP to view full profiles*\n_Tap a section to see who liked you_`;
 
             const keyboard = [
                 [
@@ -55,9 +59,9 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
                 reply_markup: { inline_keyboard: keyboard }
             });
         } else if (section === 'regular') {
-            showLikesList(bot, chatId, regularLikes, '💕 Regular Likes', false);
+            showLikesList(bot, chatId, regularLikes, '💕 Regular Likes', false, offset, isVip);
         } else if (section === 'super') {
-            showLikesList(bot, chatId, superLikes, '⭐ Super Likes', true);
+            showLikesList(bot, chatId, superLikes, '⭐ Super Likes', true, offset, isVip);
         } else if (section === 'gifts') {
             showGiftsList(bot, chatId, gifts);
         }
@@ -67,12 +71,11 @@ async function showLikesYouHub(bot, chatId, telegramId, User, section = 'overvie
     }
 }
 
-async function showLikesList(bot, chatId, likes, title, isSuperLike) {
+async function showLikesList(bot, chatId, likes, title, isSuperLike, offset = 0, isVip = false) {
     if (likes.length === 0) {
         const emptyMsg = isSuperLike
             ? `⭐ *No Super Likes Yet*\n\nKeep your profile updated and someone special will super like you soon! 🚀`
             : `💕 *No Likes Yet*\n\nKeep browsing and update your profile to get noticed! 💪`;
-
         bot.sendMessage(chatId, emptyMsg, {
             parse_mode: 'Markdown',
             reply_markup: { inline_keyboard: [[{ text: '🔙 Back', callback_data: 'likesyou_overview' }]] }
@@ -80,15 +83,21 @@ async function showLikesList(bot, chatId, likes, title, isSuperLike) {
         return;
     }
 
+    const PAGE = 10;
     const badge = isSuperLike ? '⭐' : '💕';
-    await bot.sendMessage(chatId,
-        `${badge} *${title}*\n_${likes.length} total — showing up to 10_`,
-        { parse_mode: 'Markdown' }
-    );
-
     const sortedLikes = [...likes].sort((a, b) => new Date(b.lastActive || 0) - new Date(a.lastActive || 0));
+    const page = sortedLikes.slice(offset, offset + PAGE);
+    const remaining = likes.length - (offset + PAGE);
+    const sectionKey = isSuperLike ? 'super' : 'regular';
 
-    for (const liker of sortedLikes.slice(0, 10)) {
+    if (offset === 0) {
+        await bot.sendMessage(chatId,
+            `${badge} *${title}*\n_${likes.length} total${!isVip ? ' · 🔒 Upgrade VIP to view profiles' : ''}_`,
+            { parse_mode: 'Markdown' }
+        );
+    }
+
+    for (const liker of page) {
         const name = liker.name || 'Unknown';
         const age = liker.age ? `, ${liker.age}` : '';
         const location = liker.location || 'Unknown location';
@@ -103,15 +112,16 @@ async function showLikesList(bot, chatId, likes, title, isSuperLike) {
         if (bio) card += `💬 _"${bio}"_\n`;
         card += superBadge;
 
-        const buttons = [
-            [{ text: `👤 View ${name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }]
-        ];
+        // VIP lock: non-VIP users see a locked button
+        const viewBtn = isVip
+            ? { text: `👤 View ${name}'s Profile`, callback_data: `view_liker_${liker.telegramId}` }
+            : { text: `🔒 View Profile (VIP Only)`, callback_data: 'manage_vip' };
+        const buttons = [[viewBtn]];
 
         try {
             if (liker.photos && liker.photos.length > 0) {
                 await bot.sendPhoto(chatId, liker.photos[0], {
-                    caption: card,
-                    parse_mode: 'Markdown',
+                    caption: card, parse_mode: 'Markdown',
                     reply_markup: { inline_keyboard: buttons }
                 });
             } else {
@@ -128,10 +138,15 @@ async function showLikesList(bot, chatId, likes, title, isSuperLike) {
         }
     }
 
-    const extra = likes.length > 10 ? `\n_...and ${likes.length - 10} more_` : '';
-    bot.sendMessage(chatId, `${extra ? extra + '\n\n' : ''}🔙 Back to hub`, {
+    // Navigation row
+    const navButtons = [];
+    if (remaining > 0) {
+        navButtons.push({ text: `📋 Show More (${remaining} left)`, callback_data: `likesyou_more_${sectionKey}_${offset + PAGE}` });
+    }
+    const navRow = navButtons.length ? [navButtons, [{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]] : [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]];
+    bot.sendMessage(chatId, remaining > 0 ? `_Showing ${offset + 1}–${offset + page.length} of ${likes.length}_` : `_All ${likes.length} shown_`, {
         parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Hub', callback_data: 'likesyou_overview' }]] }
+        reply_markup: { inline_keyboard: navRow }
     });
 }
 
@@ -209,8 +224,14 @@ function setupLikesCommands(bot, User) {
             await showLikesYouHub(bot, chatId, telegramId, User, 'gifts');
             bot.answerCallbackQuery(query.id);
         } else if (data === 'view_likes') {
-            // From superlike notification
             await showLikesYouHub(bot, chatId, telegramId, User, 'overview');
+            bot.answerCallbackQuery(query.id);
+        } else if (data.startsWith('likesyou_more_')) {
+            // Format: likesyou_more_{regular|super}_{offset}
+            const parts = data.replace('likesyou_more_', '').split('_');
+            const sectionType = parts[0]; // 'regular' or 'super'
+            const moreOffset = parseInt(parts[1]) || 0;
+            await showLikesYouHub(bot, chatId, telegramId, User, sectionType, moreOffset);
             bot.answerCallbackQuery(query.id);
         } else if (data.startsWith('view_liker_')) {
             const targetId = data.replace('view_liker_', '');
