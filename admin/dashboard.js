@@ -496,16 +496,58 @@ async function loadRevenueChart() {
 
 // Load Match Statistics
 async function loadMatchStats() {
+    const tbody = document.getElementById('matches-table-body');
     try {
-        const res = await fetch(`${API_BASE}/admin/matches`);
-        const matchStats = await res.json();
-        
-        // Update match stats cards
-        document.getElementById('today-matches').textContent = matchStats.todayMatches || 0;
-        document.getElementById('match-rate').textContent = `${matchStats.matchRate}%`;
-        
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px">
+            <div style="display:inline-block;width:24px;height:24px;border:3px solid #FF6B9D;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></div>
+            <div style="margin-top:8px;font-size:13px">Loading matches...</div>
+        </td></tr>`;
+
+        const matchStats = await apiFetch('/admin/matches');
+
+        // Update stat cards
+        const tmEl = document.getElementById('total-matches-page');
+        if (tmEl) tmEl.textContent = (matchStats.totalMatches || 0).toLocaleString();
+        const tdEl = document.getElementById('today-matches');
+        if (tdEl) tdEl.textContent = matchStats.todayMatches || 0;
+        const mrEl = document.getElementById('match-rate');
+        if (mrEl) mrEl.textContent = `${matchStats.matchRate || 0}%`;
+
+        // Populate table
+        const pairs = matchStats.recentPairs || [];
+        if (!tbody) return;
+        if (!pairs.length) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px">No matches yet</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = pairs.map(pair => {
+            const u1 = pair.user1 || {};
+            const u2 = pair.user2 || {};
+            const u1Name = u1.name || 'Unknown';
+            const u2Name = u2.name || 'Unknown';
+            const u1Username = u1.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u1.username}</span>` : '';
+            const u2Username = u2.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u2.username}</span>` : '';
+            const u1Vip = u1.isVip ? ' 👑' : '';
+            const u2Vip = u2.isVip ? ' 👑' : '';
+            const g1Icon = u1.gender === 'Male' ? '👔' : u1.gender === 'Female' ? '👗' : '–';
+            const g2Icon = u2.gender === 'Male' ? '👔' : u2.gender === 'Female' ? '👗' : '–';
+            const location = u1.location || u2.location || '–';
+            const matchedAt = pair.matchedAt ? new Date(pair.matchedAt).toLocaleDateString() : '–';
+
+            return `<tr style="transition:background .1s" onmouseover="this.style.background='rgba(255,107,157,0.05)'" onmouseout="this.style.background=''">
+                <td><strong>${u1Name}${u1Vip}</strong>${u1Username}</td>
+                <td style="text-align:center">${g1Icon}</td>
+                <td><strong>${u2Name}${u2Vip}</strong>${u2Username}</td>
+                <td style="text-align:center">${g2Icon}</td>
+                <td style="color:#aaa;font-size:13px">${location}</td>
+                <td style="color:#aaa;font-size:12px">${matchedAt}</td>
+            </tr>`;
+        }).join('');
+
     } catch (error) {
         console.error('Error loading match stats:', error);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#e53935;padding:20px">Failed: ${error.message}</td></tr>`;
     }
 }
 

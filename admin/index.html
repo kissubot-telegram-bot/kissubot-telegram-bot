@@ -244,9 +244,17 @@
 
             <!-- Matches Page -->
             <div id="matches-page" class="page">
-                <div class="stats-grid">
+                <!-- Stats row -->
+                <div class="stats-grid" style="margin-bottom:16px">
                     <div class="stat-card">
                         <div class="stat-icon">💘</div>
+                        <div class="stat-info">
+                            <h3 id="total-matches-page">0</h3>
+                            <p>Total Matches</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🗓️</div>
                         <div class="stat-info">
                             <h3 id="today-matches">0</h3>
                             <p>Matches Today</p>
@@ -259,6 +267,28 @@
                             <p>Match Rate</p>
                         </div>
                     </div>
+                </div>
+                <!-- Recent matches table -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                    <span style="color:#ccc;font-size:14px;font-weight:600">Recent Matches</span>
+                    <button class="btn-primary" onclick="loadMatchStats()">🔄 Refresh</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User 1</th>
+                                <th>Gender</th>
+                                <th>User 2</th>
+                                <th>Gender</th>
+                                <th>Location</th>
+                                <th>Matched</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matches-table-body">
+                            <tr><td colspan="6" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

@@ -1447,11 +1447,48 @@ app.get('/admin/matches', async (req, res) => {
       });
     }
     
+    // Get recent match pairs (last 50 unique pairs)
+    const recentMatchUsers = await User.find(
+      { 'matches.0': { $exists: true } },
+      { telegramId: 1, name: 1, username: 1, gender: 1, age: 1, location: 1, isVip: 1, matches: 1 }
+    ).sort({ 'matches.matchedAt': -1 }).limit(100);
+
+    const seen = new Set();
+    const recentPairs = [];
+    for (const user of recentMatchUsers) {
+      for (const match of (user.matches || [])) {
+        const key = [user.telegramId, match.userId].sort().join('_');
+        if (!seen.has(key)) {
+          seen.add(key);
+          recentPairs.push({
+            user1: { telegramId: user.telegramId, name: user.name, username: user.username, gender: user.gender, age: user.age, location: user.location, isVip: user.isVip },
+            user2Id: match.userId,
+            matchedAt: match.matchedAt || null
+          });
+          if (recentPairs.length >= 50) break;
+        }
+      }
+      if (recentPairs.length >= 50) break;
+    }
+
+    // Enrich user2 details
+    const user2Ids = recentPairs.map(p => String(p.user2Id));
+    const user2Map = {};
+    const user2Docs = await User.find({ telegramId: { $in: user2Ids } }, { telegramId: 1, name: 1, username: 1, gender: 1, age: 1, location: 1, isVip: 1 });
+    user2Docs.forEach(u => { user2Map[u.telegramId] = u; });
+
+    const enrichedPairs = recentPairs.map(p => ({
+      user1: p.user1,
+      user2: user2Map[String(p.user2Id)] || { telegramId: p.user2Id, name: 'Unknown' },
+      matchedAt: p.matchedAt
+    }));
+
     res.json({
-      totalMatches: Math.floor(totalMatches / 2), // Each match counted twice
+      totalMatches: Math.floor(totalMatches / 2),
       todayMatches: Math.floor(todayCount / 2),
       matchRate,
-      matchData
+      matchData,
+      recentPairs: enrichedPairs
     });
   } catch (err) {
     console.error('Match stats error:', err);
