@@ -1373,37 +1373,33 @@ app.get('/likes/:telegramId', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Get all likes for this user from Like model
-    const likeRecords = await Like.find({ toUserId: telegramId })
-      .sort({ createdAt: -1 })
-      .lean();
+    // Likes are stored as array of telegramIds on user.likes
+    const likerIds = user.likes || [];
 
     // Get user details for each liker
-    const likerIds = likeRecords.map(like => like.fromUserId);
     const likers = await User.find({
       telegramId: { $in: likerIds }
-    }).select('telegramId name age location bio isVip profilePhoto createdAt lastActive');
+    }).select('telegramId name age location bio gender isVip photos createdAt lastActive');
 
-    // Create a map for quick lookup
-    const likerMap = {};
-    likers.forEach(liker => {
-      likerMap[liker.telegramId] = liker;
+    // Build response with liker details
+    const likersWithDetails = likers.map(liker => ({
+      ...liker.toObject(),
+      likedAt: liker.createdAt,
+      superLike: false,
+      isOnline: liker.lastActive && (Date.now() - new Date(liker.lastActive).getTime()) < 300000
+    }));
+
+    // Also check superLikes from Like model as supplement
+    const superLikeRecords = await Like.find({ toUserId: telegramId, superLike: true }).lean();
+    const superLikerIds = superLikeRecords.map(l => l.fromUserId);
+
+    // Mark super likers
+    likersWithDetails.forEach(liker => {
+      if (superLikerIds.includes(liker.telegramId)) {
+        liker.superLike = true;
+      }
     });
 
-    // Combine like records with user details
-    const likersWithDetails = likeRecords.map(like => {
-      const liker = likerMap[like.fromUserId];
-      if (!liker) return null;
-      
-      return {
-        ...liker.toObject(),
-        likedAt: like.createdAt,
-        superLike: like.superLike || false,
-        isOnline: liker.lastActive && (Date.now() - liker.lastActive.getTime()) < 300000 // 5 minutes
-      };
-    }).filter(Boolean);
-
-    // Count superlikes
     const superLikeCount = likersWithDetails.filter(l => l.superLike).length;
 
     res.json({
