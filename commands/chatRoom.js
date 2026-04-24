@@ -109,13 +109,18 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
         welcomeMsg += `💬 _Type your message below..._`;
       }
 
+      const dmUrl = targetUser.username
+        ? `https://t.me/${targetUser.username}`
+        : `tg://user?id=${targetTelegramId}`;
+
       const keyboard = {
         inline_keyboard: [
           [
-            { text: ' View Full History', callback_data: `chat_history_${targetTelegramId}` },
-            { text: '🚪 Exit Chat', callback_data: 'exit_chat_room' }
+            { text: '💬 Private DM', url: dmUrl },
+            { text: '📜 View Full History', callback_data: `chat_history_${targetTelegramId}` }
           ],
           [
+            { text: '🚪 Exit Chat', callback_data: 'exit_chat_room' },
             { text: '🚫 Block User', callback_data: `block_chat_${targetTelegramId}` }
           ]
         ]
