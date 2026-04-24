@@ -1053,16 +1053,6 @@ app.post('/report', async (req, res) => {
   }
 });
 
-// ── Admin: List pending reports ──────────────────────────────────────────
-app.get('/admin/reports', async (req, res) => {
-  try {
-    const reports = await Report.find({ status: 'pending' }).sort({ createdAt: -1 }).limit(50);
-    res.json(reports);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch reports' });
-  }
-});
-
 // ── Admin: Resolve a report ──────────────────────────────────────────────
 app.patch('/admin/reports/:id/resolve', async (req, res) => {
   try {
@@ -1133,8 +1123,9 @@ app.get('/admin/stats', async (req, res) => {
       pendingReports,
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
-      totalMatches: Math.round((agg.totalMatches || 0) / 2), // each match counted twice
-      totalRevenue: totalRevenue.toFixed(2)
+      totalMatches: Math.round((agg.totalMatches || 0) / 2),
+      totalRevenue: totalRevenue.toFixed(2),
+      bannedUsers: await User.countDocuments({ isBanned: true })
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch stats' });
@@ -1144,13 +1135,29 @@ app.get('/admin/stats', async (req, res) => {
 // ── Admin: Get all users ──────────────────────────────────────────────────
 app.get('/admin/users', async (req, res) => {
   try {
-    const users = await User.find()
-      .select('telegramId name gender location isVip createdAt')
+    const { search } = req.query;
+    const query = search
+      ? { $or: [{ name: { $regex: search, $options: 'i' } }, { username: { $regex: search, $options: 'i' } }, { telegramId: search }] }
+      : {};
+    const users = await User.find(query)
+      .select('telegramId username name gender age location isVip isBanned createdAt lastActive matches likes')
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(200);
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// ── Admin: Get single user detail ────────────────────────────────────────
+app.get('/admin/users/:telegramId', async (req, res) => {
+  try {
+    const user = await User.findOne({ telegramId: req.params.telegramId })
+      .select('-__v');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 
@@ -1158,13 +1165,106 @@ app.get('/admin/users', async (req, res) => {
 app.post('/admin/users/:telegramId/ban', async (req, res) => {
   try {
     const { telegramId } = req.params;
+    const { reason } = req.body;
     await User.findOneAndUpdate(
       { telegramId },
-      { $set: { isBanned: true, bannedAt: new Date() } }
+      { $set: { isBanned: true, bannedAt: new Date(), banReason: reason || 'Admin action' } }
     );
+    if (bot) {
+      bot.sendMessage(telegramId, '🚫 Your account has been suspended by an admin. Contact support if you believe this is a mistake.').catch(() => {});
+    }
     res.json({ message: 'User banned successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to ban user' });
+  }
+});
+
+// ── Admin: Unban user ─────────────────────────────────────────────────────
+app.post('/admin/users/:telegramId/unban', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $set: { isBanned: false }, $unset: { bannedAt: 1, banReason: 1 } }
+    );
+    if (bot) {
+      bot.sendMessage(telegramId, '✅ Your account has been reinstated. Welcome back!').catch(() => {});
+    }
+    res.json({ message: 'User unbanned successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to unban user' });
+  }
+});
+
+// ── Admin: Grant VIP ──────────────────────────────────────────────────────
+app.post('/admin/users/:telegramId/grant-vip', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    const { days = 30 } = req.body;
+    const vipExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $set: { isVip: true, vipExpiresAt } }
+    );
+    if (bot) {
+      bot.sendMessage(telegramId, `👑 *Congratulations!* You've been granted VIP for ${days} days by an admin! Enjoy your premium features! 🎉`, { parse_mode: 'Markdown' }).catch(() => {});
+    }
+    res.json({ message: `VIP granted for ${days} days` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to grant VIP' });
+  }
+});
+
+// ── Admin: Revoke VIP ─────────────────────────────────────────────────────
+app.post('/admin/users/:telegramId/revoke-vip', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    await User.findOneAndUpdate(
+      { telegramId },
+      { $set: { isVip: false }, $unset: { vipExpiresAt: 1 } }
+    );
+    res.json({ message: 'VIP revoked' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to revoke VIP' });
+  }
+});
+
+// ── Admin: Delete user ────────────────────────────────────────────────────
+app.delete('/admin/users/:telegramId', async (req, res) => {
+  try {
+    const { telegramId } = req.params;
+    await User.findOneAndDelete({ telegramId });
+    res.json({ message: 'User deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// ── Admin: Broadcast message ──────────────────────────────────────────────
+app.post('/admin/broadcast', async (req, res) => {
+  try {
+    const { message, targetGroup = 'all' } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+    if (!bot) return res.status(500).json({ error: 'Bot not available' });
+
+    let query = {};
+    if (targetGroup === 'vip') query = { isVip: true };
+    else if (targetGroup === 'free') query = { isVip: { $ne: true } };
+
+    const users = await User.find({ ...query, isBanned: { $ne: true } }).select('telegramId');
+    let sent = 0, failed = 0;
+
+    for (const user of users) {
+      try {
+        await bot.sendMessage(user.telegramId, `📢 *Announcement*\n\n${message}`, { parse_mode: 'Markdown' });
+        sent++;
+        await new Promise(r => setTimeout(r, 50)); // Rate limit
+      } catch (e) { failed++; }
+    }
+
+    res.json({ message: `Broadcast complete`, sent, failed, total: users.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Broadcast failed' });
   }
 });
 
@@ -1173,10 +1273,30 @@ app.get('/admin/reports', async (req, res) => {
   try {
     const reports = await Report.find()
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(100);
     res.json(reports);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch reports' });
+  }
+});
+
+// ── Admin: Resolve report ─────────────────────────────────────────────────
+app.post('/admin/reports/:id/resolve', async (req, res) => {
+  try {
+    await Report.findByIdAndUpdate(req.params.id, { status: 'resolved', resolvedAt: new Date() });
+    res.json({ message: 'Report resolved' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resolve report' });
+  }
+});
+
+// ── Admin: Dismiss report ─────────────────────────────────────────────────
+app.post('/admin/reports/:id/dismiss', async (req, res) => {
+  try {
+    await Report.findByIdAndUpdate(req.params.id, { status: 'dismissed', resolvedAt: new Date() });
+    res.json({ message: 'Report dismissed' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to dismiss report' });
   }
 });
 

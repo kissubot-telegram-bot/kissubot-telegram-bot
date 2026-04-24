@@ -6,6 +6,35 @@
     <title>Kissubot Admin Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; }
+        .modal-overlay.active { display:flex; }
+        .modal { background:#1e1e2e; border-radius:12px; padding:24px; max-width:520px; width:92%; max-height:80vh; overflow-y:auto; border:1px solid #333; }
+        .modal h3 { margin:0 0 16px; color:#fff; }
+        .modal-field { margin:8px 0; color:#ccc; font-size:13px; }
+        .modal-field strong { color:#fff; }
+        .modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+        .btn-sm { padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-size:13px; font-weight:600; }
+        .btn-ban { background:#e53935; color:#fff; }
+        .btn-unban { background:#43a047; color:#fff; }
+        .btn-vip { background:#f9a825; color:#000; }
+        .btn-revoke { background:#6d4c41; color:#fff; }
+        .btn-delete { background:#b71c1c; color:#fff; }
+        .btn-close { background:#444; color:#fff; }
+        .badge-banned { background:#e53935; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; }
+        .badge-vip { background:#f9a825; color:#000; padding:2px 8px; border-radius:4px; font-size:11px; }
+        .badge-free { background:#444; color:#ccc; padding:2px 8px; border-radius:4px; font-size:11px; }
+        .broadcast-section { background:#1e1e2e; border-radius:12px; padding:20px; border:1px solid #333; margin-top:16px; }
+        .broadcast-section h3 { color:#fff; margin:0 0 12px; }
+        .broadcast-target { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+        .broadcast-target label { color:#ccc; font-size:13px; display:flex; align-items:center; gap:6px; cursor:pointer; }
+        textarea.broadcast-input { width:100%; box-sizing:border-box; background:#12121f; border:1px solid #444; color:#fff; border-radius:8px; padding:12px; font-size:14px; resize:vertical; min-height:100px; }
+        .broadcast-result { margin-top:10px; padding:10px; border-radius:8px; font-size:13px; display:none; }
+        .btn-broadcast { background:linear-gradient(135deg,#FF6B9D,#C04CF5); color:#fff; border:none; padding:10px 24px; border-radius:8px; cursor:pointer; font-weight:600; }
+        .action-btn { padding:4px 10px; border-radius:5px; border:none; cursor:pointer; font-size:12px; font-weight:600; margin:2px; }
+        .tbl-actions { white-space:nowrap; }
+        .status-pending { color:#f9a825; } .status-resolved { color:#43a047; } .status-dismissed { color:#888; }
+    </style>
 </head>
 <body>
     <!-- Mobile Menu Toggle -->
@@ -105,6 +134,13 @@
                             <span class="stat-change positive">+23% this month</span>
                         </div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🚫</div>
+                        <div class="stat-info">
+                            <h3 id="banned-users">0</h3>
+                            <p>Banned Users</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Charts -->
@@ -131,24 +167,26 @@
             <!-- Users Page -->
             <div id="users-page" class="page">
                 <div class="page-header">
-                    <input type="text" class="search-input" placeholder="Search users...">
-                    <button class="btn-primary">Export Users</button>
+                    <input type="text" class="search-input" id="user-search" placeholder="Search by name, username..." oninput="debounceSearch()">
+                    <button class="btn-primary" onclick="loadUsers()">🔄 Refresh</button>
                 </div>
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>User ID</th>
+                                <th>Username</th>
                                 <th>Name</th>
+                                <th>Age</th>
                                 <th>Gender</th>
                                 <th>Location</th>
-                                <th>VIP Status</th>
+                                <th>Status</th>
+                                <th>Matches</th>
                                 <th>Joined</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="users-table-body">
-                            <!-- Users will be loaded here -->
+                            <tr><td colspan="9" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -200,21 +238,26 @@
 
             <!-- Reports Page -->
             <div id="reports-page" class="page">
+                <div class="page-header">
+                    <span id="reports-count" style="color:#ccc;font-size:14px"></span>
+                    <button class="btn-primary" onclick="loadReports()">🔄 Refresh</button>
+                </div>
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Report ID</th>
+                                <th>ID</th>
                                 <th>Type</th>
                                 <th>Reporter</th>
-                                <th>Reported User</th>
+                                <th>Reported</th>
                                 <th>Reason</th>
+                                <th>Date</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="reports-table-body">
-                            <!-- Reports will be loaded here -->
+                            <tr><td colspan="8" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -234,8 +277,33 @@
                     </div>
                     <button class="btn-primary">Save Settings</button>
                 </div>
+
+                <!-- Broadcast Section -->
+                <div class="broadcast-section">
+                    <h3>📢 Broadcast Message</h3>
+                    <div class="broadcast-target">
+                        <label><input type="radio" name="target" value="all" checked> All Users</label>
+                        <label><input type="radio" name="target" value="vip"> VIP Only</label>
+                        <label><input type="radio" name="target" value="free"> Free Users Only</label>
+                    </div>
+                    <textarea class="broadcast-input" id="broadcast-msg" placeholder="Type your announcement here..."></textarea>
+                    <div style="margin-top:10px;display:flex;align-items:center;gap:12px">
+                        <button class="btn-broadcast" onclick="sendBroadcast()">📤 Send Broadcast</button>
+                        <span id="broadcast-status" style="font-size:13px;color:#ccc"></span>
+                    </div>
+                    <div id="broadcast-result" class="broadcast-result"></div>
+                </div>
             </div>
         </main>
+    </div>
+
+    <!-- User Detail Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal">
+            <h3 id="modal-title">User Details</h3>
+            <div id="modal-body"></div>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
     </div>
 
     <script src="dashboard.js"></script>
