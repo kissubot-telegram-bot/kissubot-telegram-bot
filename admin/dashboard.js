@@ -23,6 +23,19 @@ async function apiFetch(path, options = {}) {
     return res.json();
 }
 
+// ── Navigation helper (used by stat cards) ──────────────────────────────
+function navigateTo(page) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (navItem) navItem.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pageEl = document.getElementById(`${page}-page`);
+    if (pageEl) pageEl.classList.add('active');
+    const titles = { overview:'Dashboard Overview', users:'User Management', revenue:'Revenue Analytics', matches:'Match Statistics', reports:'Reports & Moderation', settings:'Bot Settings' };
+    document.getElementById('page-title').textContent = titles[page] || page;
+    loadPageData(page);
+}
+
 // Test connection on load
 async function testConnection() {
     try {
@@ -230,64 +243,130 @@ async function loadRecentActivity() {
     }
 }
 
-// Load Users
+// ── Users: state ─────────────────────────────────────────────────────────
+let usersCurrentPage = 1;
+let usersCurrentFilter = '';
 let searchTimeout;
+
 function debounceSearch() {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(loadUsers, 400);
+    searchTimeout = setTimeout(() => loadUsers(1), 400);
 }
 
-async function loadUsers() {
+function setFilter(btn, filter) {
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    usersCurrentFilter = filter;
+    loadUsers(1);
+}
+
+async function loadUsers(page = usersCurrentPage) {
+    usersCurrentPage = page;
     const tbody = document.getElementById('users-table-body');
     const search = document.getElementById('user-search')?.value?.trim() || '';
+    const limit = document.getElementById('per-page-select')?.value || 25;
+
     try {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>`;
-        const url = search ? `/admin/users?search=${encodeURIComponent(search)}` : '/admin/users';
-        const users = await apiFetch(url);
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#888;padding:24px">
+            <div style="display:inline-block;width:24px;height:24px;border:3px solid #FF6B9D;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></div>
+            <div style="margin-top:8px;font-size:13px">Loading users...</div>
+        </td></tr>`;
+
+        let url = `/admin/users?page=${page}&limit=${limit}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (usersCurrentFilter) url += `&filter=${usersCurrentFilter}`;
+
+        const data = await apiFetch(url);
+        const users = data.users || [];
+        const total = data.total || 0;
+        const pages = data.pages || 1;
+
+        // Update count label
+        const countEl = document.getElementById('users-count-label');
+        if (countEl) countEl.textContent = `${total.toLocaleString()} users · page ${page} of ${pages}`;
+
         if (!users.length) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#888;padding:20px">No users found</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#888;padding:24px">No users found</td></tr>`;
+            renderPagination(0, 0, 0);
             return;
         }
+
         tbody.innerHTML = users.map(user => {
-            const username = user.username ? `@${user.username}` : `ID: ${user.telegramId}`;
-            const name = user.name || 'N/A';
-            const age = user.age || '-';
-            const gender = user.gender || 'N/A';
-            const location = user.location || 'N/A';
+            const username = user.username ? `@${user.username}` : `<span style="color:#666;font-size:11px">${user.telegramId}</span>`;
+            const name = user.name || '<span style="color:#666">N/A</span>';
+            const age = user.age || '–';
+            const gender = user.gender ? user.gender[0] : '–';
+            const location = user.location || '<span style="color:#666">–</span>';
             const matchCount = user.matches?.length || 0;
-            const joined = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A';
+            const joined = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '–';
             let statusBadge = '';
             if (user.isBanned) statusBadge = '<span class="badge-banned">🚫 Banned</span>';
             else if (user.isVip) statusBadge = '<span class="badge-vip">👑 VIP</span>';
             else statusBadge = '<span class="badge-free">Free</span>';
 
-            return `<tr>
+            return `<tr style="transition:background .1s" onmouseover="this.style.background='rgba(255,107,157,0.05)'" onmouseout="this.style.background=''">
                 <td style="font-family:monospace;font-size:12px">${username}</td>
                 <td>${name}</td>
-                <td>${age}</td>
-                <td>${gender}</td>
-                <td>${location}</td>
+                <td style="text-align:center">${age}</td>
+                <td style="text-align:center">${gender}</td>
+                <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${location}</td>
                 <td>${statusBadge}</td>
-                <td>${matchCount}</td>
-                <td>${joined}</td>
+                <td style="text-align:center">${matchCount}</td>
+                <td style="font-size:12px;color:#aaa">${joined}</td>
                 <td class="tbl-actions">
-                    <button class="action-btn" style="background:#4A90E2;color:#fff" onclick="viewUser('${user.telegramId}')">👤 View</button>
+                    <button class="action-btn" style="background:#4A90E2;color:#fff" onclick="viewUser('${user.telegramId}')">👤</button>
                     ${user.isBanned
-                        ? `<button class="action-btn" style="background:#43a047;color:#fff" onclick="unbanUser('${user.telegramId}')">✅ Unban</button>`
-                        : `<button class="action-btn" style="background:#e53935;color:#fff" onclick="banUser('${user.telegramId}')">🚫 Ban</button>`
+                        ? `<button class="action-btn" style="background:#43a047;color:#fff" onclick="unbanUser('${user.telegramId}')">Unban</button>`
+                        : `<button class="action-btn" style="background:#e53935;color:#fff" onclick="banUser('${user.telegramId}')">Ban</button>`
                     }
                     ${user.isVip
-                        ? `<button class="action-btn" style="background:#6d4c41;color:#fff" onclick="revokeVip('${user.telegramId}')">❌ VIP</button>`
-                        : `<button class="action-btn" style="background:#f9a825;color:#000" onclick="grantVip('${user.telegramId}')">👑 VIP</button>`
+                        ? `<button class="action-btn" style="background:#6d4c41;color:#fff" onclick="revokeVip('${user.telegramId}')">-VIP</button>`
+                        : `<button class="action-btn" style="background:#f9a825;color:#000" onclick="grantVip('${user.telegramId}')">👑</button>`
                     }
                     <button class="action-btn" style="background:#b71c1c;color:#fff" onclick="deleteUser('${user.telegramId}')">🗑️</button>
                 </td>
             </tr>`;
         }).join('');
+
+        renderPagination(page, pages, total);
+
     } catch (error) {
         console.error('Error loading users:', error);
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#e53935;padding:20px">Failed to load users: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#e53935;padding:20px">Failed: ${error.message}</td></tr>`;
     }
+}
+
+function renderPagination(currentPage, totalPages, totalItems) {
+    const container = document.getElementById('users-pagination');
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    const limit = parseInt(document.getElementById('per-page-select')?.value || 25);
+    const startItem = (currentPage - 1) * limit + 1;
+    const endItem = Math.min(currentPage * limit, totalItems);
+
+    let html = `<span class="page-info">${startItem.toLocaleString()}–${endItem.toLocaleString()} of ${totalItems.toLocaleString()}</span>`;
+    html += `<button class="page-btn" onclick="loadUsers(1)" ${currentPage === 1 ? 'disabled' : ''}>«</button>`;
+    html += `<button class="page-btn" onclick="loadUsers(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+    // Smart page number range
+    let startP = Math.max(1, currentPage - 2);
+    let endP = Math.min(totalPages, currentPage + 2);
+    if (endP - startP < 4) {
+        if (startP === 1) endP = Math.min(totalPages, startP + 4);
+        else startP = Math.max(1, endP - 4);
+    }
+    if (startP > 1) html += `<span class="page-info">...</span>`;
+    for (let p = startP; p <= endP; p++) {
+        html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="loadUsers(${p})">${p}</button>`;
+    }
+    if (endP < totalPages) html += `<span class="page-info">...</span>`;
+
+    html += `<button class="page-btn" onclick="loadUsers(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+    html += `<button class="page-btn" onclick="loadUsers(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+    html += `<span class="page-info">${totalPages} pages</span>`;
+
+    container.innerHTML = html;
 }
 
 // Load Reports

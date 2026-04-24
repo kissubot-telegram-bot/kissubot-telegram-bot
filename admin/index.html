@@ -34,6 +34,15 @@
         .action-btn { padding:4px 10px; border-radius:5px; border:none; cursor:pointer; font-size:12px; font-weight:600; margin:2px; }
         .tbl-actions { white-space:nowrap; }
         .status-pending { color:#f9a825; } .status-resolved { color:#43a047; } .status-dismissed { color:#888; }
+        .filter-tab { padding:6px 14px; border-radius:20px; border:1px solid #444; background:transparent; color:#ccc; cursor:pointer; font-size:13px; transition:all .15s; }
+        .filter-tab:hover { border-color:#FF6B9D; color:#FF6B9D; }
+        .filter-tab.active { background:linear-gradient(135deg,#FF6B9D,#C04CF5); border-color:transparent; color:#fff; font-weight:600; }
+        .page-btn { padding:6px 12px; border-radius:6px; border:1px solid #444; background:#1e1e2e; color:#ccc; cursor:pointer; font-size:13px; min-width:36px; }
+        .page-btn:hover { border-color:#FF6B9D; color:#FF6B9D; }
+        .page-btn.active { background:linear-gradient(135deg,#FF6B9D,#C04CF5); border-color:transparent; color:#fff; font-weight:700; }
+        .page-btn:disabled { opacity:0.35; cursor:default; }
+        .page-info { color:#888; font-size:13px; padding:0 4px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -102,12 +111,12 @@
             <div id="overview-page" class="page active">
                 <!-- Stats Cards -->
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <div class="stat-card" onclick="navigateTo('users')" style="cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">👥</div>
                         <div class="stat-info">
                             <h3 id="total-users">0</h3>
                             <p>Total Users</p>
-                            <span class="stat-change positive">+12% this week</span>
+                            <span class="stat-change positive" style="font-size:11px">👁 Click to manage</span>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -166,9 +175,23 @@
 
             <!-- Users Page -->
             <div id="users-page" class="page">
-                <div class="page-header">
-                    <input type="text" class="search-input" id="user-search" placeholder="Search by name, username..." oninput="debounceSearch()">
-                    <button class="btn-primary" onclick="loadUsers()">🔄 Refresh</button>
+                <!-- Toolbar -->
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+                    <input type="text" class="search-input" id="user-search" placeholder="🔍 Search name, username, ID..." oninput="debounceSearch()" style="flex:1;min-width:200px">
+                    <select id="per-page-select" onchange="loadUsers(1)" style="background:#1e1e2e;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 10px;cursor:pointer">
+                        <option value="25">25 / page</option>
+                        <option value="50">50 / page</option>
+                        <option value="100">100 / page</option>
+                    </select>
+                    <button class="btn-primary" onclick="loadUsers(1)">🔄 Refresh</button>
+                </div>
+                <!-- Filter Tabs -->
+                <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+                    <button class="filter-tab active" data-filter="" onclick="setFilter(this, '')">All</button>
+                    <button class="filter-tab" data-filter="active" onclick="setFilter(this, 'active')">✅ Active</button>
+                    <button class="filter-tab" data-filter="vip" onclick="setFilter(this, 'vip')">👑 VIP</button>
+                    <button class="filter-tab" data-filter="banned" onclick="setFilter(this, 'banned')">🚫 Banned</button>
+                    <span id="users-count-label" style="margin-left:auto;color:#888;font-size:13px;align-self:center"></span>
                 </div>
                 <div class="table-container">
                     <table class="data-table">
@@ -190,6 +213,8 @@
                         </tbody>
                     </table>
                 </div>
+                <!-- Pagination -->
+                <div id="users-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap"></div>
             </div>
 
             <!-- Revenue Page -->

@@ -1132,18 +1132,34 @@ app.get('/admin/stats', async (req, res) => {
   }
 });
 
-// ── Admin: Get all users ──────────────────────────────────────────────────
+// ── Admin: Get all users (paginated) ─────────────────────────────────────
 app.get('/admin/users', async (req, res) => {
   try {
-    const { search } = req.query;
-    const query = search
-      ? { $or: [{ name: { $regex: search, $options: 'i' } }, { username: { $regex: search, $options: 'i' } }, { telegramId: search }] }
-      : {};
-    const users = await User.find(query)
-      .select('telegramId username name gender age location isVip isBanned createdAt lastActive matches likes')
-      .sort({ createdAt: -1 })
-      .limit(200);
-    res.json(users);
+    const { search, page = 1, limit = 25, filter } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: search, $options: 'i' } },
+        { telegramId: search }
+      ];
+    }
+    if (filter === 'vip') query.isVip = true;
+    else if (filter === 'banned') query.isBanned = true;
+    else if (filter === 'active') query = { ...query, isBanned: { $ne: true } };
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('telegramId username name gender age location isVip isBanned createdAt lastActive matches likes')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(query)
+    ]);
+
+    res.json({ users, total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
