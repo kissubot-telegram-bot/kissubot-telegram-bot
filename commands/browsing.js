@@ -528,58 +528,50 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-        // 2nd try: drop gender filter, keep age and location
-
+        // 2nd try: drop location filter, keep gender + age
         if (profiles.length === 0) {
 
           profiles = await runQuery({
 
             photos: { $exists: true, $not: { $size: 0 } },
 
-            ...ageFilter, ...locationFilter, ...hideLikedFilter
+            ...ageFilter, ...genderFilter, ...hideLikedFilter
 
           });
-          
-          console.log(`[BROWSE] 2nd try (no gender filter): ${profiles.length} profiles found`);
+
+          console.log(`[BROWSE] 2nd try (no location filter): ${profiles.length} profiles found`);
 
         }
 
-        // 3rd try: drop location filter, keep photos and age
-
+        // 3rd try: drop age filter, keep gender + photos
         if (profiles.length === 0) {
 
           profiles = await runQuery({
 
             photos: { $exists: true, $not: { $size: 0 } },
 
-            ...ageFilter, ...hideLikedFilter
+            ...genderFilter, ...hideLikedFilter
 
           });
-          
-          console.log(`[BROWSE] 3rd try (no location filter): ${profiles.length} profiles found`);
+
+          console.log(`[BROWSE] 3rd try (no age/location filter): ${profiles.length} profiles found`);
 
         }
 
-
-
-        // 4th try: drop age filter, keep photos only
-
+        // 4th try: drop photos requirement, keep gender only
         if (profiles.length === 0) {
 
           profiles = await runQuery({
 
-            photos: { $exists: true, $not: { $size: 0 } }
+            ...genderFilter
 
           });
-          
-          console.log(`[BROWSE] 4th try (photos only): ${profiles.length} profiles found`);
+
+          console.log(`[BROWSE] 4th try (gender only, no photo req): ${profiles.length} profiles found`);
 
         }
 
-
-
-        // 5th try: last resort — include profiles with profilePhoto even if photos array is missing
-
+        // 5th try: last resort — any profile with photo regardless of gender preference
         if (profiles.length === 0) {
 
           let q = User.find({
