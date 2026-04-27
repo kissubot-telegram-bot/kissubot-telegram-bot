@@ -393,23 +393,27 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Gender filtering: based on user's lookingFor preference
-      // Logic:
-      // - Male looking for Female → sees Females also lookingFor Female (or Both/Any)
-      // - Female looking for Male → sees Males also lookingFor Male (or Both/Any)
-      // - Male looking for Male → sees Males lookingFor Male (or Both/Any)
-      // - Female looking for Female → sees Females lookingFor Female (or Both/Any)
-      // - lookingFor Both/Any → no gender filter (sees everyone)
+      // Gender filtering — mutual preference matching:
+      // profile.gender  == viewer.lookingFor  (I see the gender I want)
+      // profile.lookingFor == viewer.gender   (they are also seeking my gender back)
+      //
+      // Examples:
+      // - Male   (lookingFor=Female) → Female profiles with lookingFor=Male   or Both/Any ✅
+      // - Female (lookingFor=Male)   → Male   profiles with lookingFor=Female or Both/Any ✅
+      // - Male   (lookingFor=Male)   → Male   profiles with lookingFor=Male   or Both/Any ✅
+      // - Female (lookingFor=Female) → Female profiles with lookingFor=Female or Both/Any ✅
+      // - Anyone (lookingFor=Both)   → no gender filter (sees everyone)
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
+      const currentGender = currentUser.gender || 'Other';
 
       let genderFilter = {};
 
       if (lookingFor !== 'Both' && lookingFor !== 'Any') {
-        genderFilter.gender = lookingFor;
+        genderFilter.gender = lookingFor;        // show only the gender I want
         genderFilter.$or = [
-          { lookingFor: lookingFor },  // profiles also looking for same gender
-          { lookingFor: 'Both' },      // open to everyone
-          { lookingFor: 'Any' }        // open to anyone
+          { lookingFor: currentGender },         // profiles seeking my gender
+          { lookingFor: 'Both' },                // open to everyone
+          { lookingFor: 'Any' }                  // open to anyone
         ];
       }
       // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)
