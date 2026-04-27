@@ -494,60 +494,163 @@ async function loadRevenueChart() {
     }
 }
 
-// Load Match Statistics
-async function loadMatchStats() {
+// ── Matches: state ────────────────────────────────────────────────────────
+let matchCurrentPage = 1;
+let matchSearchTimeout;
+
+function debounceMatchSearch() {
+    clearTimeout(matchSearchTimeout);
+    matchSearchTimeout = setTimeout(() => loadMatchStats(1), 400);
+}
+
+async function loadMatchStats(page = matchCurrentPage) {
+    matchCurrentPage = page;
     const tbody = document.getElementById('matches-table-body');
+    const search = document.getElementById('match-search')?.value?.trim() || '';
+    const limit = document.getElementById('match-per-page')?.value || 25;
+
     try {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px">
             <div style="display:inline-block;width:24px;height:24px;border:3px solid #FF6B9D;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></div>
             <div style="margin-top:8px;font-size:13px">Loading matches...</div>
         </td></tr>`;
 
-        const matchStats = await apiFetch('/admin/matches');
+        let url = `/admin/matches?page=${page}&limit=${limit}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        const data = await apiFetch(url);
 
-        // Update stat cards
+        // Stat cards
         const tmEl = document.getElementById('total-matches-page');
-        if (tmEl) tmEl.textContent = (matchStats.totalMatches || 0).toLocaleString();
+        if (tmEl) tmEl.textContent = (data.totalMatches || 0).toLocaleString();
         const tdEl = document.getElementById('today-matches');
-        if (tdEl) tdEl.textContent = matchStats.todayMatches || 0;
+        if (tdEl) tdEl.textContent = data.todayMatches || 0;
         const mrEl = document.getElementById('match-rate');
-        if (mrEl) mrEl.textContent = `${matchStats.matchRate || 0}%`;
+        if (mrEl) mrEl.textContent = `${data.matchRate || 0}%`;
+        // Sync overview card too
+        const omEl = document.getElementById('total-matches');
+        if (omEl) omEl.textContent = (data.totalMatches || 0).toLocaleString();
 
-        // Populate table
-        const pairs = matchStats.recentPairs || [];
+        const total = data.total || 0;
+        const pages = data.pages || 1;
+        const countEl = document.getElementById('matches-count-label');
+        if (countEl) countEl.textContent = `${total.toLocaleString()} matches · page ${page} of ${pages}`;
+
+        const pairs = data.recentPairs || [];
         if (!tbody) return;
         if (!pairs.length) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px">No matches yet</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px">No matches found</td></tr>`;
+            renderMatchPagination(0, 0, 0);
             return;
         }
 
         tbody.innerHTML = pairs.map(pair => {
             const u1 = pair.user1 || {};
             const u2 = pair.user2 || {};
-            const u1Name = u1.name || 'Unknown';
-            const u2Name = u2.name || 'Unknown';
-            const u1Username = u1.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u1.username}</span>` : '';
-            const u2Username = u2.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u2.username}</span>` : '';
-            const u1Vip = u1.isVip ? ' 👑' : '';
-            const u2Vip = u2.isVip ? ' 👑' : '';
-            const g1Icon = u1.gender === 'Male' ? '👔' : u1.gender === 'Female' ? '👗' : '–';
-            const g2Icon = u2.gender === 'Male' ? '👔' : u2.gender === 'Female' ? '👗' : '–';
-            const location = u1.location || u2.location || '–';
-            const matchedAt = pair.matchedAt ? new Date(pair.matchedAt).toLocaleDateString() : '–';
-
+            const u1sub = u1.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u1.username}</span>` : `<br><span style="color:#555;font-size:10px">${u1.telegramId||''}</span>`;
+            const u2sub = u2.username ? `<br><span style="color:#888;font-size:11px;font-family:monospace">@${u2.username}</span>` : `<br><span style="color:#555;font-size:10px">${u2.telegramId||''}</span>`;
+            const g1 = u1.gender === 'Male' ? '👔' : u1.gender === 'Female' ? '👗' : '–';
+            const g2 = u2.gender === 'Male' ? '👔' : u2.gender === 'Female' ? '👗' : '–';
+            const loc = u1.location || u2.location || '–';
+            const when = pair.matchedAt ? new Date(pair.matchedAt).toLocaleDateString() : '–';
             return `<tr style="transition:background .1s" onmouseover="this.style.background='rgba(255,107,157,0.05)'" onmouseout="this.style.background=''">
-                <td><strong>${u1Name}${u1Vip}</strong>${u1Username}</td>
-                <td style="text-align:center">${g1Icon}</td>
-                <td><strong>${u2Name}${u2Vip}</strong>${u2Username}</td>
-                <td style="text-align:center">${g2Icon}</td>
-                <td style="color:#aaa;font-size:13px">${location}</td>
-                <td style="color:#aaa;font-size:12px">${matchedAt}</td>
+                <td><strong>${u1.name||'Unknown'}${u1.isVip?' 👑':''}</strong>${u1sub}</td>
+                <td style="text-align:center;font-size:16px">${g1}</td>
+                <td><strong>${u2.name||'Unknown'}${u2.isVip?' 👑':''}</strong>${u2sub}</td>
+                <td style="text-align:center;font-size:16px">${g2}</td>
+                <td style="color:#aaa;font-size:13px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${loc}</td>
+                <td style="color:#aaa;font-size:12px">${when}</td>
             </tr>`;
         }).join('');
+
+        renderMatchPagination(page, pages, total);
 
     } catch (error) {
         console.error('Error loading match stats:', error);
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#e53935;padding:20px">Failed: ${error.message}</td></tr>`;
+    }
+}
+
+function renderMatchPagination(currentPage, totalPages, totalItems) {
+    const container = document.getElementById('matches-pagination');
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    const limit = parseInt(document.getElementById('match-per-page')?.value || 25);
+    const startItem = (currentPage - 1) * limit + 1;
+    const endItem = Math.min(currentPage * limit, totalItems);
+
+    let html = `<span class="page-info">${startItem.toLocaleString()}–${endItem.toLocaleString()} of ${totalItems.toLocaleString()}</span>`;
+    html += `<button class="page-btn" onclick="loadMatchStats(1)" ${currentPage===1?'disabled':''}>«</button>`;
+    html += `<button class="page-btn" onclick="loadMatchStats(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+
+    let startP = Math.max(1, currentPage - 2);
+    let endP = Math.min(totalPages, currentPage + 2);
+    if (endP - startP < 4) {
+        if (startP === 1) endP = Math.min(totalPages, startP + 4);
+        else startP = Math.max(1, endP - 4);
+    }
+    if (startP > 1) html += `<span class="page-info">...</span>`;
+    for (let p = startP; p <= endP; p++) {
+        html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="loadMatchStats(${p})">${p}</button>`;
+    }
+    if (endP < totalPages) html += `<span class="page-info">...</span>`;
+    html += `<button class="page-btn" onclick="loadMatchStats(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+    html += `<button class="page-btn" onclick="loadMatchStats(${totalPages})" ${currentPage===totalPages?'disabled':''}>»</button>`;
+    html += `<span class="page-info">${totalPages} pages</span>`;
+
+    container.innerHTML = html;
+}
+
+// ── Match Users Modal ─────────────────────────────────────────────────────
+function openMatchModal() {
+    document.getElementById('match-user1').value = '';
+    document.getElementById('match-user2').value = '';
+    const msg = document.getElementById('match-modal-msg');
+    msg.style.display = 'none';
+    document.getElementById('match-modal').style.display = 'flex';
+}
+
+function closeMatchModal() {
+    document.getElementById('match-modal').style.display = 'none';
+}
+
+async function submitMatch() {
+    const raw1 = document.getElementById('match-user1').value.trim();
+    const raw2 = document.getElementById('match-user2').value.trim();
+    const msgEl = document.getElementById('match-modal-msg');
+
+    const resolve = async (val) => {
+        if (/^\d+$/.test(val)) return val;
+        const uname = val.replace('@', '');
+        const data = await apiFetch(`/admin/users?search=${encodeURIComponent(uname)}&limit=1`);
+        const users = Array.isArray(data) ? data : (data.users || []);
+        if (!users.length) throw new Error(`User not found: ${val}`);
+        return users[0].telegramId;
+    };
+
+    const showMsg = (text, ok) => {
+        msgEl.textContent = text;
+        msgEl.style.background = ok ? 'rgba(67,160,71,0.15)' : 'rgba(229,57,53,0.15)';
+        msgEl.style.color = ok ? '#43a047' : '#e53935';
+        msgEl.style.border = `1px solid ${ok ? '#43a047' : '#e53935'}`;
+        msgEl.style.display = 'block';
+    };
+
+    if (!raw1 || !raw2) return showMsg('Both fields are required.', false);
+
+    try {
+        msgEl.textContent = 'Looking up users...';
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#888';
+        msgEl.style.background = 'rgba(255,255,255,0.05)';
+        msgEl.style.border = '1px solid #444';
+
+        const [id1, id2] = await Promise.all([resolve(raw1), resolve(raw2)]);
+        const result = await apiFetch('/admin/match', { method: 'POST', body: JSON.stringify({ user1Id: id1, user2Id: id2 }) });
+        showMsg(`✅ ${result.message}`, true);
+        setTimeout(() => { closeMatchModal(); loadMatchStats(1); }, 1500);
+    } catch (err) {
+        showMsg(`❌ ${err.message}`, false);
     }
 }
 

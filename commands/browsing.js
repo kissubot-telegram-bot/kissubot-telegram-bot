@@ -256,17 +256,25 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
       if (!user.termsAccepted) {
 
         return bot.sendMessage(chatId,
-
-          '⚠️ *Terms Required*\n\nAccept our Terms of Service to use KissuBot.',
-
+          '⚠️ *Terms Required*\n\nYou must accept our Terms of Service and Privacy Policy before using KissuBot.\n\n📖 Please read and accept to continue.',
           {
-
             parse_mode: 'Markdown',
-
-            reply_markup: { inline_keyboard: [[{ text: '🏠 Main Menu', callback_data: 'main_menu' }]] }
-
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '✅ Accept & Continue', callback_data: 'onboard_accept_terms' },
+                  { text: '❌ Decline', callback_data: 'onboard_decline_terms' }
+                ],
+                [
+                  { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
+                  { text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
+                ],
+                [
+                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                ]
+              ]
+            }
           }
-
         );
 
       }
@@ -387,39 +395,22 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       // Gender filtering: based on user's lookingFor preference
       // Logic:
-      // - Male looking for Female → sees Females looking for (Male OR Both), NOT Females looking for Female
-      // - Female looking for Male → sees Males looking for (Female OR Both), NOT Males looking for Male
-      // - Male looking for Male → sees Males looking for (Male OR Both)
-      // - Female looking for Female → sees Females looking for (Female OR Both)
-      const currentGender = currentUser.gender || 'Other';
+      // - Male looking for Female → sees Females also lookingFor Female (or Both/Any)
+      // - Female looking for Male → sees Males also lookingFor Male (or Both/Any)
+      // - Male looking for Male → sees Males lookingFor Male (or Both/Any)
+      // - Female looking for Female → sees Females lookingFor Female (or Both/Any)
+      // - lookingFor Both/Any → no gender filter (sees everyone)
       const lookingFor = currentUser.lookingFor || ss.genderPreference || 'Both';
-      
+
       let genderFilter = {};
-      
-      // Filter by what current user wants to see (profile's gender)
+
       if (lookingFor !== 'Both' && lookingFor !== 'Any') {
         genderFilter.gender = lookingFor;
-        
-        // Check if user is seeking same gender (Male→Male or Female→Female)
-        const isSameGenderSeeker = currentGender === lookingFor;
-        
-        if (isSameGenderSeeker) {
-          // Same-gender seeker: show profiles looking for same gender OR Both
-          // Example: Male looking for Male → sees Males looking for (Male OR Both)
-          genderFilter.$or = [
-            { lookingFor: lookingFor },      // Same gender seekers
-            { lookingFor: 'Both' },          // Open to everyone
-            { lookingFor: 'Any' }            // Open to anyone
-          ];
-        } else {
-          // Opposite-gender seeker: show profiles looking for current user's gender OR Both/Any
-          // Example: Male looking for Female → sees Females looking for (Male OR Both OR Any)
-          genderFilter.$or = [
-            { lookingFor: currentGender },   // Looking for current user's gender
-            { lookingFor: 'Both' },          // Open to everyone
-            { lookingFor: 'Any' }            // Open to anyone
-          ];
-        }
+        genderFilter.$or = [
+          { lookingFor: lookingFor },  // profiles also looking for same gender
+          { lookingFor: 'Both' },      // open to everyone
+          { lookingFor: 'Any' }        // open to anyone
+        ];
       }
       // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)
 

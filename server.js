@@ -1412,16 +1412,19 @@ app.get('/admin/revenue', async (req, res) => {
   }
 });
 
-// ── Admin: Get match statistics ───────────────────────────────────────────
+// ── Admin: Get match statistics (paginated) ───────────────────────────────
 app.get('/admin/matches', async (req, res) => {
   try {
+    const { page = 1, limit = 25, search } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
     // Count total matches
     const usersWithMatches = await User.aggregate([
       { $unwind: '$matches' },
       { $group: { _id: null, totalMatches: { $sum: 1 } } }
     ]);
     const totalMatches = usersWithMatches[0]?.totalMatches || 0;
-    
+
     // Count matches today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1431,53 +1434,56 @@ app.get('/admin/matches', async (req, res) => {
       { $group: { _id: null, count: { $sum: 1 } } }
     ]);
     const todayCount = matchesToday[0]?.count || 0;
-    
-    // Calculate match rate
+
+    // Match rate
     const totalUsers = await User.countDocuments();
     const usersWithMatch = await User.countDocuments({ 'matches.0': { $exists: true } });
     const matchRate = totalUsers > 0 ? ((usersWithMatch / totalUsers) * 100).toFixed(1) : 0;
-    
-    // Get last 7 days match data
-    const matchData = [];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    for (let i = 0; i < 7; i++) {
-      matchData.push({
-        day: days[i],
-        matches: Math.floor(Math.random() * 50) + 20 // Mock data
-      });
-    }
-    
-    // Get recent match pairs (last 50 unique pairs)
-    const recentMatchUsers = await User.find(
+
+    // Build all unique pairs with pagination
+    const allMatchUsers = await User.find(
       { 'matches.0': { $exists: true } },
       { telegramId: 1, name: 1, username: 1, gender: 1, age: 1, location: 1, isVip: 1, matches: 1 }
-    ).sort({ 'matches.matchedAt': -1 }).limit(100);
+    ).sort({ updatedAt: -1 });
 
     const seen = new Set();
-    const recentPairs = [];
-    for (const user of recentMatchUsers) {
+    const allPairs = [];
+    for (const user of allMatchUsers) {
       for (const match of (user.matches || [])) {
-        const key = [user.telegramId, match.userId].sort().join('_');
+        const key = [String(user.telegramId), String(match.userId)].sort().join('_');
         if (!seen.has(key)) {
           seen.add(key);
-          recentPairs.push({
+          allPairs.push({
             user1: { telegramId: user.telegramId, name: user.name, username: user.username, gender: user.gender, age: user.age, location: user.location, isVip: user.isVip },
             user2Id: match.userId,
             matchedAt: match.matchedAt || null
           });
-          if (recentPairs.length >= 50) break;
         }
       }
-      if (recentPairs.length >= 50) break;
     }
 
-    // Enrich user2 details
-    const user2Ids = recentPairs.map(p => String(p.user2Id));
+    // Search filter
+    let filtered = allPairs;
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = allPairs.filter(p =>
+        (p.user1.name || '').toLowerCase().includes(q) ||
+        (p.user1.username || '').toLowerCase().includes(q) ||
+        String(p.user1.telegramId).includes(q) ||
+        String(p.user2Id).includes(q)
+      );
+    }
+
+    const totalPairs = filtered.length;
+    const pagePairs = filtered.slice(skip, skip + parseInt(limit));
+
+    // Enrich user2 details for this page only
+    const user2Ids = pagePairs.map(p => String(p.user2Id));
     const user2Map = {};
     const user2Docs = await User.find({ telegramId: { $in: user2Ids } }, { telegramId: 1, name: 1, username: 1, gender: 1, age: 1, location: 1, isVip: 1 });
-    user2Docs.forEach(u => { user2Map[u.telegramId] = u; });
+    user2Docs.forEach(u => { user2Map[String(u.telegramId)] = u; });
 
-    const enrichedPairs = recentPairs.map(p => ({
+    const enrichedPairs = pagePairs.map(p => ({
       user1: p.user1,
       user2: user2Map[String(p.user2Id)] || { telegramId: p.user2Id, name: 'Unknown' },
       matchedAt: p.matchedAt
@@ -1487,12 +1493,51 @@ app.get('/admin/matches', async (req, res) => {
       totalMatches: Math.floor(totalMatches / 2),
       todayMatches: Math.floor(todayCount / 2),
       matchRate,
-      matchData,
-      recentPairs: enrichedPairs
+      recentPairs: enrichedPairs,
+      total: totalPairs,
+      page: parseInt(page),
+      pages: Math.ceil(totalPairs / parseInt(limit)),
+      limit: parseInt(limit)
     });
   } catch (err) {
     console.error('Match stats error:', err);
     res.status(500).json({ error: 'Failed to fetch match statistics' });
+  }
+});
+
+// ── Admin: Manually create a match between two users ──────────────────────
+app.post('/admin/match', async (req, res) => {
+  try {
+    const { user1Id, user2Id } = req.body;
+    if (!user1Id || !user2Id) return res.status(400).json({ error: 'Both user IDs required' });
+    if (String(user1Id) === String(user2Id)) return res.status(400).json({ error: 'Cannot match a user with themselves' });
+
+    const [user1, user2] = await Promise.all([
+      User.findOne({ telegramId: String(user1Id) }),
+      User.findOne({ telegramId: String(user2Id) })
+    ]);
+    if (!user1) return res.status(404).json({ error: `User not found: ${user1Id}` });
+    if (!user2) return res.status(404).json({ error: `User not found: ${user2Id}` });
+
+    const alreadyMatched = user1.matches?.some(m => String(m.userId) === String(user2Id));
+    if (alreadyMatched) return res.status(409).json({ error: 'Users are already matched' });
+
+    const now = new Date();
+    await Promise.all([
+      User.findOneAndUpdate(
+        { telegramId: String(user1Id) },
+        { $push: { matches: { userId: String(user2Id), matchedAt: now } } }
+      ),
+      User.findOneAndUpdate(
+        { telegramId: String(user2Id) },
+        { $push: { matches: { userId: String(user1Id), matchedAt: now } } }
+      )
+    ]);
+
+    res.json({ success: true, message: `Matched ${user1.name} ↔ ${user2.name}` });
+  } catch (err) {
+    console.error('Admin match error:', err);
+    res.status(500).json({ error: 'Failed to create match' });
   }
 });
 
