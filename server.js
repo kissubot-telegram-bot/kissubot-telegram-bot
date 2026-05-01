@@ -520,6 +520,77 @@ const connectWithRetry = async () => {
       process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
       process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+      // ── Admin Alert System ─────────────────────────────────────────────
+      const ALERT_ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+      const alertState = { lastMatchCount: null, lastUserCount: null };
+
+      async function runAlerts() {
+        if (!bot || ALERT_ADMIN_IDS.length === 0) return;
+        try {
+          const now = new Date();
+          const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+          const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
+
+          const [matchesTodayAgg, newToday, recentMatchAgg] = await Promise.all([
+            User.aggregate([
+              { $unwind: '$matches' },
+              { $match: { 'matches.matchedAt': { $gte: todayStart } } },
+              { $group: { _id: null, count: { $sum: 1 } } }
+            ]),
+            User.countDocuments({ createdAt: { $gte: todayStart } }),
+            User.aggregate([
+              { $unwind: '$matches' },
+              { $match: { 'matches.matchedAt': { $gte: twoHoursAgo } } },
+              { $group: { _id: null, count: { $sum: 1 } } }
+            ])
+          ]);
+
+          const matchesToday = Math.round((matchesTodayAgg[0]?.count || 0) / 2);
+          const recentMatches = Math.round((recentMatchAgg[0]?.count || 0) / 2);
+          const hour = now.getHours();
+          const alerts = [];
+
+          // Alert: no matches in last 2 hours (only during active hours 10am-11pm)
+          if (hour >= 10 && hour <= 23 && recentMatches === 0) {
+            alerts.push(`⚠️ *No matches* in the last 2 hours. Check if the matching system is working.`);
+          }
+
+          // Alert: matches dropped significantly vs yesterday's count
+          if (alertState.lastMatchCount !== null && matchesToday < alertState.lastMatchCount * 0.5 && matchesToday < 5) {
+            alerts.push(`📉 *Match drop detected:* Only ${matchesToday} matches today (was ${alertState.lastMatchCount} at last check).`);
+          }
+
+          // Alert: user spike — more than 50 new users today
+          if (newToday > 50 && (alertState.lastUserCount === null || newToday > alertState.lastUserCount + 20)) {
+            alerts.push(`🚀 *User spike!* ${newToday} new users joined today.`);
+          }
+
+          // Alert: zero matches all day (after 6pm)
+          if (hour >= 18 && matchesToday === 0) {
+            alerts.push(`🔴 *Zero matches today!* No matches have occurred at all today. Investigate immediately.`);
+          }
+
+          alertState.lastMatchCount = matchesToday;
+          alertState.lastUserCount = newToday;
+
+          if (alerts.length > 0) {
+            const msg = `🤖 *KissuBot Alert*\n\n${alerts.join('\n\n')}\n\n_${now.toLocaleString()}_`;
+            for (const adminId of ALERT_ADMIN_IDS) {
+              await bot.sendMessage(adminId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+            }
+            console.log(`[ALERTS] Sent ${alerts.length} alert(s) to ${ALERT_ADMIN_IDS.length} admin(s)`);
+          }
+        } catch (err) {
+          console.error('[ALERTS] Error running alerts:', err.message);
+        }
+      }
+
+      // Run alert check every hour
+      setInterval(runAlerts, 60 * 60 * 1000);
+      // Also run once on startup (after 2 min delay)
+      setTimeout(runAlerts, 2 * 60 * 1000);
+      console.log(`[ALERTS] Alert system started. Admin IDs: ${ALERT_ADMIN_IDS.length ? ALERT_ADMIN_IDS.join(', ') : 'none configured (set ADMIN_IDS env var)'}`);
+
       break;
     } catch (err) {
       retries += 1;
@@ -1099,35 +1170,106 @@ app.post('/stats/match', async (req, res) => {
 // ── Admin: Aggregate stats ───────────────────────────────────────────────
 app.get('/admin/stats', async (req, res) => {
   try {
-    const [totalUsers, vipUsers, pendingReports, statsAgg] = await Promise.all([
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers, pendingReports,
+      activeToday, newToday,
+      matchesTodayAgg, totalMatchesAgg,
+      swipesAgg, zeroMatchesCount, chatsStarted,
+      retentionCount, statsAgg
+    ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ isVip: true }),
+      User.countDocuments({ gender: 'Male' }),
+      User.countDocuments({ gender: 'Female' }),
+      User.countDocuments({ isBanned: true }),
       Report.countDocuments({ status: 'pending' }),
+      // Active today
+      User.countDocuments({ lastActive: { $gte: todayStart } }),
+      // New today
+      User.countDocuments({ createdAt: { $gte: todayStart } }),
+      // Matches today (each match stored on both users, divide by 2)
+      User.aggregate([
+        { $unwind: '$matches' },
+        { $match: { 'matches.matchedAt': { $gte: todayStart } } },
+        { $group: { _id: null, count: { $sum: 1 } } }
+      ]),
+      // Total matches
+      User.aggregate([
+        { $project: { matchCount: { $size: { $ifNull: ['$matches', []] } } } },
+        { $group: { _id: null, total: { $sum: '$matchCount' }, avg: { $avg: '$matchCount' } } }
+      ]),
+      // Total swipes (likes given)
+      User.aggregate([
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$stats.likesGiven', 0] } } } }
+      ]),
+      // Users with zero matches
+      User.countDocuments({ $or: [{ matches: { $size: 0 } }, { matches: { $exists: false } }] }),
+      // Chats started (matches where at least 1 message sent)
+      User.aggregate([
+        { $unwind: '$matches' },
+        { $match: { 'matches.messageCount.user1': { $gt: 0 } } },
+        { $group: { _id: null, count: { $sum: 1 } } }
+      ]),
+      // Retained users (active in last 7 days)
+      User.countDocuments({ lastActive: { $gte: weekAgo } }),
+      // Legacy stats
       User.aggregate([{
         $group: {
           _id: null,
-          totalLikesGiven: { $sum: '$stats.likesGiven' },
-          totalLikesReceived: { $sum: '$stats.likesReceived' },
-          totalMatches: { $sum: '$stats.matchCount' }
+          totalLikesGiven: { $sum: { $ifNull: ['$stats.likesGiven', 0] } },
+          totalLikesReceived: { $sum: { $ifNull: ['$stats.likesReceived', 0] } }
         }
       }])
     ]);
+
     const agg = statsAgg[0] || {};
-    
-    // Calculate total revenue (mock data - replace with real revenue tracking)
-    const totalRevenue = vipUsers * 9.99; // Assuming $9.99 per VIP
-    
+    const tmAgg = totalMatchesAgg[0] || { total: 0, avg: 0 };
+    const totalMatches = Math.round((tmAgg.total || 0) / 2);
+    const avgMatchesPerUser = tmAgg.avg ? parseFloat(tmAgg.avg.toFixed(2)) : 0;
+    const matchesToday = Math.round((matchesTodayAgg[0]?.count || 0) / 2);
+    const totalSwipes = swipesAgg[0]?.total || 0;
+    const chatsCount = chatsStarted[0]?.count || 0;
+    const totalRevenue = vipUsers * 9.99;
+    const conversionRate = totalUsers > 0 ? ((vipUsers / totalUsers) * 100).toFixed(1) : '0.0';
+    const retentionRate = totalUsers > 0 ? ((retentionCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const matchRate = totalUsers > 0 ? ((totalMatches / totalUsers) * 100).toFixed(1) : '0.0';
+    const zeroMatchPct = totalUsers > 0 ? ((zeroMatchesCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const activeUsers = maleUsers + femaleUsers || totalUsers;
+    const maleRatio = activeUsers > 0 ? ((maleUsers / activeUsers) * 100).toFixed(1) : '0.0';
+    const femaleRatio = activeUsers > 0 ? ((femaleUsers / activeUsers) * 100).toFixed(1) : '0.0';
+
+    // Funnel: Joined → Swiped → Matched → Chatted → Paid
+    const swipedUsers = await User.countDocuments({ 'stats.likesGiven': { $gt: 0 } });
+    const matchedUsers = await User.countDocuments({ 'matches.0': { $exists: true } });
+
     res.json({
-      totalUsers,
-      vipUsers,
-      pendingReports,
+      // Totals
+      totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers,
+      totalMatches, totalRevenue: totalRevenue.toFixed(2),
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
-      totalMatches: Math.round((agg.totalMatches || 0) / 2),
-      totalRevenue: totalRevenue.toFixed(2),
-      bannedUsers: await User.countDocuments({ isBanned: true })
+      pendingReports,
+      // Daily
+      activeToday, newToday, matchesToday, revenueToday: 0,
+      // Rates
+      matchRate, conversionRate, retentionRate, maleRatio, femaleRatio,
+      // Quality
+      avgMatchesPerUser, zeroMatchPct, totalSwipes, chatsStarted: chatsCount,
+      // Funnel
+      funnel: {
+        joined: totalUsers,
+        swiped: swipedUsers,
+        matched: matchedUsers,
+        chatted: chatsCount,
+        paid: vipUsers
+      }
     });
   } catch (err) {
+    console.error('[Admin Stats] Error:', err);
     res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
@@ -1149,6 +1291,8 @@ app.get('/admin/users', async (req, res) => {
     if (filter === 'vip') query.isVip = true;
     else if (filter === 'banned') query.isBanned = true;
     else if (filter === 'active') query = { ...query, isBanned: { $ne: true } };
+    else if (filter === 'male') query.gender = 'Male';
+    else if (filter === 'female') query.gender = 'Female';
 
     const [users, total] = await Promise.all([
       User.find(query)
@@ -1256,6 +1400,27 @@ app.delete('/admin/users/:telegramId', async (req, res) => {
   }
 });
 
+// ── Admin: Broadcast count preview ───────────────────────────────────────
+app.get('/admin/broadcast/count', async (req, res) => {
+  try {
+    const { targetGroup = 'all' } = req.query;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    let query = { isBanned: { $ne: true } };
+    if (targetGroup === 'vip') query.isVip = true;
+    else if (targetGroup === 'free') query.isVip = { $ne: true };
+    else if (targetGroup === 'inactive') query.lastActive = { $lt: sevenDaysAgo };
+    else if (targetGroup === 'no_match') query.$or = [{ matches: { $size: 0 } }, { matches: { $exists: false } }];
+    else if (targetGroup === 'male') query.gender = 'Male';
+    else if (targetGroup === 'female') query.gender = 'Female';
+    else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
+    const count = await User.countDocuments(query);
+    res.json({ count, targetGroup });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to count' });
+  }
+});
+
 // ── Admin: Broadcast message ──────────────────────────────────────────────
 app.post('/admin/broadcast', async (req, res) => {
   try {
@@ -1263,18 +1428,24 @@ app.post('/admin/broadcast', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message is required' });
     if (!bot) return res.status(500).json({ error: 'Bot not available' });
 
-    let query = {};
-    if (targetGroup === 'vip') query = { isVip: true };
-    else if (targetGroup === 'free') query = { isVip: { $ne: true } };
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    let query = { isBanned: { $ne: true } };
+    if (targetGroup === 'vip') query.isVip = true;
+    else if (targetGroup === 'free') query.isVip = { $ne: true };
+    else if (targetGroup === 'inactive') query.lastActive = { $lt: sevenDaysAgo };
+    else if (targetGroup === 'no_match') query.$or = [{ matches: { $size: 0 } }, { matches: { $exists: false } }];
+    else if (targetGroup === 'male') query.gender = 'Male';
+    else if (targetGroup === 'female') query.gender = 'Female';
+    else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
 
-    const users = await User.find({ ...query, isBanned: { $ne: true } }).select('telegramId');
+    const users = await User.find(query).select('telegramId');
     let sent = 0, failed = 0;
 
     for (const user of users) {
       try {
         await bot.sendMessage(user.telegramId, `📢 *Announcement*\n\n${message}`, { parse_mode: 'Markdown' });
         sent++;
-        await new Promise(r => setTimeout(r, 50)); // Rate limit
+        await new Promise(r => setTimeout(r, 50));
       } catch (e) { failed++; }
     }
 

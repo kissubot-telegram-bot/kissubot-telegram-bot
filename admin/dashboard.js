@@ -114,23 +114,57 @@ document.querySelectorAll('.nav-item').forEach(item => {
     });
 });
 
+function setEl(id, val) { const e = document.getElementById(id); if (e) e.textContent = val; }
+
 // Load dashboard data
 async function loadDashboardData() {
     try {
-        const stats = await apiFetch('/admin/stats');
-        document.getElementById('total-users').textContent = stats.totalUsers || 0;
-        document.getElementById('total-matches').textContent = stats.totalMatches || 0;
-        document.getElementById('vip-users').textContent = stats.vipUsers || 0;
-        document.getElementById('total-revenue').textContent = `$${stats.totalRevenue || 0}`;
-        const bannedEl = document.getElementById('banned-users');
-        if (bannedEl) bannedEl.textContent = stats.bannedUsers || 0;
+        const s = await apiFetch('/admin/stats');
+
+        // ROW 1 — Today
+        setEl('active-today', (s.activeToday || 0).toLocaleString());
+        setEl('matches-today', (s.matchesToday || 0).toLocaleString());
+        setEl('revenue-today', `$${s.revenueToday || 0}`);
+        setEl('new-today', (s.newToday || 0).toLocaleString());
+
+        // ROW 2 — Rates
+        setEl('match-rate', `${s.matchRate || 0}%`);
+        setEl('conversion-rate', `${s.conversionRate || 0}%`);
+        setEl('retention-rate', `${s.retentionRate || 0}%`);
+        setEl('gender-ratio', `${s.maleRatio || 0}% M`);
+        setEl('gender-ratio-sub', `👔 ${s.maleRatio || 0}% · 👗 ${s.femaleRatio || 0}%`);
+
+        // ROW 3 — Volume
+        setEl('total-users', (s.totalUsers || 0).toLocaleString());
+        setEl('male-users', (s.maleUsers || 0).toLocaleString());
+        setEl('female-users', (s.femaleUsers || 0).toLocaleString());
+        setEl('banned-users', (s.bannedUsers || 0).toLocaleString());
+        setEl('total-swipes', (s.totalSwipes || 0).toLocaleString());
+        setEl('chats-started', (s.chatsStarted || 0).toLocaleString());
+        setEl('avg-matches', s.avgMatchesPerUser || 0);
+        setEl('vip-users', (s.vipUsers || 0).toLocaleString());
+        setEl('total-revenue', s.totalRevenue || 0);
+
+        // Funnel
+        const f = s.funnel || {};
+        const base = f.joined || 1;
+        const pct = (n) => base > 0 ? `${((n / base) * 100).toFixed(1)}%` : '–';
+        const fSteps = ['joined','swiped','matched','chatted','paid'];
+        fSteps.forEach(step => {
+            const el = document.getElementById(`funnel-${step}`);
+            if (!el) return;
+            el.querySelector('.funnel-count').textContent = (f[step] || 0).toLocaleString();
+            const pctEl = el.querySelector('.funnel-pct');
+            if (pctEl) pctEl.textContent = step === 'joined' ? 'baseline' : pct(f[step] || 0);
+        });
+
         await loadUserGrowthChart();
         await loadMatchActivityChart();
         await loadRecentActivity();
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         showNotification(`Failed to load dashboard: ${error.message}`, 'error');
-        ['total-users','total-matches','vip-users','total-revenue'].forEach(id => {
+        ['total-users','vip-users','total-revenue','active-today','matches-today','new-today'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = 'Error';
         });
@@ -434,6 +468,9 @@ async function loadPageData(page) {
             break;
         case 'matches':
             await loadMatchStats();
+            break;
+        case 'settings':
+            updateBroadcastCount();
             break;
     }
 }
@@ -802,6 +839,17 @@ async function dismissReport(reportId, btn) {
 }
 
 // ── Broadcast ─────────────────────────────────────────────────────────────────
+async function updateBroadcastCount() {
+    const target = document.querySelector('input[name="target"]:checked')?.value || 'all';
+    const label = document.getElementById('broadcast-count-label');
+    if (!label) return;
+    label.textContent = 'calculating...';
+    try {
+        const data = await apiFetch(`/admin/broadcast/count?targetGroup=${target}`);
+        label.textContent = `~${data.count.toLocaleString()} recipients`;
+    } catch { label.textContent = 'count unavailable'; }
+}
+
 async function sendBroadcast() {
     const message = document.getElementById('broadcast-msg').value.trim();
     const target = document.querySelector('input[name="target"]:checked')?.value || 'all';
