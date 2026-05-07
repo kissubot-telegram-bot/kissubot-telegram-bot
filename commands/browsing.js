@@ -485,9 +485,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       if (bypassSeen) {
 
-        // After reset: skip ALL filters, show any other user ignoring blocked list too
+        // After reset: relax seen/location/age filters but always keep gender preference
 
-        let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, ...testFilter });
+        let q = User.find({ telegramId: { $ne: String(telegramId) }, name: { $exists: true, $ne: null }, ...testFilter, ...genderFilter });
 
         if (limit) q = q.limit(limit);
 
