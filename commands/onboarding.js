@@ -413,6 +413,12 @@ function setupOnboardingCommands(bot, userStates, User) {
             // ── PHOTO step ─────────────────────────────────────────────────
             if (step === 'photo') {
                 if (!msg.photo) {
+                    // Guard: if user already has photos, state is stale — clear and ignore
+                    const existingUser = await User.findOne({ telegramId }).select('photos profileCompleted').lean();
+                    if (existingUser && ((existingUser.photos && existingUser.photos.length > 0) || existingUser.profileCompleted)) {
+                        userStates.delete(telegramId);
+                        return;
+                    }
                     return bot.sendMessage(chatId,
                         '📸 Please send a *photo* (not a file or link).',
                         { parse_mode: 'Markdown' }
