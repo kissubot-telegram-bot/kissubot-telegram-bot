@@ -571,8 +571,10 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
         }
 
-        // 5th try: last resort — any profile with photo regardless of gender preference
+        // 5th try: last resort — keep gender, relax lookingFor compatibility + photo requirement
         if (profiles.length === 0) {
+
+          const genderOnly = genderFilter.gender ? { gender: genderFilter.gender } : {};
 
           let q = User.find({
 
@@ -580,13 +582,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
             name: { $exists: true, $ne: null },
 
-            $or: [
-
-              { photos: { $exists: true, $not: { $size: 0 } } },
-
-              { profilePhoto: { $exists: true, $ne: null } }
-
-            ],
+            ...genderOnly,
 
             ...testFilter
 
@@ -595,6 +591,8 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           if (limit) q = q.limit(limit);
 
           profiles = await q;
+
+          console.log(`[BROWSE] 5th try (gender only, no photo/lookingFor req): ${profiles.length} profiles found`);
 
         }
 
