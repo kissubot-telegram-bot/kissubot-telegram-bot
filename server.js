@@ -1414,6 +1414,7 @@ app.get('/admin/broadcast/count', async (req, res) => {
     else if (targetGroup === 'male') query.gender = 'Male';
     else if (targetGroup === 'female') query.gender = 'Female';
     else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
+    else if (targetGroup === 'no_photo') query.$or = [{ photos: { $size: 0 } }, { photos: { $exists: false } }];
     const count = await User.countDocuments(query);
     res.json({ count, targetGroup });
   } catch (err) {
@@ -1437,6 +1438,7 @@ app.post('/admin/broadcast', async (req, res) => {
     else if (targetGroup === 'male') query.gender = 'Male';
     else if (targetGroup === 'female') query.gender = 'Female';
     else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
+    else if (targetGroup === 'no_photo') query.$or = [{ photos: { $size: 0 } }, { photos: { $exists: false } }];
 
     const users = await User.find(query).select('telegramId');
     let sent = 0, failed = 0;

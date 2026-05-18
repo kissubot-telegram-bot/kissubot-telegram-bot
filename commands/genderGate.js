@@ -24,10 +24,33 @@ function incrementMaleSwipeCount(telegramId) {
     return entry.count;
 }
 
+// Photo gate: blocks any feature until at least one photo is uploaded
+async function requirePhotoUploaded(bot, chatId, user) {
+    const hasPhoto = user.photos && user.photos.length > 0;
+    if (hasPhoto) return true;
+    await bot.sendMessage(chatId,
+        `📸 *Photo Required*\n\n` +
+        `You need to upload at least *one photo* before you can use this feature.\n\n` +
+        `Profiles with photos get *5× more matches* — it only takes a second! 🚀`,
+        {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📸 Upload Photo Now', callback_data: 'manage_photos' }],
+                    [{ text: '🏠 Main Menu', callback_data: 'main_menu' }]
+                ]
+            }
+        }
+    );
+    return false;
+}
+
 // Browse gate: women unlimited free, men 5 free daily swipes then paywall
 async function requireBrowseAccess(bot, chatId, telegramId, User) {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
+
+    if (!(await requirePhotoUploaded(bot, chatId, user))) return false;
 
     const gender = (user.gender || '').toLowerCase();
 
@@ -63,6 +86,8 @@ async function requireBrowseAccess(bot, chatId, telegramId, User) {
 async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'view') {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
+
+    if (!(await requirePhotoUploaded(bot, chatId, user))) return false;
 
     console.log('[CHAT GATE] Action:', action, 'User:', telegramId, 'Gender:', user.gender, 'VIP:', user.isVip);
 
@@ -114,12 +139,13 @@ async function requireMatchesAccess(bot, chatId, telegramId, User, action = 'vie
     return true;
 }
 
-// Likes gate: everyone can see who liked them
+// Likes gate: everyone can see who liked them (but must have a photo)
 async function requireLikesAccess(bot, chatId, telegramId, User) {
     const user = await getCachedUserProfile(telegramId, User);
     if (!user) return false;
 
-    // Allow all users to see their likes
+    if (!(await requirePhotoUploaded(bot, chatId, user))) return false;
+
     return true;
 }
 
