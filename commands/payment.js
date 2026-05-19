@@ -1,5 +1,6 @@
 const { invalidateUserCache } = require('./auth');
 const { MAIN_KEYBOARD, VIP_KEYBOARD, PERKS_KEYBOARD } = require('../keyboard');
+const { Transaction, STARS_TO_USD } = require('../models/Transaction');
 
 const PAYMENT_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN || '';
 
@@ -126,6 +127,18 @@ function setupPaymentCommands(bot, User) {
         ).catch(() => {});
 
         console.log(`[Payment] ✅ Gift VIP (${days}d) fulfilled for recipient ${recipientId} by buyer ${buyerId}`);
+        Transaction.create({
+          telegramId: String(buyerId),
+          recipientTelegramId: String(recipientId),
+          buyerName: buyer?.name || '',
+          productKey: `gift_vip_${days}`,
+          productTitle: `🎁 Gift VIP (${days === 30 ? '1 Month' : days === 180 ? '6 Months' : '1 Year'})`,
+          type: 'gift_vip',
+          amountStars: stars,
+          amountUSD: parseFloat((stars * STARS_TO_USD).toFixed(2)),
+          vipDays: days,
+          telegramChargeId: msg.successful_payment.telegram_payment_charge_id
+        }).catch(e => console.error('[Payment] Transaction save error:', e.message));
       } catch (err) {
         console.error('[Payment] Gift VIP fulfill error:', err);
         bot.sendMessage(chatId, '❌ Payment received but gifting failed. Please contact support.');
@@ -200,6 +213,19 @@ function setupPaymentCommands(bot, User) {
       }
 
       console.log(`[Payment] ✅ Fulfilled ${productKey} for user ${buyerTelegramId} (${stars} Stars)`);
+      Transaction.create({
+        telegramId: String(buyerTelegramId),
+        buyerName: user.name || '',
+        productKey,
+        productTitle: product.title,
+        type: product.type,
+        amountStars: stars,
+        amountUSD: parseFloat((stars * STARS_TO_USD).toFixed(2)),
+        coinsAdded: product.type === 'coins' ? (product.coins + (product.bonus || 0)) : 0,
+        vipDays: product.type === 'vip' ? product.days : 0,
+        boostsAdded: product.type === 'boost' ? product.count : 0,
+        telegramChargeId: msg.successful_payment.telegram_payment_charge_id
+      }).catch(e => console.error('[Payment] Transaction save error:', e.message));
 
     } catch (err) {
       console.error('[Payment] Fulfill error:', err);
