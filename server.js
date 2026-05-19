@@ -704,7 +704,7 @@ const connectWithRetry = async () => {
           try {
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
             const usersWithLikes = await User.aggregate([
-              { $match: { profileCompleted: true, isBanned: { $ne: true } } },
+              { $match: { profileCompleted: true, isBanned: { $ne: true }, likesTeaserSentDate: { $ne: todayStr } } },
               { $project: {
                 telegramId: 1, name: 1,
                 newLikes: {
@@ -718,19 +718,23 @@ const connectWithRetry = async () => {
                 },
                 totalLikes: { $size: { $ifNull: ['$likes', []] } }
               }},
-              { $match: { totalLikes: { $gt: 0 } } }
+              { $match: { newLikes: { $gt: 0 } } }  // only users with NEW likes today
             ]);
+            const teaserIds = [];
             for (const u of usersWithLikes) {
-              if (!u.totalLikes) continue;
               try {
                 await bot.sendMessage(String(u.telegramId),
-                  `💕 *Someone liked your profile today!*\n\n*${u.totalLikes}* ${u.totalLikes === 1 ? 'person has' : 'people have'} liked you — tap to see who's interested! 👀`,
+                  `💕 *Someone liked your profile today!*\n\n*${u.newLikes}* ${u.newLikes === 1 ? 'person has' : 'people have'} liked you today — tap to see who's interested! 👀`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👀 See Who Liked You', callback_data: 'likes_you_hub' }]] } }
                 );
+                teaserIds.push(String(u.telegramId));
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
-            if (usersWithLikes.length) console.log(`[RETENTION] Likes teaser sent to ${usersWithLikes.length} users`);
+            if (teaserIds.length) {
+              await User.updateMany({ telegramId: { $in: teaserIds } }, { $set: { likesTeaserSentDate: todayStr } });
+              console.log(`[RETENTION] Likes teaser sent to ${teaserIds.length} users`);
+            }
           } catch (err) { console.error('[RETENTION] Likes teaser error:', err.message); }
         }
 
@@ -1033,6 +1037,7 @@ const userSchema = new mongoose.Schema({
   profileViewsToday: { type: Number, default: 0 },       // profile views received today
   lastViewCountDate: { type: String, default: '' },      // date string to reset daily counter
   viewSummarySentDate: { type: String, default: '' },    // date string: last day summary notification was sent
+  likesTeaserSentDate: { type: String, default: '' },    // date string: last day likes teaser was sent
   vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
   vipTrialExpiresAt: Date,                               // when the trial expires
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
