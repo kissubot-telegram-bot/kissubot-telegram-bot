@@ -1707,7 +1707,7 @@ app.post('/admin/broadcast', async (req, res) => {
         continue;
       }
       try {
-        await bot.sendMessage(user.telegramId, `📢 *Announcement*\n\n${message}`, { parse_mode: 'Markdown' });
+        await bot.sendMessage(user.telegramId, message, { parse_mode: 'Markdown' });
         await User.findOneAndUpdate({ telegramId: user.telegramId }, { lastNotificationSentAt: new Date() });
         sent++;
         await new Promise(r => setTimeout(r, 50));
