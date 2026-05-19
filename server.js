@@ -737,11 +737,14 @@ const connectWithRetry = async () => {
         // ── 8 PM UTC: Daily profile view summary ───────────────────────────
         if (hour === 19) {
           try {
+            // Only send to users whose counter hasn't been reset yet today
+            // (viewSummaryDate tracks when we last sent, distinct from lastViewCountDate)
             const viewed = await User.find({
               profileCompleted: true,
               isBanned: { $ne: true },
               profileViewsToday: { $gt: 0 },
-              lastViewCountDate: todayStr
+              lastViewCountDate: todayStr,
+              viewSummarySentDate: { $ne: todayStr }  // guard: don't re-send if cron fires twice
             }).select('telegramId name profileViewsToday').lean();
             for (const u of viewed) {
               try {
@@ -752,9 +755,15 @@ const connectWithRetry = async () => {
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
-            // Reset daily counters
-            await User.updateMany({ lastViewCountDate: { $ne: todayStr } }, { $set: { profileViewsToday: 0, lastViewCountDate: todayStr } });
-            if (viewed.length) console.log(`[RETENTION] View summary sent to ${viewed.length} users`);
+            if (viewed.length) {
+              const ids = viewed.map(u => u.telegramId);
+              // Reset counter + mark summary as sent for these users
+              await User.updateMany(
+                { telegramId: { $in: ids } },
+                { $set: { profileViewsToday: 0, viewSummarySentDate: todayStr } }
+              );
+              console.log(`[RETENTION] View summary sent to ${viewed.length} users`);
+            }
           } catch (err) { console.error('[RETENTION] View summary error:', err.message); }
         }
 
@@ -1023,6 +1032,7 @@ const userSchema = new mongoose.Schema({
   lastBrowseDate: { type: String, default: '' },         // 'YYYY-MM-DD' for streak tracking
   profileViewsToday: { type: Number, default: 0 },       // profile views received today
   lastViewCountDate: { type: String, default: '' },      // date string to reset daily counter
+  viewSummarySentDate: { type: String, default: '' },    // date string: last day summary notification was sent
   vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
   vipTrialExpiresAt: Date,                               // when the trial expires
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown

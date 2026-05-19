@@ -13,7 +13,8 @@ const {
 
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
-const PAYMENT_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN || '';
+// For Telegram Stars (XTR) the provider token MUST be empty string — any other value causes payment errors
+const PAYMENT_TOKEN = '';
 
 const GIFT_VIP_PLANS = {
   gift_vip_monthly:  { name: '1 Month VIP',  days: 30,  amount: 749  },
