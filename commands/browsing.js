@@ -254,29 +254,33 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
       if (!user.termsAccepted) {
-
-        return bot.sendMessage(chatId,
-          '⚠️ *Terms Required*\n\nYou must accept our Terms of Service and Privacy Policy before using KissuBot.\n\n📖 Please read and accept to continue.',
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '✅ Accept & Continue', callback_data: 'onboard_accept_terms' },
-                  { text: '❌ Decline', callback_data: 'onboard_decline_terms' }
-                ],
-                [
-                  { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
-                  { text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
-                ],
-                [
-                  { text: '🏠 Main Menu', callback_data: 'main_menu' }
+        if (user.profileCompleted) {
+          // Old user who completed onboarding before termsAccepted field existed — backfill silently
+          User.findOneAndUpdate({ telegramId: String(telegramId) }, { termsAccepted: true, termsAcceptedAt: new Date() }).catch(() => {});
+          invalidateUserCache(telegramId);
+        } else {
+          return bot.sendMessage(chatId,
+            '⚠️ *Terms Required*\n\nYou must accept our Terms of Service and Privacy Policy before using KissuBot.\n\n📖 Please read and accept to continue.',
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: '✅ Accept & Continue', callback_data: 'onboard_accept_terms' },
+                    { text: '❌ Decline', callback_data: 'onboard_decline_terms' }
+                  ],
+                  [
+                    { text: '📖 Read Terms', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/terms.html' },
+                    { text: '🔒 Privacy Policy', url: 'https://kissubot-telegram-bot.github.io/kissubot-telegram-bot/privacy.html' }
+                  ],
+                  [
+                    { text: '🏠 Main Menu', callback_data: 'main_menu' }
+                  ]
                 ]
-              ]
+              }
             }
-          }
-        );
-
+          );
+        }
       }
 
 
