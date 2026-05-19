@@ -475,59 +475,184 @@ async function loadPageData(page) {
     }
 }
 
-// Revenue Chart
-let revenueChart;
+// ── Revenue ────────────────────────────────────────────────────────────────
+let revenueChart, revTypeChart;
+let currentRevMonth = 'all';
+let currentTxnPage = 1;
+let allTxnData = [];
+
+const TYPE_COLORS = { vip: '#FFD700', coins: '#4CAF50', boost: '#2196F3', gift_vip: '#E91E63' };
+const TYPE_LABELS = { vip: '👑 VIP', coins: '💰 Coins', boost: '🚀 Boosts', gift_vip: '🎁 Gift VIP' };
+
+function fmtStars(n) { return `${Number(n || 0).toLocaleString()} ⭐`; }
+function fmtUSD(n)   { return `$${Number(n || 0).toFixed(2)}`; }
+
 async function loadRevenueChart() {
     try {
-        const res = await fetch(`${API_BASE}/admin/revenue`);
-        const revenueData = await res.json();
-        
-        // Update revenue stats
-        document.getElementById('monthly-revenue').textContent = `$${revenueData.monthlyRevenue}`;
-        document.getElementById('avg-revenue').textContent = `$${revenueData.avgRevenuePerUser}`;
-        
-        const ctx = document.getElementById('revenueChart');
-        if (!ctx) return;
-        
-        if (revenueChart) {
-            revenueChart.destroy();
+        // Load month dropdown
+        const mRes = await fetch(`${API_BASE}/admin/revenue/months`);
+        const months = await mRes.json();
+        const sel = document.getElementById('revenue-month-filter');
+        if (sel) {
+            sel.innerHTML = '<option value="all">All Time</option>' +
+                months.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+            sel.value = currentRevMonth;
+            sel.onchange = () => { currentRevMonth = sel.value; currentTxnPage = 1; loadRevenueChart(); };
         }
-        
-        revenueChart = new Chart(ctx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: revenueData.revenueData.map(d => d.month),
-                datasets: [{
-                    label: 'Revenue',
-                    data: revenueData.revenueData.map(d => d.revenue),
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+
+        // Load main revenue data
+        const url = currentRevMonth === 'all'
+            ? `${API_BASE}/admin/revenue`
+            : `${API_BASE}/admin/revenue?month=${currentRevMonth}`;
+        const res = await fetch(url);
+        const d = await res.json();
+
+        // Summary cards (always show all-time in top row regardless of filter)
+        const setEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        setEl('rev-stars',     fmtStars(d.allTime?.stars));
+        setEl('rev-usd',       fmtUSD(d.allTime?.usd));
+        setEl('rev-count',     (d.allTime?.count || 0).toLocaleString());
+        setEl('avg-revenue',   fmtUSD(d.arpu));
+        setEl('monthly-revenue', fmtUSD(d.thisMonth?.usd) + ` (${fmtStars(d.thisMonth?.stars)})`);
+        setEl('rev-today',     fmtUSD(d.today?.usd) + ` (${fmtStars(d.today?.stars)})`);
+
+        // Revenue trend chart
+        const ctx = document.getElementById('revenueChart');
+        if (ctx) {
+            if (revenueChart) revenueChart.destroy();
+            revenueChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: d.revenueData.map(r => r.month),
+                    datasets: [
+                        { label: '⭐ Stars', data: d.revenueData.map(r => r.stars), backgroundColor: 'rgba(255,215,0,0.7)', yAxisID: 'y' },
+                        { label: '💵 USD', data: d.revenueData.map(r => r.revenue), backgroundColor: 'rgba(76,175,80,0.7)', yAxisID: 'y2' }
+                    ]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value;
-                            }
-                        }
+                options: {
+                    responsive: true, maintainAspectRatio: true,
+                    plugins: { legend: { labels: { color: '#ccc' } } },
+                    scales: {
+                        y:  { beginAtZero: true, ticks: { color: '#FFD700', callback: v => v + '⭐' } },
+                        y2: { beginAtZero: true, position: 'right', ticks: { color: '#4CAF50', callback: v => '$' + v }, grid: { drawOnChartArea: false } }
                     }
                 }
-            }
-        });
+            });
+        }
+
+        // Product type pie chart
+        const typeCtx = document.getElementById('revTypeChart');
+        if (typeCtx && d.byType && d.byType.length) {
+            if (revTypeChart) revTypeChart.destroy();
+            revTypeChart = new Chart(typeCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: d.byType.map(t => TYPE_LABELS[t._id] || t._id),
+                    datasets: [{ data: d.byType.map(t => t.stars), backgroundColor: d.byType.map(t => TYPE_COLORS[t._id] || '#888') }]
+                },
+                options: { responsive: true, plugins: { legend: { labels: { color: '#ccc', font: { size: 12 } } } } }
+            });
+        }
+
+        // Top buyers table
+        const tbody = document.getElementById('top-buyers-body');
+        if (tbody) {
+            tbody.innerHTML = (d.topBuyers || []).length === 0
+                ? '<tr><td colspan="4" style="text-align:center;color:#666;padding:12px">No buyers yet</td></tr>'
+                : (d.topBuyers || []).map(b =>
+                    `<tr style="border-bottom:1px solid #222">
+                        <td style="padding:6px">${b.name || '—'}<br><span style="color:#666;font-size:11px">${b._id}</span></td>
+                        <td style="text-align:right;padding:6px;color:#FFD700">${b.stars.toLocaleString()}</td>
+                        <td style="text-align:right;padding:6px;color:#4CAF50">${fmtUSD(b.usd)}</td>
+                        <td style="text-align:right;padding:6px">${b.count}</td>
+                    </tr>`).join('');
+        }
+
+        // Load transaction log
+        await loadTransactions(currentRevMonth, currentTxnPage);
+
     } catch (error) {
         console.error('Error loading revenue chart:', error);
+    }
+}
+
+async function loadTransactions(month, page) {
+    try {
+        const url = `${API_BASE}/admin/revenue/transactions?month=${month}&page=${page}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        allTxnData = data.transactions || [];
+
+        const label = document.getElementById('txn-count-label');
+        if (label) label.textContent = `${data.total} transactions · ${fmtStars(data.totalStars)} · ${fmtUSD(data.totalUSD)}`;
+
+        const tbody = document.getElementById('txn-table-body');
+        if (!tbody) return;
+        if (!allTxnData.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#666">No transactions yet</td></tr>';
+        } else {
+            const badgeColors = { vip:'#FFD700', coins:'#4CAF50', boost:'#2196F3', gift_vip:'#E91E63' };
+            tbody.innerHTML = allTxnData.map(t => {
+                const dt = new Date(t.createdAt);
+                const dateStr = dt.toLocaleDateString('en-GB') + ' ' + dt.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+                const badge = `<span style="background:${badgeColors[t.type]||'#555'};color:#000;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">${(TYPE_LABELS[t.type]||t.type).replace(/^.+? /,'')}</span>`;
+                return `<tr style="border-bottom:1px solid #1a1a2e">
+                    <td style="padding:8px;color:#aaa;white-space:nowrap">${dateStr}</td>
+                    <td style="padding:8px">${t.buyerName||'—'}<br><span style="color:#555;font-size:11px">${t.telegramId}</span></td>
+                    <td style="padding:8px">${t.productTitle||t.productKey}</td>
+                    <td style="padding:8px;text-align:center">${badge}</td>
+                    <td style="padding:8px;text-align:right;color:#FFD700">${t.amountStars.toLocaleString()}</td>
+                    <td style="padding:8px;text-align:right;color:#4CAF50">${fmtUSD(t.amountUSD)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Pagination
+        const pgDiv = document.getElementById('txn-pagination');
+        if (pgDiv) {
+            pgDiv.innerHTML = '';
+            for (let i = 1; i <= data.pages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.style.cssText = `padding:6px 12px;border-radius:6px;border:none;cursor:pointer;background:${i === page ? '#7c3aed' : '#2a2a3e'};color:#fff`;
+                btn.onclick = () => { currentTxnPage = i; loadTransactions(currentRevMonth, i); };
+                pgDiv.appendChild(btn);
+            }
+        }
+    } catch (err) {
+        console.error('Error loading transactions:', err);
+    }
+}
+
+async function exportRevenueCSV() {
+    try {
+        const url = `${API_BASE}/admin/revenue/transactions?month=${currentRevMonth}&page=1`;
+        // Fetch all pages
+        const first = await (await fetch(url)).json();
+        let rows = [...(first.transactions || [])];
+        for (let p = 2; p <= first.pages; p++) {
+            const r = await (await fetch(`${API_BASE}/admin/revenue/transactions?month=${currentRevMonth}&page=${p}`)).json();
+            rows = rows.concat(r.transactions || []);
+        }
+        const header = 'Date,Buyer Name,Telegram ID,Product,Type,Stars,USD';
+        const lines = rows.map(t => [
+            new Date(t.createdAt).toISOString(),
+            `"${(t.buyerName||'').replace(/"/g,'""')}"`,
+            t.telegramId,
+            `"${(t.productTitle||t.productKey||'').replace(/"/g,'""')}"`,
+            t.type,
+            t.amountStars,
+            (t.amountUSD||0).toFixed(2)
+        ].join(','));
+        const csv = [header, ...lines].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `kissubot-revenue-${currentRevMonth}.csv`;
+        a.click();
+    } catch (err) {
+        console.error('CSV export error:', err);
+        alert('Export failed: ' + err.message);
     }
 }
 

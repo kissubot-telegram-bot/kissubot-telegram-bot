@@ -2,7 +2,8 @@ const { invalidateUserCache } = require('./auth');
 const { MAIN_KEYBOARD, VIP_KEYBOARD, PERKS_KEYBOARD } = require('../keyboard');
 const { Transaction, STARS_TO_USD } = require('../models/Transaction');
 
-const PAYMENT_TOKEN = process.env.TELEGRAM_PAYMENT_TOKEN || '';
+// For Telegram Stars (XTR) the provider token MUST be empty string — any other value causes payment errors
+const PAYMENT_TOKEN = '';
 
 // ── Product Catalog ──────────────────────────────────────────────────────────
 // All amounts are in Telegram Stars (XTR). 1 Star ≈ $0.02 USD.

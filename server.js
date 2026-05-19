@@ -1822,8 +1822,114 @@ app.get('/admin/activity', async (req, res) => {
   }
 });
 
+// ── Admin: Get available months (for dropdown) ────────────────────────────
+app.get('/admin/revenue/months', async (req, res) => {
+  try {
+    const months = await Transaction.aggregate([
+      { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } } } },
+      { $sort: { '_id.year': -1, '_id.month': -1 } }
+    ]);
+    const result = months.map(m => ({
+      value: `${m._id.year}-${String(m._id.month).padStart(2, '0')}`,
+      label: new Date(m._id.year, m._id.month - 1).toLocaleString('en-US', { month: 'long', year: 'numeric' })
+    }));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch months' });
+  }
+});
+
+// ── Admin: Get transactions (paginated, filterable by month) ──────────────
+app.get('/admin/revenue/transactions', async (req, res) => {
+  try {
+    const { month, page = 1 } = req.query; // month = 'YYYY-MM' or 'all'
+    const limit = 50;
+    const skip = (parseInt(page) - 1) * limit;
+
+    let matchFilter = {};
+    if (month && month !== 'all') {
+      const [y, m] = month.split('-').map(Number);
+      const start = new Date(y, m - 1, 1);
+      const end   = new Date(y, m, 1);
+      matchFilter = { createdAt: { $gte: start, $lt: end } };
+    }
+
+    const [transactions, total, summary] = await Promise.all([
+      Transaction.find(matchFilter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Transaction.countDocuments(matchFilter),
+      Transaction.aggregate([
+        { $match: matchFilter },
+        { $group: { _id: '$type', stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }
+      ])
+    ]);
+
+    const totalStars = summary.reduce((s, g) => s + g.stars, 0);
+    const totalUSD   = summary.reduce((s, g) => s + g.usd, 0);
+
+    res.json({ transactions, total, pages: Math.ceil(total / limit), totalStars, totalUSD, breakdown: summary });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
 // ── Admin: Get revenue data ───────────────────────────────────────────────
 app.get('/admin/revenue', async (req, res) => {
+  try {
+    const { month } = req.query; // optional 'YYYY-MM' filter
+    let matchFilter = {};
+    if (month && month !== 'all') {
+      const [y, m] = month.split('-').map(Number);
+      matchFilter = { createdAt: { $gte: new Date(y, m - 1, 1), $lt: new Date(y, m, 1) } };
+    }
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [allTime, thisMonth, today, byType, byProduct, topBuyers, monthly6] = await Promise.all([
+      Transaction.aggregate([{ $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
+      Transaction.aggregate([{ $match: { createdAt: { $gte: monthStart } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
+      Transaction.aggregate([{ $match: { createdAt: { $gte: todayStart } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
+      Transaction.aggregate([{ $match: matchFilter }, { $group: { _id: '$type', stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
+      Transaction.aggregate([{ $match: matchFilter }, { $group: { _id: '$productKey', title: { $first: '$productTitle' }, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }, { $sort: { stars: -1 } }, { $limit: 5 }]),
+      Transaction.aggregate([{ $match: matchFilter }, { $group: { _id: '$telegramId', name: { $first: '$buyerName' }, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }, { $sort: { stars: -1 } }, { $limit: 10 }]),
+      Transaction.aggregate([
+        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+        { $limit: 12 }
+      ])
+    ]);
+
+    const totalUsers = await User.countDocuments();
+    const arpu = allTime[0] && totalUsers > 0 ? (allTime[0].usd / totalUsers).toFixed(4) : '0';
+
+    const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const revenueData = monthly6.map(m => ({
+      month: `${monthLabels[m._id.month - 1]} ${m._id.year}`,
+      stars: m.stars,
+      revenue: parseFloat(m.usd.toFixed(2)),
+      count: m.count
+    }));
+
+    res.json({
+      allTime:       { stars: allTime[0]?.stars || 0,     usd: parseFloat((allTime[0]?.usd || 0).toFixed(2)),     count: allTime[0]?.count || 0 },
+      thisMonth:     { stars: thisMonth[0]?.stars || 0,   usd: parseFloat((thisMonth[0]?.usd || 0).toFixed(2)),   count: thisMonth[0]?.count || 0 },
+      today:         { stars: today[0]?.stars || 0,       usd: parseFloat((today[0]?.usd || 0).toFixed(2)),       count: today[0]?.count || 0 },
+      byType, byProduct: byProduct.map(p => ({ ...p, usd: parseFloat(p.usd.toFixed(2)) })),
+      topBuyers: topBuyers.map(b => ({ ...b, usd: parseFloat(b.usd.toFixed(2)) })),
+      revenueData, arpu, starsToUsd: STARS_TO_USD,
+      // Legacy fields for old dashboard code
+      monthlyRevenue: parseFloat((thisMonth[0]?.usd || 0).toFixed(2)),
+      avgRevenuePerUser: arpu,
+      totalRevenue: parseFloat((allTime[0]?.usd || 0).toFixed(2))
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch revenue data' });
+  }
+});
+
+// ── REMOVED OLD /admin/revenue — replaced above ───────────────────────────
+app.get('/admin/revenue/_old_disabled', async (req, res) => {
   try {
     const vipUsers = await User.countDocuments({ 
       isVip: true,

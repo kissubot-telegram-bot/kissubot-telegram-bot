@@ -328,25 +328,103 @@
 
             <!-- Revenue Page -->
             <div id="revenue-page" class="page">
+                <!-- Month filter bar -->
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+                    <label style="font-weight:600;color:#aaa">Filter by Month:</label>
+                    <select id="revenue-month-filter" style="background:#1e1e2e;color:#fff;border:1px solid #333;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer">
+                        <option value="all">All Time</option>
+                    </select>
+                    <button onclick="exportRevenueCSV()" style="background:#4CAF50;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px">⬇️ Export CSV</button>
+                </div>
+                <!-- Summary cards -->
                 <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-info">
+                            <h3 id="rev-stars">0 ⭐</h3>
+                            <p id="rev-stars-label">All-time Stars</p>
+                        </div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-icon">💵</div>
                         <div class="stat-info">
-                            <h3 id="monthly-revenue">$0</h3>
-                            <p>This Month</p>
+                            <h3 id="rev-usd">$0.00</h3>
+                            <p id="rev-usd-label">All-time USD</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🧾</div>
+                        <div class="stat-info">
+                            <h3 id="rev-count">0</h3>
+                            <p>Transactions</p>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon">📈</div>
                         <div class="stat-info">
                             <h3 id="avg-revenue">$0</h3>
-                            <p>Average per User</p>
+                            <p>ARPU (all time)</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">☀️</div>
+                        <div class="stat-info">
+                            <h3 id="monthly-revenue">$0</h3>
+                            <p>This Month</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-info">
+                            <h3 id="rev-today">$0</h3>
+                            <p>Today</p>
                         </div>
                     </div>
                 </div>
+                <!-- Revenue trend chart -->
                 <div class="chart-card">
-                    <h3>Revenue Over Time</h3>
-                    <canvas id="revenueChart"></canvas>
+                    <h3>Revenue Over Time (Stars ⭐)</h3>
+                    <canvas id="revenueChart" height="80"></canvas>
+                </div>
+                <!-- Product breakdown + Top buyers -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px" id="rev-breakdown-grid">
+                    <div class="chart-card">
+                        <h3>Revenue by Product Type</h3>
+                        <canvas id="revTypeChart" height="140"></canvas>
+                    </div>
+                    <div class="chart-card" style="overflow:auto">
+                        <h3>Top Buyers</h3>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px">
+                            <thead><tr style="color:#aaa;border-bottom:1px solid #333">
+                                <th style="text-align:left;padding:6px">Buyer</th>
+                                <th style="text-align:right;padding:6px">⭐</th>
+                                <th style="text-align:right;padding:6px">USD</th>
+                                <th style="text-align:right;padding:6px">Txns</th>
+                            </tr></thead>
+                            <tbody id="top-buyers-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- Transactions table -->
+                <div class="chart-card" style="margin-top:16px;overflow:auto">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                        <h3 style="margin:0">Transaction Log</h3>
+                        <span id="txn-count-label" style="color:#aaa;font-size:13px"></span>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px">
+                        <thead><tr style="color:#aaa;border-bottom:1px solid #333">
+                            <th style="text-align:left;padding:8px">Date / Time</th>
+                            <th style="text-align:left;padding:8px">Buyer</th>
+                            <th style="text-align:left;padding:8px">Product</th>
+                            <th style="text-align:center;padding:8px">Type</th>
+                            <th style="text-align:right;padding:8px">⭐ Stars</th>
+                            <th style="text-align:right;padding:8px">USD</th>
+                        </tr></thead>
+                        <tbody id="txn-table-body">
+                            <tr><td colspan="6" style="text-align:center;padding:24px;color:#666">No transactions yet</td></tr>
+                        </tbody>
+                    </table>
+                    <div id="txn-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap"></div>
                 </div>
             </div>
 
