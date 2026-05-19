@@ -1072,6 +1072,7 @@ const ChatRoom = mongoose.model('ChatRoom', chatRoomSchema);
 // Setup command handlers (must be after User model is defined)
 const Match = undefined;
 const Like = require('./models/Like');
+const { Transaction, STARS_TO_USD } = require('./models/Transaction');
 
 const { setupOnboardingCommands } = require('./commands/onboarding');
 const { setupReportCommands } = require('./commands/report');
@@ -1481,7 +1482,15 @@ app.get('/admin/stats', async (req, res) => {
     const matchesToday = Math.round((matchesTodayAgg[0]?.count || 0) / 2);
     const totalSwipes = swipesAgg[0]?.total || 0;
     const chatsCount = chatsStarted[0]?.count || 0;
-    const totalRevenue = vipUsers * 9.99;
+    const todayStartForRev = new Date(); todayStartForRev.setUTCHours(0,0,0,0);
+    const [revAllTime, revToday] = await Promise.all([
+      Transaction.aggregate([{ $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }]),
+      Transaction.aggregate([{ $match: { createdAt: { $gte: todayStartForRev } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }])
+    ]);
+    const totalStars = revAllTime[0]?.stars || 0;
+    const totalRevenue = revAllTime[0]?.usd || 0;
+    const revenueTodayStars = revToday[0]?.stars || 0;
+    const revenueTodayUSD = revToday[0]?.usd || 0;
     const conversionRate = totalUsers > 0 ? ((vipUsers / totalUsers) * 100).toFixed(1) : '0.0';
     const retentionRate = totalUsers > 0 ? ((retentionCount / totalUsers) * 100).toFixed(1) : '0.0';
     const matchRate = totalUsers > 0 ? ((totalMatches / totalUsers) * 100).toFixed(1) : '0.0';
@@ -1497,12 +1506,12 @@ app.get('/admin/stats', async (req, res) => {
     res.json({
       // Totals
       totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers,
-      totalMatches, totalRevenue: totalRevenue.toFixed(2),
+      totalMatches, totalRevenue: totalRevenue.toFixed(2), totalStars,
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
       pendingReports,
       // Daily
-      activeToday, newToday, matchesToday, revenueToday: 0,
+      activeToday, newToday, matchesToday, revenueToday: revenueTodayUSD.toFixed(2), revenueTodayStars,
       // Rates
       matchRate, conversionRate, retentionRate, maleRatio, femaleRatio,
       // Quality
