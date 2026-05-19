@@ -591,6 +591,241 @@ const connectWithRetry = async () => {
       setTimeout(runAlerts, 2 * 60 * 1000);
       console.log(`[ALERTS] Alert system started. Admin IDs: ${ALERT_ADMIN_IDS.length ? ALERT_ADMIN_IDS.join(', ') : 'none configured (set ADMIN_IDS env var)'}`);
 
+      // ── Retention: 24h inactivity nudge ───────────────────────────────────
+      async function run24hNudge() {
+        try {
+          const from = new Date(Date.now() - 26 * 60 * 60 * 1000);
+          const to   = new Date(Date.now() - 23 * 60 * 60 * 1000);
+          const inactive = await User.find({
+            profileCompleted: true,
+            isBanned: { $ne: true },
+            lastActive: { $gte: from, $lte: to }
+          }).select('telegramId name').lean();
+          for (const u of inactive) {
+            try {
+              await bot.sendMessage(String(u.telegramId),
+                `👋 *Hey ${u.name || 'there'}!*\n\nYou haven't browsed today — your matches are waiting! 💕\n\nTap below to jump back in.`,
+                {
+                  parse_mode: 'Markdown',
+                  reply_markup: { inline_keyboard: [[{ text: '✨ Find Matches', callback_data: 'browse_profiles' }]] }
+                }
+              );
+              await new Promise(r => setTimeout(r, 80));
+            } catch (_) {}
+          }
+          if (inactive.length) console.log(`[RETENTION] 24h nudge sent to ${inactive.length} users`);
+        } catch (err) {
+          console.error('[RETENTION] 24h nudge error:', err.message);
+        }
+      }
+      setInterval(run24hNudge, 60 * 60 * 1000); // check every hour
+
+      // ── Retention: 48h ghost-match warning ────────────────────────────────
+      async function runGhostMatchNudge() {
+        try {
+          const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+          // Find users who have matches but zero messages sent in any match older than 48h
+          const ghostUsers = await User.find({
+            profileCompleted: true,
+            isBanned: { $ne: true },
+            'matches.0': { $exists: true },
+            matches: {
+              $elemMatch: {
+                matchedAt: { $lte: cutoff },
+                'messageCount.user1': 0,
+                'messageCount.user2': 0
+              }
+            }
+          }).select('telegramId name matches').lean();
+
+          for (const u of ghostUsers) {
+            try {
+              const silentCount = (u.matches || []).filter(m =>
+                m.matchedAt && new Date(m.matchedAt) <= cutoff &&
+                (m.messageCount?.user1 || 0) === 0 && (m.messageCount?.user2 || 0) === 0
+              ).length;
+              if (!silentCount) continue;
+              await bot.sendMessage(String(u.telegramId),
+                `⏰ *Don't let your matches go cold!*\n\nYou have *${silentCount} match${silentCount > 1 ? 'es' : ''}* with no messages yet.\n\nMatches who chat first get 3× more replies — say hello! 👋`,
+                {
+                  parse_mode: 'Markdown',
+                  reply_markup: { inline_keyboard: [[{ text: '💬 Message Your Matches', callback_data: 'view_matches' }]] }
+                }
+              );
+              await new Promise(r => setTimeout(r, 80));
+            } catch (_) {}
+          }
+          if (ghostUsers.length) console.log(`[RETENTION] Ghost-match nudge sent to ${ghostUsers.length} users`);
+        } catch (err) {
+          console.error('[RETENTION] Ghost-match error:', err.message);
+        }
+      }
+      setInterval(runGhostMatchNudge, 2 * 60 * 60 * 1000); // check every 2h
+
+      // ── Retention: first-message nudge (2–3h after match, no messages yet) ─
+      async function runFirstMessageNudge() {
+        try {
+          const now = Date.now();
+          const from = new Date(now - 3 * 60 * 60 * 1000);
+          const to   = new Date(now - 2 * 60 * 60 * 1000);
+          const users = await User.find({
+            profileCompleted: true,
+            isBanned: { $ne: true },
+            matches: {
+              $elemMatch: {
+                matchedAt: { $gte: from, $lte: to },
+                'messageCount.user1': 0,
+                'messageCount.user2': 0
+              }
+            }
+          }).select('telegramId name').lean();
+          for (const u of users) {
+            try {
+              await bot.sendMessage(String(u.telegramId),
+                `💬 *Say hello!*\n\nYou have a new match waiting — matches who send the first message get *3× more replies*.\n\nDon't leave them hanging! 👋`,
+                { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💬 Send First Message', callback_data: 'view_matches' }]] } }
+              );
+              await new Promise(r => setTimeout(r, 80));
+            } catch (_) {}
+          }
+          if (users.length) console.log(`[RETENTION] First-msg nudge sent to ${users.length} users`);
+        } catch (err) { console.error('[RETENTION] First-msg nudge error:', err.message); }
+      }
+      setInterval(runFirstMessageNudge, 30 * 60 * 1000); // every 30 min
+
+      // ── Retention: hourly runner for time-of-day crons ────────────────────
+      async function runHourlyCrons() {
+        const now = new Date();
+        const hour = now.getUTCHours(); // use UTC to be consistent on Render
+        const todayStr = now.toISOString().slice(0, 10);
+
+        // ── 9 PM UTC: Daily likes teaser ───────────────────────────────────
+        if (hour === 20) {
+          try {
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const usersWithLikes = await User.aggregate([
+              { $match: { profileCompleted: true, isBanned: { $ne: true } } },
+              { $project: {
+                telegramId: 1, name: 1,
+                newLikes: {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ['$likes', []] },
+                      as: 'l',
+                      cond: { $gte: ['$$l.likedAt', oneDayAgo] }
+                    }
+                  }
+                },
+                totalLikes: { $size: { $ifNull: ['$likes', []] } }
+              }},
+              { $match: { totalLikes: { $gt: 0 } } }
+            ]);
+            for (const u of usersWithLikes) {
+              if (!u.totalLikes) continue;
+              try {
+                await bot.sendMessage(String(u.telegramId),
+                  `💕 *Someone liked your profile today!*\n\n*${u.totalLikes}* ${u.totalLikes === 1 ? 'person has' : 'people have'} liked you — tap to see who's interested! 👀`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👀 See Who Liked You', callback_data: 'likes_you_hub' }]] } }
+                );
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            if (usersWithLikes.length) console.log(`[RETENTION] Likes teaser sent to ${usersWithLikes.length} users`);
+          } catch (err) { console.error('[RETENTION] Likes teaser error:', err.message); }
+        }
+
+        // ── 8 PM UTC: Daily profile view summary ───────────────────────────
+        if (hour === 19) {
+          try {
+            const viewed = await User.find({
+              profileCompleted: true,
+              isBanned: { $ne: true },
+              profileViewsToday: { $gt: 0 },
+              lastViewCountDate: todayStr
+            }).select('telegramId name profileViewsToday').lean();
+            for (const u of viewed) {
+              try {
+                await bot.sendMessage(String(u.telegramId),
+                  `👀 *Your profile was viewed ${u.profileViewsToday} time${u.profileViewsToday > 1 ? 's' : ''} today!*\n\nMake sure your photos look great to turn those views into matches 💕`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '✨ Browse Matches', callback_data: 'browse_profiles' }]] } }
+                );
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            // Reset daily counters
+            await User.updateMany({ lastViewCountDate: { $ne: todayStr } }, { $set: { profileViewsToday: 0, lastViewCountDate: todayStr } });
+            if (viewed.length) console.log(`[RETENTION] View summary sent to ${viewed.length} users`);
+          } catch (err) { console.error('[RETENTION] View summary error:', err.message); }
+        }
+
+        // ── 10 AM UTC Sunday: Weekly recap ─────────────────────────────────
+        if (hour === 9 && now.getUTCDay() === 0) {
+          try {
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const allUsers = await User.find({
+              profileCompleted: true,
+              isBanned: { $ne: true },
+              lastActive: { $gte: weekAgo }
+            }).select('telegramId name likes matches').lean();
+            for (const u of allUsers) {
+              try {
+                const weeklyLikes = (u.likes || []).length;
+                const weeklyMatches = (u.matches || []).filter(m => m.matchedAt && new Date(m.matchedAt) >= weekAgo).length;
+                await bot.sendMessage(String(u.telegramId),
+                  `📊 *Your Week on KissuBot*\n\n` +
+                  `💕 *Likes received:* ${weeklyLikes}\n` +
+                  `🎉 *New matches:* ${weeklyMatches}\n\n` +
+                  `${weeklyMatches === 0 ? 'No matches yet — keep browsing! Your match is out there 🌟' : 'Great week! Keep the momentum going 🚀'}`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '✨ Keep Browsing', callback_data: 'browse_profiles' }]] } }
+                );
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            console.log(`[RETENTION] Weekly recap sent to ${allUsers.length} users`);
+          } catch (err) { console.error('[RETENTION] Weekly recap error:', err.message); }
+        }
+
+        // ── 11 AM UTC: VIP 24h trial for day-3 users with no matches ───────
+        if (hour === 10) {
+          try {
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            const twoDaysAgo   = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+            const eligible = await User.find({
+              profileCompleted: true,
+              isBanned: { $ne: true },
+              vipTrialUsed: { $ne: true },
+              isVip: { $ne: true },
+              createdAt: { $gte: threeDaysAgo, $lte: twoDaysAgo },
+              $or: [{ matches: { $size: 0 } }, { matches: { $exists: false } }]
+            }).select('telegramId name').lean();
+            for (const u of eligible) {
+              try {
+                const trialExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                await User.findOneAndUpdate(
+                  { telegramId: String(u.telegramId) },
+                  { isVip: true, vipTrialUsed: true, vipTrialExpiresAt: trialExpiry, vipExpiresAt: trialExpiry }
+                );
+                await bot.sendMessage(String(u.telegramId),
+                  `🎁 *Free VIP Trial — 24 Hours!*\n\nWe noticed you haven't matched yet. Here's a *free VIP upgrade* for 24 hours!\n\n✨ *Unlocked for you:*\n• Unlimited swipes\n• See who liked you\n• Priority visibility\n• Chat with matches\n\nTap below and find your match! 💕`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔥 Start VIP Browse', callback_data: 'browse_profiles' }]] } }
+                );
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            if (eligible.length) console.log(`[RETENTION] VIP trial granted to ${eligible.length} day-3 users`);
+          } catch (err) { console.error('[RETENTION] VIP trial error:', err.message); }
+        }
+      }
+      setInterval(runHourlyCrons, 60 * 60 * 1000);
+      setTimeout(runHourlyCrons, 5 * 60 * 1000); // also run 5 min after startup
+
+      // ── Smart Notification Engine ──────────────────────────────────────────
+      const { runSmartNotifications } = require('./commands/notifications');
+      setInterval(() => runSmartNotifications(bot, User), 2 * 60 * 60 * 1000); // every 2h
+      setTimeout(() => runSmartNotifications(bot, User), 10 * 60 * 1000); // first run 10 min after boot
+
+      console.log('[RETENTION] Retention crons started (24h nudge + ghost-match + smart notifications)');
+
       break;
     } catch (err) {
       retries += 1;
@@ -675,6 +910,10 @@ const userSchema = new mongoose.Schema({
   // Priority Status
   hasPriority: { type: Boolean, default: false },
   priorityExpiresAt: Date,
+
+  // New-user features
+  autoMatched: { type: Boolean, default: false },       // was given a seeded first match
+  newUserBoostUntil: { type: Date, default: null },     // profile shown first in queues until this time
 
   // Matching System
   likes: [{ type: String }], // Array of telegramIds who liked this user
@@ -779,6 +1018,15 @@ const userSchema = new mongoose.Schema({
     date: { type: String, default: '' }
   },
 
+  // Retention & Engagement
+  browseStreak: { type: Number, default: 0 },            // consecutive days browsed
+  lastBrowseDate: { type: String, default: '' },         // 'YYYY-MM-DD' for streak tracking
+  profileViewsToday: { type: Number, default: 0 },       // profile views received today
+  lastViewCountDate: { type: String, default: '' },      // date string to reset daily counter
+  vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
+  vipTrialExpiresAt: Date,                               // when the trial expires
+  lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
+
   // System Fields
   createdAt: { type: Date, default: Date.now },
   lastActive: { type: Date, default: Date.now },
@@ -833,7 +1081,7 @@ const { setupChatRoomCommands } = require('./commands/chatRoom');
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
 setupProfileCommands(bot, userStates, User);
-const onboardingHandlers = setupOnboardingCommands(bot, userStates, User);
+const onboardingHandlers = setupOnboardingCommands(bot, userStates, User, Like);
 global.startOnboarding = onboardingHandlers.startOnboarding;
 const chatHandlers = setupChatCommands(bot, User, userStates);
 global.startInBotChat = chatHandlers.startInBotChat;
@@ -1414,7 +1662,10 @@ app.get('/admin/broadcast/count', async (req, res) => {
     else if (targetGroup === 'male') query.gender = 'Male';
     else if (targetGroup === 'female') query.gender = 'Female';
     else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
-    else if (targetGroup === 'no_photo') query.$or = [{ photos: { $size: 0 } }, { photos: { $exists: false } }];
+    else if (targetGroup === 'no_photo') query.$and = [
+      { $or: [{ photos: { $size: 0 } }, { photos: { $exists: false } }, { photos: null }] },
+      { $or: [{ profilePhoto: { $exists: false } }, { profilePhoto: null }, { profilePhoto: '' }] }
+    ];
     const count = await User.countDocuments(query);
     res.json({ count, targetGroup });
   } catch (err) {
@@ -1438,20 +1689,32 @@ app.post('/admin/broadcast', async (req, res) => {
     else if (targetGroup === 'male') query.gender = 'Male';
     else if (targetGroup === 'female') query.gender = 'Female';
     else if (targetGroup === 'new') query.createdAt = { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) };
-    else if (targetGroup === 'no_photo') query.$or = [{ photos: { $size: 0 } }, { photos: { $exists: false } }];
+    else if (targetGroup === 'no_photo') query.$and = [
+      { $or: [{ photos: { $size: 0 } }, { photos: { $exists: false } }, { photos: null }] },
+      { $or: [{ profilePhoto: { $exists: false } }, { profilePhoto: null }, { profilePhoto: '' }] }
+    ];
 
-    const users = await User.find(query).select('telegramId');
-    let sent = 0, failed = 0;
+    const users = await User.find(query).select('telegramId lastNotificationSentAt');
+    let sent = 0, failed = 0, skipped = 0;
+
+    const cooldownMs = 12 * 60 * 60 * 1000; // 12h cooldown per user
+    const now = Date.now();
 
     for (const user of users) {
+      // Skip user if they received any notification in the last 12h
+      if (user.lastNotificationSentAt && (now - new Date(user.lastNotificationSentAt).getTime()) < cooldownMs) {
+        skipped++;
+        continue;
+      }
       try {
         await bot.sendMessage(user.telegramId, `📢 *Announcement*\n\n${message}`, { parse_mode: 'Markdown' });
+        await User.findOneAndUpdate({ telegramId: user.telegramId }, { lastNotificationSentAt: new Date() });
         sent++;
         await new Promise(r => setTimeout(r, 50));
       } catch (e) { failed++; }
     }
 
-    res.json({ message: `Broadcast complete`, sent, failed, total: users.length });
+    res.json({ message: `Broadcast complete`, sent, failed, skipped, total: users.length });
   } catch (err) {
     res.status(500).json({ error: 'Broadcast failed' });
   }

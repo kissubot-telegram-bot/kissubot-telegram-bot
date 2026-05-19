@@ -339,7 +339,24 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       if (!currentUser.invisibleMode) {
 
-        User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date() }).catch(() => { });
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const lastBrowse = currentUser.lastBrowseDate || '';
+        let streakUpdate = {};
+        if (lastBrowse !== todayStr) {
+          const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          const newStreak = lastBrowse === yesterday ? (currentUser.browseStreak || 0) + 1 : 1;
+          streakUpdate = { lastBrowseDate: todayStr, browseStreak: newStreak };
+          // Reward milestones: 3, 7, 14, 30 day streaks
+          const milestones = { 3: 50, 7: 150, 14: 300, 30: 750 };
+          if (milestones[newStreak]) {
+            streakUpdate.$inc = { coins: milestones[newStreak] };
+            bot.sendMessage(chatId,
+              `🔥 *${newStreak}-Day Browse Streak!*\n\n+${milestones[newStreak]} coins added to your balance as a reward! 🪙\n\nKeep it up!`,
+              { parse_mode: 'Markdown' }
+            ).catch(() => {});
+          }
+        }
+        User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date(), ...streakUpdate }).catch(() => { });
 
       }
 
@@ -465,11 +482,23 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null }, ...testFilter };
 
+      // Pre-match queue: users who already liked me and match my gender preference
+      const likedMeIds = (currentUser.likes || []).filter(id =>
+        !seenIds.includes(id) && !excludeIds.includes(id) && id !== String(telegramId)
+      );
+      let preMutualProfiles = [];
+      if (likedMeIds.length > 0) {
+        const preQuery = { telegramId: { $in: likedMeIds }, name: { $exists: true, $ne: null }, ...testFilter };
+        if (genderFilter.gender) preQuery.gender = genderFilter.gender;
+        preMutualProfiles = await User.find(preQuery).limit(2);
+      }
+
 
 
       const runQuery = (extra) => {
 
-        let q = User.find({ ...baseExclude, ...extra });
+        let q = User.find({ ...baseExclude, ...extra })
+          .sort({ newUserBoostUntil: -1 }); // boosted new users appear first
 
         if (limit) q = q.limit(limit);
 
@@ -602,6 +631,12 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
+      // Prepend pre-mutual profiles (users who already liked me) to front of queue
+      if (preMutualProfiles.length > 0) {
+        const preIds = new Set(preMutualProfiles.map(p => p.telegramId));
+        profiles = [...preMutualProfiles, ...(profiles || []).filter(p => !preIds.has(p.telegramId))];
+      }
+
       // Increment swipe count for non-VIP male users after a profile is found
 
       if (isMaleNonVip && profiles.length > 0) {
@@ -697,6 +732,13 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
         userStates.set(String(telegramId), { browsing: { profileId: String(profile.telegramId) } });
 
       }
+
+      // Track profile view for the viewed user (non-blocking)
+      const viewDateStr = new Date().toISOString().slice(0, 10);
+      User.findOneAndUpdate(
+        { telegramId: String(profile.telegramId) },
+        { $inc: { profileViewsToday: 1 }, $set: { lastViewCountDate: viewDateStr } }
+      ).catch(() => {});
 
 
 

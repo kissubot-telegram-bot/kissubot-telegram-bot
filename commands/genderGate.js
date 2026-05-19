@@ -26,7 +26,7 @@ function incrementMaleSwipeCount(telegramId) {
 
 // Photo gate: blocks any feature until at least one photo is uploaded
 async function requirePhotoUploaded(bot, chatId, user) {
-    const hasPhoto = user.photos && user.photos.length > 0;
+    const hasPhoto = (user.photos && user.photos.length > 0) || !!user.profilePhoto;
     if (hasPhoto) return true;
     await bot.sendMessage(chatId,
         `📸 *Photo Required*\n\n` +

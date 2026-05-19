@@ -17,6 +17,7 @@
 const { invalidateUserCache } = require('./auth');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
 const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard');
+const { autoMatchNewUser } = require('./autoMatch');
 
 const PROMPTS = {
     name: {
@@ -51,7 +52,7 @@ const PROMPTS = {
 // Module-level reference so startOnboarding can be exported from module.exports
 let _startOnboarding;
 
-function setupOnboardingCommands(bot, userStates, User) {
+function setupOnboardingCommands(bot, userStates, User, Like = null) {
 
     /**
      * Start the onboarding flow for a user.
@@ -440,6 +441,9 @@ function setupOnboardingCommands(bot, userStates, User) {
                 );
                 userStates.delete(telegramId);
                 invalidateUserCache(telegramId);
+
+                // Trigger auto-match in background (non-blocking)
+                autoMatchNewUser(bot, telegramId, User, Like).catch(() => {});
 
                 return bot.sendMessage(chatId,
                     `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nTap the ✨ Discover button below to start browsing!`,
