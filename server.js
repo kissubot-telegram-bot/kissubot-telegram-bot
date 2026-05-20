@@ -699,6 +699,53 @@ const connectWithRetry = async () => {
         const hour = now.getUTCHours(); // use UTC to be consistent on Render
         const todayStr = now.toISOString().slice(0, 10);
 
+        // ── Helper: check + increment daily notif cap (max 3/day per user) ────
+        async function canNotify(telegramId) {
+          const u = await User.findOne({ telegramId: String(telegramId) }).select('dailyNotifCount dailyNotifDate').lean();
+          if (!u) return false;
+          if (u.dailyNotifDate !== todayStr) {
+            await User.updateOne({ telegramId: String(telegramId) }, { $set: { dailyNotifCount: 0, dailyNotifDate: todayStr } });
+            return true;
+          }
+          return (u.dailyNotifCount || 0) < 3;
+        }
+        async function markNotified(telegramId) {
+          await User.updateOne(
+            { telegramId: String(telegramId) },
+            [{ $set: {
+              dailyNotifDate: todayStr,
+              dailyNotifCount: { $cond: [{ $eq: ['$dailyNotifDate', todayStr] }, { $add: ['$dailyNotifCount', 1] }, 1] }
+            }}]
+          ).catch(() => {});
+        }
+
+        // ── Every run: expire VIP users whose vipExpiresAt has passed ─────────
+        try {
+          const expired = await User.find({
+            isVip: true,
+            vipExpiresAt: { $lt: now }
+          }).select('telegramId name').lean();
+          if (expired.length) {
+            const expiredIds = expired.map(u => u.telegramId);
+            await User.updateMany(
+              { telegramId: { $in: expiredIds } },
+              { $set: { isVip: false } }
+            );
+            for (const u of expired) {
+              try {
+                if (!await canNotify(u.telegramId)) continue;
+                await bot.sendMessage(String(u.telegramId),
+                  `👑 *Your VIP has expired*\n\nYour VIP membership has ended. Renew now to keep your perks — unlimited likes, see who liked you, priority visibility and more! 💎`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔄 Renew VIP', callback_data: 'store_vip' }]] } }
+                );
+                await markNotified(u.telegramId);
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            console.log(`[CRON] Expired VIP for ${expired.length} users`);
+          }
+        } catch (err) { console.error('[CRON] VIP expiry error:', err.message); }
+
         // ── 9 PM UTC: Daily likes teaser ───────────────────────────────────
         if (hour === 20) {
           try {
@@ -723,11 +770,13 @@ const connectWithRetry = async () => {
             const teaserIds = [];
             for (const u of usersWithLikes) {
               try {
+                if (!await canNotify(u.telegramId)) continue;
                 await bot.sendMessage(String(u.telegramId),
                   `💕 *Someone liked your profile today!*\n\n*${u.newLikes}* ${u.newLikes === 1 ? 'person has' : 'people have'} liked you today — tap to see who's interested! 👀`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👀 See Who Liked You', callback_data: 'likes_you_hub' }]] } }
                 );
                 teaserIds.push(String(u.telegramId));
+                await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
@@ -752,10 +801,12 @@ const connectWithRetry = async () => {
             }).select('telegramId name profileViewsToday').lean();
             for (const u of viewed) {
               try {
+                if (!await canNotify(u.telegramId)) continue;
                 await bot.sendMessage(String(u.telegramId),
                   `👀 *Your profile was viewed ${u.profileViewsToday} time${u.profileViewsToday > 1 ? 's' : ''} today!*\n\nMake sure your photos look great to turn those views into matches 💕`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '✨ Browse Matches', callback_data: 'browse_profiles' }]] } }
                 );
+                await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
@@ -1038,6 +1089,8 @@ const userSchema = new mongoose.Schema({
   lastViewCountDate: { type: String, default: '' },      // date string to reset daily counter
   viewSummarySentDate: { type: String, default: '' },    // date string: last day summary notification was sent
   likesTeaserSentDate: { type: String, default: '' },    // date string: last day likes teaser was sent
+  dailyNotifCount: { type: Number, default: 0 },         // how many cron notifications sent today
+  dailyNotifDate:  { type: String, default: '' },         // date string for daily notif counter reset
   vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
   vipTrialExpiresAt: Date,                               // when the trial expires
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
@@ -1498,14 +1551,18 @@ app.get('/admin/stats', async (req, res) => {
     const totalSwipes = swipesAgg[0]?.total || 0;
     const chatsCount = chatsStarted[0]?.count || 0;
     const todayStartForRev = new Date(); todayStartForRev.setUTCHours(0,0,0,0);
-    const [revAllTime, revToday] = await Promise.all([
+    const [revAllTime, revToday, revVip, expiredVipUsers] = await Promise.all([
       Transaction.aggregate([{ $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }]),
-      Transaction.aggregate([{ $match: { createdAt: { $gte: todayStartForRev } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }])
+      Transaction.aggregate([{ $match: { createdAt: { $gte: todayStartForRev } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }]),
+      Transaction.aggregate([{ $match: { type: { $in: ['vip', 'gift_vip'] } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
+      User.countDocuments({ isVip: false, vipExpiresAt: { $exists: true, $lt: new Date() } })
     ]);
     const totalStars = revAllTime[0]?.stars || 0;
     const totalRevenue = revAllTime[0]?.usd || 0;
     const revenueTodayStars = revToday[0]?.stars || 0;
     const revenueTodayUSD = revToday[0]?.usd || 0;
+    const vipRevStars = revVip[0]?.stars || 0;
+    const vipRevUSD = revVip[0]?.usd || 0;
     const conversionRate = totalUsers > 0 ? ((vipUsers / totalUsers) * 100).toFixed(1) : '0.0';
     const retentionRate = totalUsers > 0 ? ((retentionCount / totalUsers) * 100).toFixed(1) : '0.0';
     const matchRate = totalUsers > 0 ? ((totalMatches / totalUsers) * 100).toFixed(1) : '0.0';
@@ -1522,6 +1579,7 @@ app.get('/admin/stats', async (req, res) => {
       // Totals
       totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers,
       totalMatches, totalRevenue: totalRevenue.toFixed(2), totalStars,
+      vipRevStars, vipRevUSD: vipRevUSD.toFixed(2), expiredVipUsers,
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
       pendingReports,

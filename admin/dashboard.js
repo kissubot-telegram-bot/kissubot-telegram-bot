@@ -143,6 +143,9 @@ async function loadDashboardData() {
         setEl('chats-started', (s.chatsStarted || 0).toLocaleString());
         setEl('avg-matches', s.avgMatchesPerUser || 0);
         setEl('vip-users', (s.vipUsers || 0).toLocaleString());
+        setEl('expired-vip-users', (s.expiredVipUsers || 0).toLocaleString());
+        setEl('vip-rev-stars', (s.vipRevStars || 0).toLocaleString());
+        setEl('vip-rev-usd', s.vipRevUSD || '0.00');
         setEl('total-revenue', s.totalRevenue || 0);
 
         // Funnel
