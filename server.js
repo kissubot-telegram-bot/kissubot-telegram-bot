@@ -650,6 +650,7 @@ const connectWithRetry = async () => {
                   `👑 *Your VIP has expired*\n\nYour VIP membership has ended. Renew now to keep your perks — unlimited likes, see who liked you, priority visibility and more! 💎`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔄 Renew VIP', callback_data: 'store_vip' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'vip_expiry', message: 'Your VIP has expired' }).catch(() => {});
                 await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
@@ -687,6 +688,7 @@ const connectWithRetry = async () => {
                   `💕 *Someone liked your profile today!*\n\n*${u.newLikes}* ${u.newLikes === 1 ? 'person has' : 'people have'} liked you today — tap to see who's interested! 👀`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👀 See Who Liked You', callback_data: 'likes_you_hub' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'likes_teaser', message: `${u.newLikes} new like(s) today` }).catch(() => {});
                 teaserIds.push(String(u.telegramId));
                 await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
@@ -718,6 +720,7 @@ const connectWithRetry = async () => {
                   `👀 *Your profile was viewed ${u.profileViewsToday} time${u.profileViewsToday > 1 ? 's' : ''} today!*\n\nMake sure your photos look great to turn those views into matches 💕`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '✨ Browse Matches', callback_data: 'browse_profiles' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'view_summary', message: `${u.profileViewsToday} profile view(s) today` }).catch(() => {});
                 await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
@@ -754,6 +757,7 @@ const connectWithRetry = async () => {
                   `${weeklyMatches === 0 ? 'No matches yet — keep browsing! Your match is out there 🌟' : 'Great week! Keep the momentum going 🚀'}`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '✨ Keep Browsing', callback_data: 'browse_profiles' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'weekly_recap', message: `${weeklyLikes} likes, ${weeklyMatches} matches this week` }).catch(() => {});
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
@@ -786,6 +790,7 @@ const connectWithRetry = async () => {
                   `⚙️ *Tip: Update your search settings!*\n\nGet better matches by setting your *age range*, *gender preference* and *location*.\n\nUsers with customised filters get *2× more compatible matches* 💕`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⚙️ Open Search Settings', callback_data: 'search_settings' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'search_tip', message: 'Update search settings tip' }).catch(() => {});
                 sentIds.push(String(u.telegramId));
                 await markNotified(u.telegramId);
                 await new Promise(r => setTimeout(r, 80));
@@ -822,6 +827,7 @@ const connectWithRetry = async () => {
                   `🎁 *Free VIP Trial — 24 Hours!*\n\nWe noticed you haven't matched yet. Here's a *free VIP upgrade* for 24 hours!\n\n✨ *Unlocked for you:*\n• Unlimited swipes\n• See who liked you\n• Priority visibility\n• Chat with matches\n\nTap below and find your match! 💕`,
                   { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔥 Start VIP Browse', callback_data: 'browse_profiles' }]] } }
                 );
+                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'vip_trial', message: '24h free VIP trial granted' }).catch(() => {});
                 await new Promise(r => setTimeout(r, 80));
               } catch (_) {}
             }
@@ -1085,6 +1091,17 @@ const chatRoomSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const ChatRoom = mongoose.model('ChatRoom', chatRoomSchema);
+
+// NotificationLog Schema — tracks every cron notification sent
+const notifLogSchema = new mongoose.Schema({
+  telegramId: { type: String, required: true },
+  name: { type: String, default: '' },
+  type: { type: String, required: true }, // vip_expiry, likes_teaser, view_summary, search_tip, weekly_recap, vip_trial
+  message: { type: String, default: '' }, // short snippet
+  sentAt: { type: Date, default: Date.now }
+});
+notifLogSchema.index({ sentAt: -1 });
+const NotificationLog = mongoose.model('NotificationLog', notifLogSchema);
 
 // Setup command handlers (must be after User model is defined)
 const Match = undefined;
@@ -1607,15 +1624,53 @@ app.get('/admin/users', async (req, res) => {
   }
 });
 
-// ── Admin: Get single user detail ────────────────────────────────────────
+// ── Admin: Get single user detail (with computed activity fields) ─────────
 app.get('/admin/users/:telegramId', async (req, res) => {
   try {
-    const user = await User.findOne({ telegramId: req.params.telegramId })
-      .select('-__v');
+    const user = await User.findOne({ telegramId: req.params.telegramId }).select('-__v').lean();
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+
+    // Computed activity fields
+    const totalMsgsSent = (user.matches || []).reduce((sum, m) => sum + (m.messageCount?.user1 || 0), 0);
+    const lastMatchDate = (user.matches || []).reduce((latest, m) => {
+      const d = m.matchedAt ? new Date(m.matchedAt) : null;
+      return d && (!latest || d > latest) ? d : latest;
+    }, null);
+
+    res.json({
+      ...user,
+      activity: {
+        totalMsgsSent,
+        matchCount: (user.matches || []).length,
+        lastMatchDate,
+        likesGiven: user.stats?.likesGiven || 0,
+        likesReceived: (user.likes || []).length,
+        profileViewsToday: user.profileViewsToday || 0,
+        browseStreak: user.browseStreak || 0,
+        lastBrowseDate: user.lastBrowseDate || null,
+        dailyNotifCount: user.dailyNotifCount || 0,
+        vipTrialUsed: user.vipTrialUsed || false,
+        searchSettings: user.searchSettings || {}
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// ── Admin: Notification log ───────────────────────────────────────────────
+app.get('/admin/notifications', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, type } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const query = type ? { type } : {};
+    const [logs, total] = await Promise.all([
+      NotificationLog.find(query).sort({ sentAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      NotificationLog.countDocuments(query)
+    ]);
+    res.json({ logs, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch notification logs' });
   }
 });
 
