@@ -761,6 +761,43 @@ const connectWithRetry = async () => {
           } catch (err) { console.error('[RETENTION] Weekly recap error:', err.message); }
         }
 
+        // ── 6 PM UTC: Search settings tip for users with defaults ───────────
+        if (hour === 17) {
+          try {
+            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+            // Users with completed profile, joined 3+ days ago, still on default search settings, max 2 matches
+            const needsSettings = await User.find({
+              profileCompleted: true,
+              isBanned: { $ne: true },
+              createdAt: { $lte: threeDaysAgo },
+              searchSettingsTipSent: { $ne: true },
+              $or: [
+                { 'searchSettings.genderPreference': { $exists: false } },
+                { 'searchSettings.genderPreference': 'any' },
+                { searchSettings: { $exists: false } }
+              ],
+              $expr: { $lte: [{ $size: { $ifNull: ['$matches', []] } }, 2] }
+            }).select('telegramId name').lean().limit(100);
+            const sentIds = [];
+            for (const u of needsSettings) {
+              try {
+                if (!await canNotify(u.telegramId)) continue;
+                await bot.sendMessage(String(u.telegramId),
+                  `⚙️ *Tip: Update your search settings!*\n\nGet better matches by setting your *age range*, *gender preference* and *location*.\n\nUsers with customised filters get *2× more compatible matches* 💕`,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '⚙️ Open Search Settings', callback_data: 'search_settings' }]] } }
+                );
+                sentIds.push(String(u.telegramId));
+                await markNotified(u.telegramId);
+                await new Promise(r => setTimeout(r, 80));
+              } catch (_) {}
+            }
+            if (sentIds.length) {
+              await User.updateMany({ telegramId: { $in: sentIds } }, { $set: { searchSettingsTipSent: true } });
+              console.log(`[RETENTION] Search settings tip sent to ${sentIds.length} users`);
+            }
+          } catch (err) { console.error('[RETENTION] Search settings tip error:', err.message); }
+        }
+
         // ── 11 AM UTC: VIP 24h trial for day-3 users with no matches ───────
         if (hour === 10) {
           try {

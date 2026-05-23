@@ -436,8 +436,16 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           { lookingFor: 'Both' },                // open to everyone
           { lookingFor: 'Any' }                  // open to anyone
         ];
+      } else {
+        // Even when I want to see everyone, only show people open to my gender
+        genderFilter.$or = [
+          { lookingFor: currentGender },
+          { lookingFor: 'Both' },
+          { lookingFor: 'Any' },
+          { lookingFor: { $exists: false } },    // users who never set preference
+          { lookingFor: null }
+        ];
       }
-      // If lookingFor is 'Both' or 'Any', genderFilter stays empty (show all genders)
 
 
 
@@ -486,14 +494,19 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null }, ...testFilter };
 
-      // Pre-match queue: users who already liked me and match my gender preference
+      // Pre-match queue: users who already liked me and match ALL my search preferences
       const likedMeIds = (currentUser.likes || []).filter(id =>
         !seenIds.includes(id) && !excludeIds.includes(id) && id !== String(telegramId)
       );
       let preMutualProfiles = [];
       if (likedMeIds.length > 0) {
-        const preQuery = { telegramId: { $in: likedMeIds }, name: { $exists: true, $ne: null }, ...testFilter };
-        if (genderFilter.gender) preQuery.gender = genderFilter.gender;
+        const preQuery = {
+          telegramId: { $in: likedMeIds },
+          name: { $exists: true, $ne: null },
+          ...testFilter,
+          ...genderFilter,
+          ...ageFilter
+        };
         preMutualProfiles = await User.find(preQuery).limit(2);
       }
 
