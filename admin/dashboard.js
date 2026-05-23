@@ -132,7 +132,6 @@ async function loadDashboardData() {
         setEl('conversion-rate', `${s.conversionRate || 0}%`);
         setEl('retention-rate', `${s.retentionRate || 0}%`);
         setEl('gender-ratio', `${s.maleRatio || 0}% M`);
-        setEl('gender-ratio-sub', `👔 ${s.maleRatio || 0}% · 👗 ${s.femaleRatio || 0}%`);
 
         // ROW 3 — Volume
         setEl('total-users', (s.totalUsers || 0).toLocaleString());
@@ -144,9 +143,23 @@ async function loadDashboardData() {
         setEl('avg-matches', s.avgMatchesPerUser || 0);
         setEl('vip-users', (s.vipUsers || 0).toLocaleString());
         setEl('expired-vip-users', (s.expiredVipUsers || 0).toLocaleString());
-        setEl('vip-rev-stars', (s.vipRevStars || 0).toLocaleString());
-        setEl('vip-rev-usd', s.vipRevUSD || '0.00');
+        const trialVip = s.trialVipUsers || 0;
+        const paidVip = Math.max(0, (s.vipUsers || 0) - trialVip);
+        setEl('paid-vip', paidVip.toLocaleString());
+        setEl('trial-vip', trialVip.toLocaleString());
         setEl('total-revenue', s.totalRevenue || 0);
+
+        // Profile Quality row
+        const completedPct = s.totalUsers > 0 ? ((s.completedProfiles / s.totalUsers) * 100).toFixed(1) : '0.0';
+        setEl('completed-profiles', (s.completedProfiles || 0).toLocaleString());
+        setEl('completed-pct', completedPct);
+        setEl('no-photo-users', (s.noPhoto || 0).toLocaleString());
+        setEl('no-gender-users', (s.noGender || 0).toLocaleString());
+        setEl('returning-users', (s.returningUsers || 0).toLocaleString());
+
+        // Gender ratio with unknown bucket
+        const otherGender = s.otherGender || (s.totalUsers - (s.maleUsers || 0) - (s.femaleUsers || 0));
+        setEl('gender-ratio-sub', `👔 ${(s.maleUsers||0).toLocaleString()} · 👗 ${(s.femaleUsers||0).toLocaleString()} · ❓ ${otherGender.toLocaleString()}`);
 
         // Funnel
         const f = s.funnel || {};
@@ -662,6 +675,20 @@ async function exportRevenueCSV() {
 // ── Matches: state ────────────────────────────────────────────────────────
 let matchCurrentPage = 1;
 let matchSearchTimeout;
+let matchCurrentFilter = '';
+
+function navigateToMatchesFiltered(filter) {
+    matchCurrentFilter = filter || '';
+    matchCurrentPage = 1;
+    navigateTo('matches');
+}
+
+function navigateToRevenueToday() {
+    const todayVal = new Date().toISOString().slice(0, 7); // current month
+    currentRevMonth = todayVal;
+    currentTxnPage = 1;
+    navigateTo('revenue');
+}
 
 function debounceMatchSearch() {
     clearTimeout(matchSearchTimeout);
@@ -681,6 +708,7 @@ async function loadMatchStats(page = matchCurrentPage) {
         </td></tr>`;
 
         let url = `/admin/matches?page=${page}&limit=${limit}`;
+        if (matchCurrentFilter) url += `&filter=${matchCurrentFilter}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         const data = await apiFetch(url);
 

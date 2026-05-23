@@ -591,133 +591,45 @@ const connectWithRetry = async () => {
       setTimeout(runAlerts, 2 * 60 * 1000);
       console.log(`[ALERTS] Alert system started. Admin IDs: ${ALERT_ADMIN_IDS.length ? ALERT_ADMIN_IDS.join(', ') : 'none configured (set ADMIN_IDS env var)'}`);
 
-      // ── Retention: 24h inactivity nudge ───────────────────────────────────
-      async function run24hNudge() {
-        try {
-          const from = new Date(Date.now() - 26 * 60 * 60 * 1000);
-          const to   = new Date(Date.now() - 23 * 60 * 60 * 1000);
-          const inactive = await User.find({
-            profileCompleted: true,
-            isBanned: { $ne: true },
-            lastActive: { $gte: from, $lte: to }
-          }).select('telegramId name').lean();
-          for (const u of inactive) {
-            try {
-              await bot.sendMessage(String(u.telegramId),
-                `👋 *Hey ${u.name || 'there'}!*\n\nYou haven't browsed today — your matches are waiting! 💕\n\nTap below to jump back in.`,
-                {
-                  parse_mode: 'Markdown',
-                  reply_markup: { inline_keyboard: [[{ text: '✨ Find Matches', callback_data: 'browse_profiles' }]] }
-                }
-              );
-              await new Promise(r => setTimeout(r, 80));
-            } catch (_) {}
-          }
-          if (inactive.length) console.log(`[RETENTION] 24h nudge sent to ${inactive.length} users`);
-        } catch (err) {
-          console.error('[RETENTION] 24h nudge error:', err.message);
+      // ── Retention: 24h inactivity nudge — DISABLED (too spammy) ───────────
+      // async function run24hNudge() { ... }
+      // setInterval(run24hNudge, 60 * 60 * 1000);
+
+      // ── Retention: 48h ghost-match warning — DISABLED (too spammy) ────────
+      // async function runGhostMatchNudge() { ... }
+      // setInterval(runGhostMatchNudge, 2 * 60 * 60 * 1000);
+
+      // ── Retention: first-message nudge — DISABLED (too spammy) ─────────────
+      // async function runFirstMessageNudge() { ... }
+      // setInterval(runFirstMessageNudge, 30 * 60 * 1000);
+
+      // ── Shared helper: 3/day notification cap ──────────────────────────────
+      async function canNotify(telegramId) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const u = await User.findOne({ telegramId: String(telegramId) }).select('dailyNotifCount dailyNotifDate').lean();
+        if (!u) return false;
+        if (u.dailyNotifDate !== todayStr) {
+          await User.updateOne({ telegramId: String(telegramId) }, { $set: { dailyNotifCount: 0, dailyNotifDate: todayStr } });
+          return true;
         }
+        return (u.dailyNotifCount || 0) < 3;
       }
-      setInterval(run24hNudge, 60 * 60 * 1000); // check every hour
-
-      // ── Retention: 48h ghost-match warning ────────────────────────────────
-      async function runGhostMatchNudge() {
-        try {
-          const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
-          // Find users who have matches but zero messages sent in any match older than 48h
-          const ghostUsers = await User.find({
-            profileCompleted: true,
-            isBanned: { $ne: true },
-            'matches.0': { $exists: true },
-            matches: {
-              $elemMatch: {
-                matchedAt: { $lte: cutoff },
-                'messageCount.user1': 0,
-                'messageCount.user2': 0
-              }
-            }
-          }).select('telegramId name matches').lean();
-
-          for (const u of ghostUsers) {
-            try {
-              const silentCount = (u.matches || []).filter(m =>
-                m.matchedAt && new Date(m.matchedAt) <= cutoff &&
-                (m.messageCount?.user1 || 0) === 0 && (m.messageCount?.user2 || 0) === 0
-              ).length;
-              if (!silentCount) continue;
-              await bot.sendMessage(String(u.telegramId),
-                `⏰ *Don't let your matches go cold!*\n\nYou have *${silentCount} match${silentCount > 1 ? 'es' : ''}* with no messages yet.\n\nMatches who chat first get 3× more replies — say hello! 👋`,
-                {
-                  parse_mode: 'Markdown',
-                  reply_markup: { inline_keyboard: [[{ text: '💬 Message Your Matches', callback_data: 'view_matches' }]] }
-                }
-              );
-              await new Promise(r => setTimeout(r, 80));
-            } catch (_) {}
-          }
-          if (ghostUsers.length) console.log(`[RETENTION] Ghost-match nudge sent to ${ghostUsers.length} users`);
-        } catch (err) {
-          console.error('[RETENTION] Ghost-match error:', err.message);
-        }
+      async function markNotified(telegramId) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        await User.updateOne(
+          { telegramId: String(telegramId) },
+          [{ $set: {
+            dailyNotifDate: todayStr,
+            dailyNotifCount: { $cond: [{ $eq: ['$dailyNotifDate', todayStr] }, { $add: ['$dailyNotifCount', 1] }, 1] }
+          }}]
+        ).catch(() => {});
       }
-      setInterval(runGhostMatchNudge, 2 * 60 * 60 * 1000); // check every 2h
-
-      // ── Retention: first-message nudge (2–3h after match, no messages yet) ─
-      async function runFirstMessageNudge() {
-        try {
-          const now = Date.now();
-          const from = new Date(now - 3 * 60 * 60 * 1000);
-          const to   = new Date(now - 2 * 60 * 60 * 1000);
-          const users = await User.find({
-            profileCompleted: true,
-            isBanned: { $ne: true },
-            matches: {
-              $elemMatch: {
-                matchedAt: { $gte: from, $lte: to },
-                'messageCount.user1': 0,
-                'messageCount.user2': 0
-              }
-            }
-          }).select('telegramId name').lean();
-          for (const u of users) {
-            try {
-              await bot.sendMessage(String(u.telegramId),
-                `💬 *Say hello!*\n\nYou have a new match waiting — matches who send the first message get *3× more replies*.\n\nDon't leave them hanging! 👋`,
-                { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💬 Send First Message', callback_data: 'view_matches' }]] } }
-              );
-              await new Promise(r => setTimeout(r, 80));
-            } catch (_) {}
-          }
-          if (users.length) console.log(`[RETENTION] First-msg nudge sent to ${users.length} users`);
-        } catch (err) { console.error('[RETENTION] First-msg nudge error:', err.message); }
-      }
-      setInterval(runFirstMessageNudge, 30 * 60 * 1000); // every 30 min
 
       // ── Retention: hourly runner for time-of-day crons ────────────────────
       async function runHourlyCrons() {
         const now = new Date();
         const hour = now.getUTCHours(); // use UTC to be consistent on Render
         const todayStr = now.toISOString().slice(0, 10);
-
-        // ── Helper: check + increment daily notif cap (max 3/day per user) ────
-        async function canNotify(telegramId) {
-          const u = await User.findOne({ telegramId: String(telegramId) }).select('dailyNotifCount dailyNotifDate').lean();
-          if (!u) return false;
-          if (u.dailyNotifDate !== todayStr) {
-            await User.updateOne({ telegramId: String(telegramId) }, { $set: { dailyNotifCount: 0, dailyNotifDate: todayStr } });
-            return true;
-          }
-          return (u.dailyNotifCount || 0) < 3;
-        }
-        async function markNotified(telegramId) {
-          await User.updateOne(
-            { telegramId: String(telegramId) },
-            [{ $set: {
-              dailyNotifDate: todayStr,
-              dailyNotifCount: { $cond: [{ $eq: ['$dailyNotifDate', todayStr] }, { $add: ['$dailyNotifCount', 1] }, 1] }
-            }}]
-          ).catch(() => {});
-        }
 
         // ── Every run: expire VIP users whose vipExpiresAt has passed ─────────
         try {
@@ -883,12 +795,12 @@ const connectWithRetry = async () => {
       setInterval(runHourlyCrons, 60 * 60 * 1000);
       setTimeout(runHourlyCrons, 5 * 60 * 1000); // also run 5 min after startup
 
-      // ── Smart Notification Engine ──────────────────────────────────────────
-      const { runSmartNotifications } = require('./commands/notifications');
-      setInterval(() => runSmartNotifications(bot, User), 2 * 60 * 60 * 1000); // every 2h
-      setTimeout(() => runSmartNotifications(bot, User), 10 * 60 * 1000); // first run 10 min after boot
+      // ── Smart Notification Engine — DISABLED (too spammy) ──────────────────
+      // const { runSmartNotifications } = require('./commands/notifications');
+      // setInterval(() => runSmartNotifications(bot, User), 2 * 60 * 60 * 1000);
+      // setTimeout(() => runSmartNotifications(bot, User), 10 * 60 * 1000);
 
-      console.log('[RETENTION] Retention crons started (24h nudge + ghost-match + smart notifications)');
+      console.log('[RETENTION] Retention crons started (hourly: VIP expiry + likes teaser + view summary + weekly recap + VIP trial). Spammy nudges disabled.');
 
       break;
     } catch (err) {
@@ -1575,6 +1487,22 @@ app.get('/admin/stats', async (req, res) => {
     const swipedUsers = await User.countDocuments({ 'stats.likesGiven': { $gt: 0 } });
     const matchedUsers = await User.countDocuments({ 'matches.0': { $exists: true } });
 
+    const [completedProfiles, noPhoto, noGender, returningUsers, trialVipUsers] = await Promise.all([
+      // Fully completed profiles
+      User.countDocuments({ profileCompleted: true }),
+      // Users with no photo at all
+      User.countDocuments({
+        $or: [{ photos: { $size: 0 } }, { photos: { $exists: false } }, { photos: null }]
+      }),
+      // Users with no gender set
+      User.countDocuments({ $or: [{ gender: { $exists: false } }, { gender: null }, { gender: '' }] }),
+      // Returning users: lastActive is at least 1 day after createdAt
+      User.countDocuments({ $expr: { $gt: ['$lastActive', { $add: ['$createdAt', 24 * 60 * 60 * 1000] }] } }),
+      // Trial VIP users (got free trial, still active VIP)
+      User.countDocuments({ isVip: true, vipTrialUsed: true })
+    ]);
+    const otherGender = totalUsers - maleUsers - femaleUsers;
+
     res.json({
       // Totals
       totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers,
@@ -1583,6 +1511,8 @@ app.get('/admin/stats', async (req, res) => {
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
       pendingReports,
+      // Profile quality
+      completedProfiles, noPhoto, noGender, otherGender, returningUsers, trialVipUsers,
       // Daily
       activeToday, newToday, matchesToday, revenueToday: revenueTodayUSD.toFixed(2), revenueTodayStars,
       // Rates
@@ -1623,6 +1553,7 @@ app.get('/admin/users', async (req, res) => {
     else if (filter === 'active') query = { ...query, isBanned: { $ne: true } };
     else if (filter === 'male') query.gender = 'Male';
     else if (filter === 'female') query.gender = 'Female';
+    else if (filter === 'new_today') { const t = new Date(); t.setHours(0,0,0,0); query.createdAt = { $gte: t }; }
 
     const [users, total] = await Promise.all([
       User.find(query)
@@ -2039,7 +1970,7 @@ app.get('/admin/revenue/_old_disabled', async (req, res) => {
 // ── Admin: Get match statistics (paginated) ───────────────────────────────
 app.get('/admin/matches', async (req, res) => {
   try {
-    const { page = 1, limit = 25, search } = req.query;
+    const { page = 1, limit = 25, search, filter } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Count total matches
@@ -2086,11 +2017,14 @@ app.get('/admin/matches', async (req, res) => {
       }
     }
 
-    // Search filter
+    // Date + search filters
     let filtered = allPairs;
+    if (filter === 'today') {
+      filtered = filtered.filter(p => p.matchedAt && new Date(p.matchedAt) >= today);
+    }
     if (search) {
       const q = search.toLowerCase();
-      filtered = allPairs.filter(p =>
+      filtered = filtered.filter(p =>
         (p.user1.name || '').toLowerCase().includes(q) ||
         (p.user1.username || '').toLowerCase().includes(q) ||
         String(p.user1.telegramId).includes(q) ||

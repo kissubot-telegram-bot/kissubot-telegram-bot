@@ -126,7 +126,7 @@
                             <span class="stat-change positive" style="font-size:11px">Users online today</span>
                         </div>
                     </div>
-                    <div class="stat-card" onclick="navigateTo('matches')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #FF6B9D" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                    <div class="stat-card" onclick="navigateToMatchesFiltered('today')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #FF6B9D" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">💘</div>
                         <div class="stat-info">
                             <h3 id="matches-today">0</h3>
@@ -134,7 +134,7 @@
                             <span class="stat-change positive" style="font-size:11px">New pairs today</span>
                         </div>
                     </div>
-                    <div class="stat-card" onclick="navigateTo('revenue')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #FFD700" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                    <div class="stat-card" onclick="navigateToRevenueToday()" style="cursor:pointer;transition:transform .15s;border-left:3px solid #FFD700" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">💰</div>
                         <div class="stat-info">
                             <h3 id="revenue-today">$0</h3>
@@ -142,7 +142,7 @@
                             <span class="stat-change positive" style="font-size:11px">Today's earnings</span>
                         </div>
                     </div>
-                    <div class="stat-card" onclick="navigateTo('users')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #42A5F5" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                    <div class="stat-card" onclick="navigateToWithFilter('users','new_today')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #42A5F5" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="stat-icon">✨</div>
                         <div class="stat-info">
                             <h3 id="new-today">0</h3>
@@ -176,7 +176,7 @@
                         <div class="stat-info">
                             <h3 id="gender-ratio">–</h3>
                             <p>Gender Ratio</p>
-                            <span class="stat-change positive" style="font-size:11px" id="gender-ratio-sub">M% / F%</span>
+                            <span class="stat-change positive" style="font-size:11px" id="gender-ratio-sub">👔 0 · 👗 0 · ❓ 0</span>
                         </div>
                     </div>
                     <div class="stat-card" style="cursor:default">
@@ -221,7 +221,7 @@
                         <div class="stat-info">
                             <h3 id="vip-users">0</h3>
                             <p>Active VIP</p>
-                            <span class="stat-change positive" style="font-size:11px">⭐ <span id="vip-rev-stars">0</span> · $<span id="vip-rev-usd">0</span> revenue</span>
+                            <span class="stat-change positive" style="font-size:11px">👑 <span id="paid-vip">0</span> paid · 🎁 <span id="trial-vip">0</span> trial</span>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -230,6 +230,43 @@
                             <h3 id="expired-vip-users">0</h3>
                             <p>Expired VIP</p>
                             <span class="stat-change negative" style="font-size:11px">Total: $<span id="total-revenue">0</span> all time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROW 4: Profile Quality -->
+                <p style="color:#888;font-size:12px;margin:16px 0 8px;text-transform:uppercase;letter-spacing:1px">🔍 Profile Quality</p>
+                <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+                    <div class="stat-card" style="cursor:default">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-info">
+                            <h3 id="completed-profiles">0</h3>
+                            <p>Completed Profiles</p>
+                            <span class="stat-change positive" style="font-size:11px"><span id="completed-pct">0</span>% of total</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor:default">
+                        <div class="stat-icon">📸</div>
+                        <div class="stat-info">
+                            <h3 id="no-photo-users">0</h3>
+                            <p>No Photo</p>
+                            <span class="stat-change negative" style="font-size:11px">Missing profile photo</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor:default">
+                        <div class="stat-icon">❓</div>
+                        <div class="stat-info">
+                            <h3 id="no-gender-users">0</h3>
+                            <p>No Gender Set</p>
+                            <span class="stat-change negative" style="font-size:11px">Incomplete onboarding</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" style="cursor:default">
+                        <div class="stat-icon">🔁</div>
+                        <div class="stat-info">
+                            <h3 id="returning-users">0</h3>
+                            <p>Returning Users</p>
+                            <span class="stat-change positive" style="font-size:11px">Came back after day 1</span>
                         </div>
                     </div>
                 </div>
