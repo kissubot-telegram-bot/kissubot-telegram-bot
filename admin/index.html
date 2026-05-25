@@ -48,6 +48,28 @@
         .funnel-label { color:rgba(255,255,255,0.8); font-size:11px; margin-top:2px; }
         .funnel-pct { color:rgba(255,255,255,0.6); font-size:10px; margin-top:2px; }
         @media(max-width:768px) { .stats-grid { grid-template-columns:repeat(2,1fr) !important; } .funnel-step { min-width:60px; padding:8px; } }
+        /* Activity status dots */
+        .act-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; flex-shrink:0; vertical-align:middle; }
+        .act-dot-green  { background:#22c55e; box-shadow:0 0 4px #22c55e88; }
+        .act-dot-yellow { background:#eab308; }
+        .act-dot-orange { background:#f97316; }
+        .act-dot-blue   { background:#3b82f6; }
+        .act-dot-grey   { background:#6b7280; }
+        .act-badge { font-size:10px; margin-left:2px; }
+        /* Notification log */
+        .notif-type-badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:600; }
+        .notif-vip_expiry  { background:#7c3aed; color:#fff; }
+        .notif-likes_teaser{ background:#ec4899; color:#fff; }
+        .notif-view_summary{ background:#0ea5e9; color:#fff; }
+        .notif-search_tip  { background:#f59e0b; color:#000; }
+        .notif-weekly_recap{ background:#10b981; color:#fff; }
+        .notif-vip_trial   { background:#f9a825; color:#000; }
+        /* Activity timeline in modal */
+        .activity-section { margin-top:14px; border-top:1px solid #333; padding-top:12px; }
+        .activity-section h4 { color:#FF6B9D; margin:0 0 8px; font-size:13px; }
+        .activity-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #222; font-size:12px; color:#ccc; }
+        .activity-row span:first-child { color:#aaa; }
+        .activity-row span:last-child  { color:#fff; font-weight:600; }
     </style>
 </head>
 <body>
@@ -84,6 +106,10 @@
                 <a href="#" class="nav-item" data-page="reports">
                     <span class="icon">🚨</span>
                     <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" data-page="notifications">
+                    <span class="icon">🔔</span>
+                    <span>Notifications</span>
                 </a>
                 <a href="#" class="nav-item" data-page="settings">
                     <span class="icon">⚙️</span>
@@ -323,6 +349,53 @@
                     <h3>Recent Activity</h3>
                     <div class="activity-list" id="recent-activity"></div>
                 </div>
+            </div>
+
+            <!-- Notifications Page -->
+            <div id="notifications-page" class="page" style="display:none">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+                    <h2 style="color:#fff;margin:0;flex:1">🔔 Notification Log</h2>
+                    <select id="notif-type-filter" onchange="loadNotifLog(1)" style="background:#1e1e2e;color:#fff;border:1px solid #444;border-radius:6px;padding:7px 10px;cursor:pointer">
+                        <option value="">All Types</option>
+                        <option value="vip_expiry">👑 VIP Expiry</option>
+                        <option value="likes_teaser">💕 Likes Teaser</option>
+                        <option value="view_summary">👀 View Summary</option>
+                        <option value="search_tip">⚙️ Search Tip</option>
+                        <option value="weekly_recap">📊 Weekly Recap</option>
+                        <option value="vip_trial">🎁 VIP Trial</option>
+                    </select>
+                    <button class="btn-primary" onclick="loadNotifLog(1)">🔄 Refresh</button>
+                </div>
+                <!-- Active Notifications Summary -->
+                <div style="background:#1e1e2e;border:1px solid #333;border-radius:10px;padding:14px;margin-bottom:16px">
+                    <h4 style="color:#aaa;margin:0 0 10px;font-size:13px">⚡ Active Cron Notifications</h4>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                        <span style="background:#7c3aed;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">👑 VIP Expiry — every hour</span>
+                        <span style="background:#ec4899;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">💕 Likes Teaser — 9 PM UTC</span>
+                        <span style="background:#0ea5e9;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">👀 View Summary — 8 PM UTC</span>
+                        <span style="background:#f59e0b;color:#000;padding:4px 10px;border-radius:12px;font-size:12px">⚙️ Search Tip — 6 PM UTC (one-time)</span>
+                        <span style="background:#10b981;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">📊 Weekly Recap — Sun 10 AM UTC</span>
+                        <span style="background:#f9a825;color:#000;padding:4px 10px;border-radius:12px;font-size:12px">🎁 VIP Trial — 11 AM UTC (day 3)</span>
+                    </div>
+                    <p style="color:#666;font-size:11px;margin:8px 0 0">🛡️ Global cap: max 3 notifications per user per day across all channels</p>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="notif-log-body">
+                            <tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="notif-log-pagination" style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap"></div>
             </div>
 
             <!-- Users Page -->
@@ -614,6 +687,9 @@
                         </label>
                         <label style="background:#12121f;border:1px solid #c0392b;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer">
                             <input type="radio" name="target" value="no_photo" onchange="updateBroadcastCount()"> 📸 No Photo
+                        </label>
+                        <label style="background:#12121f;border:1px solid #c0392b;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="radio" name="target" value="no_gender" onchange="updateBroadcastCount()"> 🚻 No Gender
                         </label>
                     </div>
                     <textarea class="broadcast-input" id="broadcast-msg" placeholder="Type your announcement here..."></textarea>

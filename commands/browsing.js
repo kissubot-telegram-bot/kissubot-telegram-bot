@@ -350,15 +350,6 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
           const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
           const newStreak = lastBrowse === yesterday ? (currentUser.browseStreak || 0) + 1 : 1;
           streakUpdate = { lastBrowseDate: todayStr, browseStreak: newStreak };
-          // Reward milestones: 3, 7, 14, 30 day streaks
-          const milestones = { 3: 50, 7: 150, 14: 300, 30: 750 };
-          if (milestones[newStreak]) {
-            streakUpdate.$inc = { coins: milestones[newStreak] };
-            bot.sendMessage(chatId,
-              `🔥 *${newStreak}-Day Browse Streak!*\n\n+${milestones[newStreak]} coins added to your balance as a reward! 🪙\n\nKeep it up!`,
-              { parse_mode: 'Markdown' }
-            ).catch(() => {});
-          }
         }
         User.findOneAndUpdate({ telegramId: String(telegramId) }, { lastActive: new Date(), ...streakUpdate }).catch(() => { });
 
@@ -664,31 +655,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-      // Monthly VIP coins grant
-
-      if (currentUser.isVip) {
-
-        const now = new Date();
-
-        const lastGrant = currentUser.vipDetails && currentUser.vipDetails.lastCoinGrantDate;
-
-        const monthlyCoins = (currentUser.vipDetails && currentUser.vipDetails.benefits && currentUser.vipDetails.benefits.monthlyCoins) || 500;
-
-        if (!lastGrant || (now - new Date(lastGrant)) > 30 * 24 * 60 * 60 * 1000) {
-
-          await User.findOneAndUpdate(
-
-            { telegramId: String(telegramId) },
-
-            { $inc: { coins: monthlyCoins }, $set: { 'vipDetails.lastCoinGrantDate': now } }
-
-          );
-
-          bot.sendMessage(chatId, `🎁 *Monthly VIP Coins!*\n\n+${monthlyCoins} coins have been added to your balance! 🪙`, { parse_mode: 'Markdown' }).catch(() => { });
-
-        }
-
-      }
+      // Monthly VIP coins grant — disabled (admin grants coins manually)
 
 
 

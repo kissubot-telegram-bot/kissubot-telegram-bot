@@ -31,7 +31,7 @@ function navigateTo(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const pageEl = document.getElementById(`${page}-page`);
     if (pageEl) pageEl.classList.add('active');
-    const titles = { overview:'Dashboard Overview', users:'User Management', revenue:'Revenue Analytics', matches:'Match Statistics', reports:'Reports & Moderation', settings:'Bot Settings' };
+    const titles = { overview:'Dashboard Overview', users:'User Management', revenue:'Revenue Analytics', matches:'Match Statistics', reports:'Reports & Moderation', notifications:'Notification Log', settings:'Bot Settings' };
     document.getElementById('page-title').textContent = titles[page] || page;
     loadPageData(page);
 }
@@ -45,6 +45,17 @@ function navigateToWithFilter(page, filter) {
         });
     }, 50);
     navigateTo(page);
+}
+
+// ── Activity dot helper ─────────────────────────────────────────────────
+function activityDot(lastActive) {
+    if (!lastActive) return '<span class="act-dot act-dot-grey" title="Never active"></span>';
+    const mins = (Date.now() - new Date(lastActive)) / 60000;
+    if (mins < 15)         return '<span class="act-dot act-dot-green"  title="Active now"></span>';
+    if (mins < 180)        return '<span class="act-dot act-dot-yellow" title="Active recently"></span>';
+    if (mins < 1440)       return '<span class="act-dot act-dot-orange" title="Active today"></span>';
+    if (mins < 10080)      return '<span class="act-dot act-dot-blue"   title="Active this week"></span>';
+    return                        '<span class="act-dot act-dot-grey"   title="Inactive"></span>';
 }
 
 // Test connection on load
@@ -354,8 +365,12 @@ async function loadUsers(page = usersCurrentPage) {
         }
 
         tbody.innerHTML = users.map(user => {
+            const dot = activityDot(user.lastActive);
+            const hasChatted = (user.matches || []).some(m => (m.messageCount?.user1 || 0) > 0 || (m.messageCount?.user2 || 0) > 0);
+            const hasMatch   = (user.matches || []).length > 0;
+            const actBadges  = (hasMatch ? '<span class="act-badge" title="Has matches">💘</span>' : '') + (hasChatted ? '<span class="act-badge" title="Has chatted">💬</span>' : '');
             const username = user.username ? `@${user.username}` : `<span style="color:#666;font-size:11px">${user.telegramId}</span>`;
-            const name = user.name || '<span style="color:#666">N/A</span>';
+            const name = `${dot}${user.name || '<span style="color:#666">N/A</span>'}${actBadges}`;
             const age = user.age || '–';
             const gender = user.gender ? user.gender[0] : '–';
             const location = user.location || '<span style="color:#666">–</span>';
@@ -485,9 +500,60 @@ async function loadPageData(page) {
         case 'matches':
             await loadMatchStats();
             break;
+        case 'notifications':
+            await loadNotifLog(1);
+            break;
         case 'settings':
             updateBroadcastCount();
             break;
+    }
+}
+
+// ── Notification Log ─────────────────────────────────────────────────────
+let notifLogCurrentPage = 1;
+
+async function loadNotifLog(page = notifLogCurrentPage) {
+    notifLogCurrentPage = page;
+    const tbody = document.getElementById('notif-log-body');
+    const pager = document.getElementById('notif-log-pagination');
+    const type  = document.getElementById('notif-type-filter')?.value || '';
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#888">Loading...</td></tr>`;
+    try {
+        let url = `${API_BASE}/admin/notifications?page=${page}&limit=50`;
+        if (type) url += `&type=${type}`;
+        const data = await apiFetch(url);
+        if (!data.logs || data.logs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#888">No notifications logged yet. They will appear here once the cron runs.</td></tr>`;
+            if (pager) pager.innerHTML = '';
+            return;
+        }
+        const TYPE_ICONS = { vip_expiry:'👑', likes_teaser:'💕', view_summary:'👀', search_tip:'⚙️', weekly_recap:'📊', vip_trial:'🎁' };
+        tbody.innerHTML = data.logs.map(log => {
+            const sentAt = log.sentAt ? new Date(log.sentAt).toLocaleString() : '–';
+            const icon = TYPE_ICONS[log.type] || '🔔';
+            return `<tr>
+                <td style="font-size:12px;color:#aaa;white-space:nowrap">${sentAt}</td>
+                <td>${log.name || '<span style="color:#666">Unknown</span>'}</td>
+                <td style="font-family:monospace;font-size:11px;color:#888">${log.telegramId}</td>
+                <td><span class="notif-type-badge notif-${log.type}">${icon} ${log.type.replace(/_/g,' ')}</span></td>
+                <td style="font-size:12px;color:#ccc">${log.message || '–'}</td>
+            </tr>`;
+        }).join('');
+        // Pagination
+        if (pager) {
+            const pages = data.pages || 1;
+            let html = '';
+            if (page > 1) html += `<button class="page-btn" onclick="loadNotifLog(${page-1})">‹</button>`;
+            for (let i = Math.max(1,page-2); i <= Math.min(pages,page+2); i++) {
+                html += `<button class="page-btn${i===page?' active':''}" onclick="loadNotifLog(${i})">${i}</button>`;
+            }
+            if (page < pages) html += `<button class="page-btn" onclick="loadNotifLog(${page+1})">›</button>`;
+            html += `<span class="page-info">${data.total} total</span>`;
+            pager.innerHTML = html;
+        }
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#e53935;padding:16px">${err.message}</td></tr>`;
     }
 }
 
@@ -886,6 +952,8 @@ async function viewUser(telegramId) {
         const user = await apiFetch(`/admin/users/${telegramId}`);
         const modal = document.getElementById('userModal');
         document.getElementById('modal-title').textContent = `👤 ${user.name || 'Unknown'} ${user.isVip ? '👑' : ''}`;
+        const a = user.activity || {};
+        const dotModal = activityDot(user.lastActive);
         document.getElementById('modal-body').innerHTML = `
             <div class="modal-field"><strong>Username:</strong> ${user.username ? '@'+user.username : 'N/A'}</div>
             <div class="modal-field"><strong>Telegram ID:</strong> ${user.telegramId}</div>
@@ -899,7 +967,23 @@ async function viewUser(telegramId) {
             <div class="modal-field"><strong>VIP:</strong> ${user.isVip ? '✅ ' + (user.vipExpiresAt ? 'Expires: ' + new Date(user.vipExpiresAt).toLocaleDateString() : 'Active') : 'No'}</div>
             <div class="modal-field"><strong>Status:</strong> ${user.isBanned ? '🚫 Banned' + (user.banReason ? ' (' + user.banReason + ')' : '') : '✅ Active'}</div>
             <div class="modal-field"><strong>Joined:</strong> ${user.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</div>
-            <div class="modal-field"><strong>Last active:</strong> ${timeAgo(user.lastActive)}</div>
+            <div class="modal-field"><strong>Last active:</strong> ${dotModal} ${timeAgo(user.lastActive)}</div>
+            <div class="activity-section">
+                <h4>📊 Activity Timeline</h4>
+                <div class="activity-row"><span>🔥 Browse streak</span><span>${a.browseStreak || 0} day${a.browseStreak === 1 ? '' : 's'}</span></div>
+                <div class="activity-row"><span>📅 Last browse</span><span>${a.lastBrowseDate || 'Never'}</span></div>
+                <div class="activity-row"><span>💘 Total matches</span><span>${a.matchCount || 0}</span></div>
+                <div class="activity-row"><span>📅 Last match</span><span>${a.lastMatchDate ? timeAgo(a.lastMatchDate) : 'None'}</span></div>
+                <div class="activity-row"><span>💌 Messages sent</span><span>${a.totalMsgsSent || 0}</span></div>
+                <div class="activity-row"><span>❤️ Likes given</span><span>${a.likesGiven || 0}</span></div>
+                <div class="activity-row"><span>💕 Likes received</span><span>${a.likesReceived || 0}</span></div>
+                <div class="activity-row"><span>👀 Profile views today</span><span>${a.profileViewsToday || 0}</span></div>
+                <div class="activity-row"><span>🔔 Notifs today</span><span>${a.dailyNotifCount || 0} / 3</span></div>
+                <div class="activity-row"><span>🎁 VIP trial used</span><span>${a.vipTrialUsed ? 'Yes' : 'No'}</span></div>
+                <div class="activity-row"><span>⚙️ Search: gender</span><span>${a.searchSettings?.genderPreference || 'Any'}</span></div>
+                <div class="activity-row"><span>⚙️ Search: age</span><span>${a.searchSettings?.ageMin || 18}–${a.searchSettings?.ageMax || 99}</span></div>
+                <div class="activity-row"><span>⚙️ Search: location</span><span>${a.searchSettings?.locationPreference || 'Nearby'}</span></div>
+            </div>
         `;
         document.getElementById('modal-actions').innerHTML = `
             ${user.isBanned

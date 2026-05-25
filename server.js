@@ -1050,6 +1050,13 @@ const userSchema = new mongoose.Schema({
   vipTrialExpiresAt: Date,                               // when the trial expires
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
 
+  // Referral System
+  referralCode:          { type: String, default: '' },   // unique code e.g. "ref_12345678"
+  referredBy:            { type: String, default: '' },   // telegramId of the referrer
+  referralCount:         { type: Number, default: 0 },    // completed (profile-done) referrals
+  referralRewardedCount: { type: Number, default: 0 },    // how many referrals already rewarded
+  searchSettingsTipSent: { type: Boolean, default: false },
+
   // System Fields
   createdAt: { type: Date, default: Date.now },
   lastActive: { type: Date, default: Date.now },
@@ -1132,6 +1139,8 @@ setupPremiumCommands(bot, User, userStates);
 setupGiftCommands(bot, User, userStates);
 setupSocialDebugCommands(bot, User, Match, Like, userStates);
 setupSocialCommands(bot, User);
+const { setupReferralCommands } = require('./commands/referral');
+setupReferralCommands(bot, User);
 setupLikesCommands(bot, User, Like);
 setupMatchesCommands(bot, User, Match);
 setupVipPerksCommands(bot, User);
@@ -1148,6 +1157,7 @@ bot.setMyCommands([
   { command: 'store', description: '💎 VIP, Boosts & Coins' },
   { command: 'vip', description: '👑 Manage VIP membership' },
   { command: 'coins', description: '🪙 Check balance & buy coins' },
+  { command: 'refer', description: '👥 Invite friends & earn VIP days' },
   { command: 'settings', description: '⚙️ Adjust your preferences' },
   { command: 'help', description: '❓ Get help and support' },
   { command: 'delete', description: '🗑️ Delete your account' }
@@ -1541,7 +1551,7 @@ app.get('/admin/stats', async (req, res) => {
     const swipedUsers = await User.countDocuments({ 'stats.likesGiven': { $gt: 0 } });
     const matchedUsers = await User.countDocuments({ 'matches.0': { $exists: true } });
 
-    const [completedProfiles, noPhoto, noGender, returningUsers, trialVipUsers] = await Promise.all([
+    const [completedProfiles, noPhoto, noGender, returningUsers, trialVipUsers, totalReferrals] = await Promise.all([
       // Fully completed profiles
       User.countDocuments({ profileCompleted: true }),
       // Users with no photo at all
@@ -1553,8 +1563,11 @@ app.get('/admin/stats', async (req, res) => {
       // Returning users: lastActive is at least 1 day after createdAt
       User.countDocuments({ $expr: { $gt: ['$lastActive', { $add: ['$createdAt', 24 * 60 * 60 * 1000] }] } }),
       // Trial VIP users (got free trial, still active VIP)
-      User.countDocuments({ isVip: true, vipTrialUsed: true })
+      User.countDocuments({ isVip: true, vipTrialUsed: true }),
+      // Total successful referrals across all users
+      User.aggregate([{ $group: { _id: null, total: { $sum: '$referralCount' } } }])
     ]);
+    const totalReferralsCount = totalReferrals[0]?.total || 0;
     const otherGender = totalUsers - maleUsers - femaleUsers;
 
     res.json({
@@ -1566,7 +1579,7 @@ app.get('/admin/stats', async (req, res) => {
       totalLikesReceived: agg.totalLikesReceived || 0,
       pendingReports,
       // Profile quality
-      completedProfiles, noPhoto, noGender, otherGender, returningUsers, trialVipUsers,
+      completedProfiles, noPhoto, noGender, otherGender, returningUsers, trialVipUsers, totalReferrals: totalReferralsCount,
       // Daily
       activeToday, newToday, matchesToday, revenueToday: revenueTodayUSD.toFixed(2), revenueTodayStars,
       // Rates
@@ -1771,6 +1784,7 @@ app.get('/admin/broadcast/count', async (req, res) => {
       { $or: [{ photos: { $size: 0 } }, { photos: { $exists: false } }, { photos: null }] },
       { $or: [{ profilePhoto: { $exists: false } }, { profilePhoto: null }, { profilePhoto: '' }] }
     ];
+    else if (targetGroup === 'no_gender') query.$or = [{ gender: { $exists: false } }, { gender: null }, { gender: '' }];
     const count = await User.countDocuments(query);
     res.json({ count, targetGroup });
   } catch (err) {
@@ -1798,6 +1812,7 @@ app.post('/admin/broadcast', async (req, res) => {
       { $or: [{ photos: { $size: 0 } }, { photos: { $exists: false } }, { photos: null }] },
       { $or: [{ profilePhoto: { $exists: false } }, { profilePhoto: null }, { profilePhoto: '' }] }
     ];
+    else if (targetGroup === 'no_gender') query.$or = [{ gender: { $exists: false } }, { gender: null }, { gender: '' }];
 
     const users = await User.find(query).select('telegramId lastNotificationSentAt');
     let sent = 0, failed = 0, skipped = 0;
