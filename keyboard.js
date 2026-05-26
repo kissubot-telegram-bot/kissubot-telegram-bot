@@ -12,7 +12,8 @@ const MAIN_KEYBOARD = {
     [{ text: '✨ Discover' }],
     [{ text: '💘 Matches' }, { text: '👀 Likes You' }],
     [{ text: '🎀 My Profile' }, { text: '⚙️ Settings' }],
-    [{ text: '👑 VIP' }, { text: '🆘 Help' }]
+    [{ text: '👑 VIP' }, { text: '👥 Refer a Friend' }],
+    [{ text: '🆘 Help' }]
   ],
   resize_keyboard: true,
   persistent: true
@@ -26,6 +27,7 @@ const MAIN_KB_BUTTONS = [
   '🎀 My Profile',
   '⚙️ Settings',
   '👑 VIP',
+  '👥 Refer a Friend',
   '🆘 Help'
 ];
 
@@ -116,7 +118,7 @@ const VIP_PLANS_KEYBOARD = {
     [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)' }],
     [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)' }],
     [{ text: '🪙 Pay with Coins Instead' }],
-    [{ text: '💎 VIP' }]
+    [{ text: '� Back' }]
   ],
   resize_keyboard: true
 };
@@ -134,7 +136,7 @@ const COIN_VIP_PLANS_KEYBOARD = {
     [{ text: '🪙 6 Months VIP — 4,500 coins  (save 25%)' }],
     [{ text: '🪙 1 Year VIP — 8,000 coins  (save 33%)' }],
     [{ text: '⭐ Pay with Stars Instead' }],
-    [{ text: '💎 VIP' }]
+    [{ text: '� Back' }]
   ],
   resize_keyboard: true
 };

@@ -159,6 +159,7 @@ async function loadDashboardData() {
         setEl('paid-vip', paidVip.toLocaleString());
         setEl('trial-vip', trialVip.toLocaleString());
         setEl('total-revenue', s.totalRevenue || 0);
+        setEl('total-referrals', (s.totalReferrals || 0).toLocaleString());
 
         // Profile Quality row
         const completedPct = s.totalUsers > 0 ? ((s.completedProfiles / s.totalUsers) * 100).toFixed(1) : '0.0';
@@ -1079,6 +1080,20 @@ async function dismissReport(reportId, btn) {
 }
 
 // ── Broadcast ─────────────────────────────────────────────────────────────────
+const BROADCAST_TEMPLATES = {
+    referral: `👥 *Invite Friends & Earn Free VIP!*\n\nDid you know you can earn FREE VIP days just by inviting friends to KissuBot?\n\n✨ *How it works:*\n• Share your personal invite link\n• Friend completes their profile\n• You get +3 VIP days instantly!\n\n🏆 *Milestone bonuses:*\n• 3 friends → +7 extra days\n• 7 friends → +1 month VIP\n• 15 friends → +3 months VIP\n\nTap /refer to get your invite link now! 🚀`,
+    profile: `📸 *Complete Your Profile for Better Matches!*\n\nProfiles with a photo get *3× more matches* than those without.\n\nMake sure you have:\n✅ A clear profile photo\n✅ Your age & gender set\n✅ A short bio\n✅ Your location\n\nTap /profile to update yours now! 💕`,
+    vip: `👑 *Upgrade to VIP — Find Your Match Faster!*\n\nVIP members get:\n• Unlimited swipes every day\n• See who liked your profile\n• Priority visibility in discovery\n• Chat with all your matches\n\nTap /vip to see plans from just 749⭐ 🚀`
+};
+
+function fillBroadcastTemplate(type) {
+    const textarea = document.getElementById('broadcast-msg');
+    if (textarea && BROADCAST_TEMPLATES[type]) {
+        textarea.value = BROADCAST_TEMPLATES[type];
+        textarea.focus();
+    }
+}
+
 async function updateBroadcastCount() {
     const target = document.querySelector('input[name="target"]:checked')?.value || 'all';
     const label = document.getElementById('broadcast-count-label');

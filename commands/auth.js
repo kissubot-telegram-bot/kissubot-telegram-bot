@@ -46,11 +46,26 @@ function setupAuthCommands(bot, userStates, User) {
 
       // 1. If user doesn't exist, create an empty skeleton and start onboarding immediately
       if (!user) {
+        // Parse referral code from deep-link: /start ref_XXXXXXXX
+        let referredBy = '';
+        const startPayload = msg.text && msg.text.split(' ')[1];
+        if (startPayload && startPayload.startsWith('ref_')) {
+          const referrer = await User.findOne({ referralCode: startPayload }).select('telegramId').lean();
+          if (referrer && String(referrer.telegramId) !== String(telegramId)) {
+            referredBy = String(referrer.telegramId);
+          }
+        }
+
+        // Generate a unique referral code for this new user
+        const referralCode = 'ref_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+
         user = new User({
           telegramId,
           username: msg.from.username || '',
           location: 'Unknown',
-          onboardingStep: 'registration'
+          onboardingStep: 'registration',
+          referralCode,
+          referredBy
         });
         await user.save();
         invalidateUserCache(telegramId);
@@ -59,6 +74,12 @@ function setupAuthCommands(bot, userStates, User) {
         if (global.startOnboarding) {
           return await global.startOnboarding(chatId, telegramId);
         }
+      }
+
+      // Backfill referral code for existing users who don't have one
+      if (!user.referralCode) {
+        const referralCode = 'ref_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+        await User.findOneAndUpdate({ telegramId }, { referralCode });
       }
 
       // 2. Compute profile completeness from actual fields

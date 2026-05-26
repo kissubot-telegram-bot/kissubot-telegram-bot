@@ -1621,6 +1621,7 @@ app.get('/admin/users', async (req, res) => {
     else if (filter === 'male') query.gender = 'Male';
     else if (filter === 'female') query.gender = 'Female';
     else if (filter === 'new_today') { const t = new Date(); t.setHours(0,0,0,0); query.createdAt = { $gte: t }; }
+    else if (filter === 'inactive') query.lastActive = { $lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
 
     const [users, total] = await Promise.all([
       User.find(query)

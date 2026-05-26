@@ -258,6 +258,14 @@
                             <span class="stat-change negative" style="font-size:11px">Total: $<span id="total-revenue">0</span> all time</span>
                         </div>
                     </div>
+                    <div class="stat-card" style="cursor:default;border-left:3px solid #a855f7">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="total-referrals">0</h3>
+                            <p>Total Referrals</p>
+                            <span class="stat-change positive" style="font-size:11px">Successful invites</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ROW 4: Profile Quality -->
@@ -418,6 +426,7 @@
                     <button class="filter-tab" data-filter="active" onclick="setFilter(this, 'active')">✅ Active</button>
                     <button class="filter-tab" data-filter="vip" onclick="setFilter(this, 'vip')">👑 VIP</button>
                     <button class="filter-tab" data-filter="banned" onclick="setFilter(this, 'banned')">🚫 Banned</button>
+                    <button class="filter-tab" data-filter="inactive" onclick="setFilter(this, 'inactive')">💤 Inactive (7d+)</button>
                     <span id="users-count-label" style="margin-left:auto;color:#888;font-size:13px;align-self:center"></span>
                 </div>
                 <div class="table-container">
@@ -691,6 +700,15 @@
                         <label style="background:#12121f;border:1px solid #c0392b;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;cursor:pointer">
                             <input type="radio" name="target" value="no_gender" onchange="updateBroadcastCount()"> 🚻 No Gender
                         </label>
+                    </div>
+                    <!-- Broadcast Templates -->
+                    <div style="margin-bottom:10px">
+                        <p style="color:#888;font-size:12px;margin:0 0 6px">Quick templates:</p>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap">
+                            <button class="btn-sm" style="background:#a855f7;color:#fff;font-size:11px" onclick="fillBroadcastTemplate('referral')">👥 Referral Announcement</button>
+                            <button class="btn-sm" style="background:#0ea5e9;color:#fff;font-size:11px" onclick="fillBroadcastTemplate('profile')">📸 Complete Your Profile</button>
+                            <button class="btn-sm" style="background:#f97316;color:#fff;font-size:11px" onclick="fillBroadcastTemplate('vip')">👑 VIP Promo</button>
+                        </div>
                     </div>
                     <textarea class="broadcast-input" id="broadcast-msg" placeholder="Type your announcement here..."></textarea>
                     <div style="margin-top:10px;display:flex;align-items:center;gap:12px">

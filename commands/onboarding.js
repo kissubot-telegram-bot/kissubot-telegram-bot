@@ -435,12 +435,52 @@ function setupOnboardingCommands(bot, userStates, User, Like = null) {
                 await user.save();
 
                 // Mark profile complete
-                await User.findOneAndUpdate(
+                const completedUser = await User.findOneAndUpdate(
                     { telegramId },
-                    { profileCompleted: true, onboardingStep: 'completed' }
+                    { profileCompleted: true, onboardingStep: 'completed' },
+                    { new: true }
                 );
                 userStates.delete(telegramId);
                 invalidateUserCache(telegramId);
+
+                // ── Referral reward ───────────────────────────────────────
+                if (completedUser && completedUser.referredBy) {
+                    try {
+                        const referrer = await User.findOne({ telegramId: completedUser.referredBy });
+                        if (referrer) {
+                            const newCount = (referrer.referralCount || 0) + 1;
+                            const alreadyRewarded = referrer.referralRewardedCount || 0;
+                            if (newCount > alreadyRewarded) {
+                                // Base reward: +3 VIP days per referral
+                                let bonusDays = 3;
+                                let milestoneMsg = '';
+                                const MILESTONES = { 3: 7, 7: 30, 15: 90 };
+                                if (MILESTONES[newCount]) {
+                                    bonusDays += MILESTONES[newCount];
+                                    milestoneMsg = `\n\n🏆 *Milestone unlocked!* ${newCount} referrals = +${MILESTONES[newCount]} bonus days!`;
+                                }
+                                const now = new Date();
+                                const currentExpiry = referrer.vipExpiresAt && referrer.vipExpiresAt > now
+                                    ? referrer.vipExpiresAt
+                                    : now;
+                                const newExpiry = new Date(currentExpiry.getTime() + bonusDays * 24 * 60 * 60 * 1000);
+                                await User.findOneAndUpdate(
+                                    { telegramId: completedUser.referredBy },
+                                    {
+                                        $set: { isVip: true, vipExpiresAt: newExpiry, referralRewardedCount: newCount },
+                                        $inc: { referralCount: 1 }
+                                    }
+                                );
+                                bot.sendMessage(
+                                    completedUser.referredBy,
+                                    `👥 *Referral Reward!*\n\nYour friend just completed their profile on KissuBot! 🎉\n\n+${bonusDays} VIP days added to your account!${milestoneMsg}\n\nVIP active until: ${newExpiry.toLocaleDateString()}`,
+                                    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '👥 My Referrals', callback_data: 'refer_stats' }]] } }
+                                ).catch(() => {});
+                            }
+                        }
+                    } catch (_) {}
+                }
+                // ─────────────────────────────────────────────────────────
 
                 // Trigger auto-match in background (non-blocking)
                 autoMatchNewUser(bot, telegramId, User, Like).catch(() => {});
