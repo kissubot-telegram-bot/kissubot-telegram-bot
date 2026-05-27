@@ -144,9 +144,13 @@ function setupChatRoomCommands(bot, User, ChatRoom, userStates) {
     const state = userStates.get(String(telegramId));
     if (state && state.mode === 'chat_room') {
       userStates.delete(String(telegramId));
-      await bot.sendMessage(chatId, 
-        '✅ You left the chat room.\n\nUse /matches to view your matches.',
-        { reply_markup: MAIN_KEYBOARD }
+      await bot.sendMessage(chatId,
+        '✅ You left the chat room.',
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: '💕 View My Matches', callback_data: 'view_matches' }]]
+          }
+        }
       );
       console.log(`[CHAT ROOM] User ${telegramId} exited chat room`);
     }

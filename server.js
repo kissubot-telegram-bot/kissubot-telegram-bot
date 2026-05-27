@@ -1049,6 +1049,7 @@ const userSchema = new mongoose.Schema({
   vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
   vipTrialExpiresAt: Date,                               // when the trial expires
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
+  lastLikeNotifAt:        { type: Date, default: null }, // like-received notification cooldown
 
   // Referral System
   referralCode:          { type: String, default: '' },   // unique code e.g. "ref_12345678"

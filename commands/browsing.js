@@ -128,6 +128,18 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
+  function getActivityStatus(lastActive) {
+    if (!lastActive) return '';
+    const mins = Math.floor((Date.now() - new Date(lastActive).getTime()) / 60000);
+    if (mins < 5)   return '🟢 Online now';
+    if (mins < 60)  return `🟡 Active ${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)   return `🟠 Active ${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7)   return `🔵 Active ${days}d ago`;
+    return '⚪ Active a while ago';
+  }
+
   async function buildProfileCaption(profile, viewerTelegramId) {
 
     const genderIcon = profile.gender === 'Male' ? '👔' : profile.gender === 'Female' ? '👗' : '🧒';
@@ -179,11 +191,14 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       : '';
 
+    const activityStatus = getActivityStatus(profile.lastActive);
+    const activityLine = activityStatus ? `\n${activityStatus}` : '';
+
     return (
 
       `${genderIcon} *${profile.name}*${vipBadge}${superLikeBadge}, ${profile.age}${photoCount}\n` +
 
-      `📍 ${profile.location}${lookingFor}\n\n` +
+      `📍 ${profile.location}${lookingFor}${activityLine}\n\n` +
 
       `💬 ${bio}` +
 
@@ -1339,7 +1354,9 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
 
 
-    if (!toUser.likes.includes(String(telegramId))) {
+    const isNewLike = !toUser.likes.includes(String(telegramId));
+
+    if (isNewLike) {
 
       toUser.likes.push(String(telegramId));
 
@@ -1355,7 +1372,37 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
     trackLike(telegramId, targetTelegramId);
 
-
+    // ── Like notification (2h cooldown, fires even if user is offline) ──────
+    if (isNewLike) {
+      const LIKE_NOTIF_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
+      const lastNotif = toUser.lastLikeNotifAt ? new Date(toUser.lastLikeNotifAt).getTime() : 0;
+      if (Date.now() - lastNotif >= LIKE_NOTIF_COOLDOWN_MS) {
+        const pendingLikes = (toUser.likes || []).length;
+        if (toUser.isVip) {
+          bot.sendMessage(String(targetTelegramId),
+            `❤️ *Someone liked your profile!*\n\nYou have *${pendingLikes} ${pendingLikes === 1 ? 'like' : 'likes'}* waiting. See who it is! 👀`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard: [[{ text: '👀 See Who Liked You', callback_data: 'view_likes' }]] }
+            }
+          ).catch(() => {});
+        } else {
+          bot.sendMessage(String(targetTelegramId),
+            `❤️ *Someone liked your profile!*\n\nYou have *${pendingLikes} ${pendingLikes === 1 ? 'like' : 'likes'}* — but who? 🤔\n\n🔒 Upgrade to VIP to see exactly who liked you!`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '👑 Unlock with VIP', callback_data: 'manage_vip' }],
+                  [{ text: '🔍 Keep Browsing', callback_data: 'browse_profiles' }]
+                ]
+              }
+            }
+          ).catch(() => {});
+        }
+        User.findOneAndUpdate({ telegramId: String(targetTelegramId) }, { lastLikeNotifAt: new Date() }).catch(() => {});
+      }
+    }
 
     const isMutualLike = Like
 
