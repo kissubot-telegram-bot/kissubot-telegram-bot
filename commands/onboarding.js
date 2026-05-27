@@ -454,7 +454,7 @@ function setupOnboardingCommands(bot, userStates, User, Like = null) {
                                 // Base reward: +3 VIP days per referral
                                 let bonusDays = 3;
                                 let milestoneMsg = '';
-                                const MILESTONES = { 3: 7, 7: 30, 15: 90 };
+                                const MILESTONES = { 3: 4, 7: 7, 15: 14 };
                                 if (MILESTONES[newCount]) {
                                     bonusDays += MILESTONES[newCount];
                                     milestoneMsg = `\n\n🏆 *Milestone unlocked!* ${newCount} referrals = +${MILESTONES[newCount]} bonus days!`;

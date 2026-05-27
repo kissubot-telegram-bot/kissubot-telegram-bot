@@ -20,8 +20,7 @@ const MESSAGES = {
     { text: '👋 *Welcome back!* Your first match is just a swipe away', btn: '✨ Start Browsing', action: 'browse_profiles' },
     { text: '⚡ Profiles browsed in the first week get *5× more likes*', btn: '🔥 Browse Now', action: 'browse_profiles' },
     { text: '🌟 Complete your profile to be seen by *more people!*', btn: '✏️ Edit Profile', action: 'edit_profile' },
-    { text: '💕 New members are getting matched *right now* — join them!', btn: '✨ Find Matches', action: 'browse_profiles' },
-    { text: '🎁 You have a *streak reward* waiting — browse today to claim it', btn: '🔥 Claim Reward', action: 'browse_profiles' }
+    { text: '💕 New members are getting matched *right now* — join them!', btn: '✨ Find Matches', action: 'browse_profiles' }
   ],
 
   cooling: [
@@ -111,7 +110,18 @@ function pickMessage(segment, user, stats) {
     text = text.replace(/\{X\}/g, String(stats.newUsersToday || Math.floor(Math.random() * 15) + 5));
   }
 
-  return { text, btn: msg.btn, action: msg.action };
+  let btn = msg.btn;
+  let action = msg.action;
+
+  // If the message implies matches/replies but user has none → swap to browse CTA
+  const hasMatches = (user.matches || []).length > 0;
+  if (!hasMatches && msg.action === 'view_matches') {
+    text = '🔍 *Start swiping* and find your first match! New profiles are waiting for you.';
+    btn = '✨ Swipe Now';
+    action = 'browse_profiles';
+  }
+
+  return { text, btn, action };
 }
 
 function getMatchName(user) {

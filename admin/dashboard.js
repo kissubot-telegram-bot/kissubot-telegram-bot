@@ -1081,7 +1081,7 @@ async function dismissReport(reportId, btn) {
 
 // ── Broadcast ─────────────────────────────────────────────────────────────────
 const BROADCAST_TEMPLATES = {
-    referral: `👥 *Invite Friends & Earn Free VIP!*\n\nDid you know you can earn FREE VIP days just by inviting friends to KissuBot?\n\n✨ *How it works:*\n• Share your personal invite link\n• Friend completes their profile\n• You get +3 VIP days instantly!\n\n🏆 *Milestone bonuses:*\n• 3 friends → +7 extra days\n• 7 friends → +1 month VIP\n• 15 friends → +3 months VIP\n\nTap /refer to get your invite link now! 🚀`,
+    referral: `👥 *Invite Friends & Earn Free VIP!*\n\nDid you know you can earn FREE VIP days just by inviting friends to KissuBot?\n\n✨ *How it works:*\n• Share your personal invite link\n• Friend completes their profile\n• You get +3 VIP days instantly!\n\n🏆 *Milestone bonuses:*\n• 3 friends → +4 extra days\n• 7 friends → +7 days VIP\n• 15 friends → +14 days VIP\n\nTap /refer to get your invite link now! 🚀`,
     profile: `📸 *Complete Your Profile for Better Matches!*\n\nProfiles with a photo get *3× more matches* than those without.\n\nMake sure you have:\n✅ A clear profile photo\n✅ Your age & gender set\n✅ A short bio\n✅ Your location\n\nTap /profile to update yours now! 💕`,
     vip: `👑 *Upgrade to VIP — Find Your Match Faster!*\n\nVIP members get:\n• Unlimited swipes every day\n• See who liked your profile\n• Priority visibility in discovery\n• Chat with all your matches\n\nTap /vip to see plans from just 749⭐ 🚀`
 };

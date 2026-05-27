@@ -6,16 +6,24 @@
  *
  * Rewards (on profile completion of referred user):
  *   Each referral  → +3 VIP days
- *   3 referrals    → +7 bonus days  (milestone)
- *   7 referrals    → +30 bonus days (milestone)
- *   15 referrals   → +90 bonus days (milestone)
+ *   3 referrals    → +4 bonus days  (milestone)
+ *   7 referrals    → +7 bonus days  (milestone)
+ *   15 referrals   → +14 bonus days (milestone)
  */
 
 const MILESTONES = [
-  { count: 3,  bonus: 7,  label: '1 week' },
-  { count: 7,  bonus: 30, label: '1 month' },
-  { count: 15, bonus: 90, label: '3 months' }
+  { count: 3,  bonus: 4,  label: '+4 days' },
+  { count: 7,  bonus: 7,  label: '+7 days' },
+  { count: 15, bonus: 14, label: '+14 days' }
 ];
+
+const REFER_KEYBOARD = {
+  keyboard: [
+    [{ text: '📤 Share My Invite Link' }, { text: '📊 My Referral Stats' }],
+    [{ text: '🏠 Menu' }]
+  ],
+  resize_keyboard: true
+};
 
 function getBotUsername(bot) {
   return bot.options && bot.options.username
@@ -65,38 +73,44 @@ function setupReferralCommands(bot, User) {
       const text = buildReferralMessage(user, code, botUsername);
       bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📤 Share Invite Link', switch_inline_query: `Join KissuBot! https://t.me/${botUsername}?start=${code}` }],
-            [{ text: '🔄 Refresh Stats', callback_data: 'refer_stats' }]
-          ]
-        }
+        reply_markup: REFER_KEYBOARD
       });
     } catch (err) {
       bot.sendMessage(chatId, '❌ Failed to load referral info. Please try again.');
     }
   });
 
-  // "👥 Refer a Friend" keyboard button
+  // "👥 Refer a Friend" keyboard button + "📊 My Referral Stats" + "📤 Share My Invite Link"
   bot.on('message', async (msg) => {
-    if (!msg.text || msg.text !== '👥 Refer a Friend') return;
+    const text = msg.text;
+    if (!text) return;
     const chatId = msg.chat.id;
     const telegramId = msg.from.id;
-    try {
-      const user = await User.findOne({ telegramId });
-      if (!user) return;
-      const code = await ensureReferralCode(user, User);
-      const text = buildReferralMessage(user, code, botUsername);
-      bot.sendMessage(chatId, text, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📤 Share Invite Link', switch_inline_query: `Join KissuBot! https://t.me/${botUsername}?start=${code}` }],
-            [{ text: '🔄 Refresh Stats', callback_data: 'refer_stats' }]
-          ]
-        }
-      });
-    } catch (_) {}
+
+    if (text === '👥 Refer a Friend' || text === '📊 My Referral Stats') {
+      try {
+        const user = await User.findOne({ telegramId });
+        if (!user) return;
+        const code = await ensureReferralCode(user, User);
+        const msgText = buildReferralMessage(user, code, botUsername);
+        bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown', reply_markup: REFER_KEYBOARD });
+      } catch (_) {}
+      return;
+    }
+
+    if (text === '📤 Share My Invite Link') {
+      try {
+        const user = await User.findOne({ telegramId });
+        if (!user) return;
+        const code = await ensureReferralCode(user, User);
+        const link = `https://t.me/${botUsername}?start=${code}`;
+        bot.sendMessage(chatId,
+          `📤 *Your Invite Link*\n\n\`${link}\`\n\nForward this to your friends! When they complete their profile you get *+3 VIP days* instantly. 🎉`,
+          { parse_mode: 'Markdown', reply_markup: REFER_KEYBOARD }
+        );
+      } catch (_) {}
+      return;
+    }
   });
 
   // callback_data: refer_stats — inline refresh

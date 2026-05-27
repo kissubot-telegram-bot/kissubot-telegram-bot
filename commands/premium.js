@@ -704,7 +704,7 @@ function setupPremiumCommands(bot, User, userStates) {
       bot.sendMessage(chatId, `👑 *VIP with Stars* ⭐\n\nChoose a plan:`, { parse_mode: 'Markdown', reply_markup: VIP_PLANS_KEYBOARD });
       return;
     }
-    if (text === '🔙 Back') {
+    if (text === '🔙 VIP Menu') {
       bot.sendMessage(chatId, `👑 *VIP & Store*\n\nManage your VIP or explore premium features:`, { parse_mode: 'Markdown', reply_markup: VIP_KEYBOARD });
       return;
     }

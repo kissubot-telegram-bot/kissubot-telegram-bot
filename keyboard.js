@@ -1,4 +1,4 @@
-/**
+﻿/**
  * keyboard.js — Shared Reply Keyboard definitions
  *
  * The MAIN_KEYBOARD is the persistent bottom navigation shown to all
@@ -118,7 +118,7 @@ const VIP_PLANS_KEYBOARD = {
     [{ text: '📅 6 Months — 2,490 ⭐  (save 44%)' }],
     [{ text: '🎯 1 Year — 3,490 ⭐  (save 58%)' }],
     [{ text: '🪙 Pay with Coins Instead' }],
-    [{ text: '� Back' }]
+    [{ text: '🔙 VIP Menu' }]
   ],
   resize_keyboard: true
 };
@@ -136,7 +136,7 @@ const COIN_VIP_PLANS_KEYBOARD = {
     [{ text: '🪙 6 Months VIP — 4,500 coins  (save 25%)' }],
     [{ text: '🪙 1 Year VIP — 8,000 coins  (save 33%)' }],
     [{ text: '⭐ Pay with Stars Instead' }],
-    [{ text: '� Back' }]
+    [{ text: '🔙 VIP Menu' }]
   ],
   resize_keyboard: true
 };
@@ -327,7 +327,9 @@ const ALL_KB_BUTTONS = [
   '📝 Edit Name', '🎂 Edit Age',
   '👤 Edit Gender', '👀 Looking For',
   '📍 Edit Location', '💬 Edit Bio',
-  '📞 Phone'
+  '📞 Phone',
+  '📤 Share My Invite Link',
+  '📊 My Referral Stats'
   // NOTE: "Let's Go! 🚀" is intentionally NOT here — it's an onboarding-only
   // button and must reach the onboarding message handler in onboarding.js.
 ];
