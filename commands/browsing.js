@@ -2110,13 +2110,15 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       } else if (data.startsWith('chat_history_')) {
         const targetId = data.replace('chat_history_', '');
-        const { viewChatHistory } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
-        await viewChatHistory(chatId, telegramId, targetId);
+        if (global.viewChatHistory) {
+          await global.viewChatHistory(chatId, telegramId, targetId);
+        }
 
       } else if (data.startsWith('block_chat_')) {
         const targetId = data.replace('block_chat_', '');
-        const { blockChat } = require('./chatRoom').setupChatRoomCommands(bot, User, require('../server').ChatRoom, userStates);
-        await blockChat(chatId, telegramId, targetId);
+        if (global.blockChat) {
+          await global.blockChat(chatId, telegramId, targetId);
+        }
 
       } else if (data.startsWith('open_private_chat_')) {
         const targetId = data.replace('open_private_chat_', '');

@@ -184,6 +184,33 @@ function setupReportCommands(bot, userStates, User, Report, browseNext) {
         await performBlock(bot, chatId, telegramId, targetId, User, browseNext);
     });
 
+    // ── ↩️ UNBLOCK ────────────────────────────────────────────────────────
+    bot.on('callback_query', async (query) => {
+        const data = query.data;
+        if (!data.startsWith('unblock_')) return;
+
+        const chatId = query.message.chat.id;
+        const telegramId = String(query.from.id);
+        const targetId = data.replace('unblock_', '');
+
+        await bot.answerCallbackQuery(query.id).catch(() => {});
+        try {
+            await User.findOneAndUpdate(
+                { telegramId },
+                { $pull: { blocked: { userId: targetId } } }
+            );
+            invalidateUserCache(telegramId);
+            await bot.editMessageReplyMarkup(
+                { inline_keyboard: [] },
+                { chat_id: chatId, message_id: query.message.message_id }
+            ).catch(() => {});
+            bot.sendMessage(chatId, `✅ *Unblocked.* You may see this person in Discover again.`, { parse_mode: 'Markdown' });
+        } catch (err) {
+            console.error('[Unblock] Error:', err);
+            bot.sendMessage(chatId, '❌ Failed to unblock. Please try again.');
+        }
+    });
+
     // ── 🛡️ ADMIN: /reports command ───────────────────────────────────────
     bot.onText(/\/reports/, async (msg) => {
         const chatId = msg.chat.id;
@@ -247,7 +274,14 @@ async function performBlock(bot, chatId, telegramId, targetId, User, browseNext)
 
         await bot.sendMessage(chatId,
             `⛔ *Blocked.*\n\nYou won't see this person again.`,
-            { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+            {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '↩️ Unblock', callback_data: `unblock_${targetId}` }]
+                    ]
+                }
+            }
         );
     } catch (err) {
         console.error('[Block] Error:', err);

@@ -1132,6 +1132,8 @@ const chatRoomHandlers = setupChatRoomCommands(bot, User, ChatRoom, userStates);
 global.enterChatRoom = chatRoomHandlers.enterChatRoom;
 global.exitChatRoom = chatRoomHandlers.exitChatRoom;
 global.sendChatMessage = chatRoomHandlers.sendChatMessage;
+global.viewChatHistory = chatRoomHandlers.viewChatHistory;
+global.blockChat = chatRoomHandlers.blockChat;
 setupBrowsingCommands(bot, User, Match, Like, userStates);
 setupReportCommands(bot, userStates, User, Report, null);
 setupHelpCommands(bot, User);
