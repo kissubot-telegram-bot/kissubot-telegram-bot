@@ -31,6 +31,10 @@ if (!token) {
 const useWebhook = process.env.USE_WEBHOOK === 'true';
 const bot = new TelegramBot(token, { polling: !useWebhook });
 
+// Resolve real bot username from Telegram API (used for referral links etc.)
+global.BOT_USERNAME_RESOLVED = process.env.BOT_USERNAME || 'kissuMatch_bot';
+bot.getMe().then(me => { if (me.username) global.BOT_USERNAME_RESOLVED = me.username; }).catch(() => {});
+
 // Import and setup command modules
 const { setupAuthCommands } = require('./commands/auth');
 const { setupTermsCommands } = require('./commands/terms');

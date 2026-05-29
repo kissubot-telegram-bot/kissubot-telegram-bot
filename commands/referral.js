@@ -25,10 +25,8 @@ const REFER_KEYBOARD = {
   resize_keyboard: true
 };
 
-function getBotUsername(bot) {
-  return bot.options && bot.options.username
-    ? bot.options.username
-    : (process.env.BOT_USERNAME || 'KissuBot');
+function getBotUsername() {
+  return process.env.BOT_USERNAME || global.BOT_USERNAME_RESOLVED || 'kissuMatch_bot';
 }
 
 async function ensureReferralCode(user, User) {
@@ -60,8 +58,6 @@ function buildReferralMessage(user, referralCode, botUsername) {
 }
 
 function setupReferralCommands(bot, User) {
-  const botUsername = getBotUsername(bot);
-
   // /refer command
   bot.onText(/\/refer/, async (msg) => {
     const chatId = msg.chat.id;
@@ -70,7 +66,7 @@ function setupReferralCommands(bot, User) {
       const user = await User.findOne({ telegramId });
       if (!user) return bot.sendMessage(chatId, '❌ Please start the bot first with /start');
       const code = await ensureReferralCode(user, User);
-      const text = buildReferralMessage(user, code, botUsername);
+      const text = buildReferralMessage(user, code, getBotUsername());
       bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
         reply_markup: REFER_KEYBOARD
@@ -92,7 +88,7 @@ function setupReferralCommands(bot, User) {
         const user = await User.findOne({ telegramId });
         if (!user) return;
         const code = await ensureReferralCode(user, User);
-        const msgText = buildReferralMessage(user, code, botUsername);
+        const msgText = buildReferralMessage(user, code, getBotUsername());
         bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown', reply_markup: REFER_KEYBOARD });
       } catch (_) {}
       return;
@@ -103,7 +99,7 @@ function setupReferralCommands(bot, User) {
         const user = await User.findOne({ telegramId });
         if (!user) return;
         const code = await ensureReferralCode(user, User);
-        const link = `https://t.me/${botUsername}?start=${code}`;
+        const link = `https://t.me/${getBotUsername()}?start=${code}`;
         bot.sendMessage(chatId,
           `📤 *Your Invite Link*\n\n\`${link}\`\n\nForward this to your friends! When they complete their profile you get *+3 VIP days* instantly. 🎉`,
           { parse_mode: 'Markdown', reply_markup: REFER_KEYBOARD }
@@ -121,6 +117,7 @@ function setupReferralCommands(bot, User) {
       const user = await User.findOne({ telegramId });
       if (!user) return bot.answerCallbackQuery(query.id, { text: 'User not found' });
       const code = await ensureReferralCode(user, User);
+      const botUsername = getBotUsername();
       const text = buildReferralMessage(user, code, botUsername);
       bot.editMessageText(text, {
         chat_id: query.message.chat.id,
@@ -128,7 +125,7 @@ function setupReferralCommands(bot, User) {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📤 Share Invite Link', switch_inline_query: `Join KissuBot! https://t.me/${botUsername}?start=${code}` }],
+            [{ text: '📤 Share Invite Link', switch_inline_query: `Join @${botUsername}! https://t.me/${botUsername}?start=${code}` }],
             [{ text: '🔄 Refresh Stats', callback_data: 'refer_stats' }]
           ]
         }
