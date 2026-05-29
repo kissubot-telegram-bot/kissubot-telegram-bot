@@ -1475,7 +1475,7 @@ app.get('/admin/stats', async (req, res) => {
       activeToday, newToday,
       matchesTodayAgg, totalMatchesAgg,
       swipesAgg, zeroMatchesCount, chatsStarted,
-      retentionCount, statsAgg
+      retentionCount, statsAgg, activeUsers7d, inactiveUsers7d
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ isVip: true }),
@@ -1512,6 +1512,10 @@ app.get('/admin/stats', async (req, res) => {
       ]),
       // Retained users (active in last 7 days)
       User.countDocuments({ lastActive: { $gte: weekAgo } }),
+      // Active 7d
+      User.countDocuments({ lastActive: { $gte: weekAgo } }),
+      // Inactive 7d+
+      User.countDocuments({ lastActive: { $lt: weekAgo } }),
       // Legacy stats
       User.aggregate([{
         $group: {
@@ -1583,6 +1587,8 @@ app.get('/admin/stats', async (req, res) => {
       pendingReports,
       // Profile quality
       completedProfiles, noPhoto, noGender, otherGender, returningUsers, trialVipUsers, totalReferrals: totalReferralsCount,
+      // Activity segments
+      activeUsers7d, inactiveUsers7d,
       // Daily
       activeToday, newToday, matchesToday, revenueToday: revenueTodayUSD.toFixed(2), revenueTodayStars,
       // Rates
@@ -1620,7 +1626,7 @@ app.get('/admin/users', async (req, res) => {
     }
     if (filter === 'vip') query.isVip = true;
     else if (filter === 'banned') query.isBanned = true;
-    else if (filter === 'active') query = { ...query, isBanned: { $ne: true } };
+    else if (filter === 'active') query.lastActive = { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
     else if (filter === 'male') query.gender = 'Male';
     else if (filter === 'female') query.gender = 'Female';
     else if (filter === 'new_today') { const t = new Date(); t.setHours(0,0,0,0); query.createdAt = { $gte: t }; }

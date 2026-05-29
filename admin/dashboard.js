@@ -149,6 +149,8 @@ async function loadDashboardData() {
         setEl('male-users', (s.maleUsers || 0).toLocaleString());
         setEl('female-users', (s.femaleUsers || 0).toLocaleString());
         setEl('banned-users', (s.bannedUsers || 0).toLocaleString());
+        setEl('active-7d', (s.activeUsers7d || 0).toLocaleString());
+        setEl('inactive-7d', (s.inactiveUsers7d || 0).toLocaleString());
         setEl('total-swipes', (s.totalSwipes || 0).toLocaleString());
         setEl('chats-started', (s.chatsStarted || 0).toLocaleString());
         setEl('avg-matches', s.avgMatchesPerUser || 0);

@@ -1037,7 +1037,7 @@ function setupProfileCommands(bot, userStates, User) {
     const telegramId = msg.from.id;
     const userState = userStates.get(telegramId);
 
-    if (!userState) return;
+    if (!userState || userState.onboarding) return;
 
     if (userState.action === 'uploading_photo') {
       try {

@@ -18,6 +18,8 @@ const { invalidateUserCache } = require('./auth');
 const { searchCities, buildCityKeyboard, formatCityList } = require('./citySearch');
 const { MAIN_KEYBOARD, MAIN_KB_BUTTONS, ALL_KB_BUTTONS } = require('../keyboard');
 const { autoMatchNewUser } = require('./autoMatch');
+const axios = require('axios');
+const { API_BASE } = require('../config');
 
 const PROMPTS = {
     name: {
@@ -414,29 +416,80 @@ function setupOnboardingCommands(bot, userStates, User, Like = null) {
             // ── PHOTO step ─────────────────────────────────────────────────
             if (step === 'photo') {
                 if (!msg.photo) {
+                    // If sent as a file/document instead of compressed image
+                    if (msg.document && msg.document.mime_type && msg.document.mime_type.startsWith('image/')) {
+                        return bot.sendMessage(chatId,
+                            '📸 Please send your photo as an *image*, not as a file.\n\n💡 In Telegram, tap the 📎 clip → choose *Photo or Video* (not *File*).',
+                            { parse_mode: 'Markdown' }
+                        );
+                    }
                     // Guard: if user already has photos, state is stale — clear and ignore
-                    const existingUser = await User.findOne({ telegramId }).select('photos profileCompleted').lean();
+                    const existingUser = await User.findOne({ telegramId: String(telegramId) }).select('photos profileCompleted').lean();
                     if (existingUser && ((existingUser.photos && existingUser.photos.length > 0) || existingUser.profileCompleted)) {
                         userStates.delete(telegramId);
                         return;
                     }
                     return bot.sendMessage(chatId,
-                        '📸 Please send a *photo* (not a file or link).',
+                        '📸 Please send a *photo* by tapping the 📎 clip icon and choosing *Photo or Video*.',
                         { parse_mode: 'Markdown' }
                     );
                 }
 
-                const photoFileId = msg.photo[msg.photo.length - 1].file_id;
-                const user = await User.findOne({ telegramId });
-                if (!user) return;
+                const photo = msg.photo[msg.photo.length - 1];
+                const fileId = photo.file_id;
 
-                user.photos = [photoFileId];
-                user.profilePhoto = photoFileId;
-                await user.save();
+                const user = await User.findOne({ telegramId: String(telegramId) });
+                if (!user) {
+                    return bot.sendMessage(chatId,
+                        '❌ Profile not found. Please type /start to restart setup.',
+                        { parse_mode: 'Markdown' }
+                    );
+                }
+
+                // Upload photo to Cloudinary via the /upload-photo endpoint
+                let cloudinarySuccess = false;
+                try {
+                    const file = await bot.getFile(fileId);
+                    const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+
+                    const FormData = require('form-data');
+                    const https = require('https');
+                    const form = new FormData();
+
+                    const photoBuffer = await new Promise((resolve, reject) => {
+                        https.get(fileUrl, (res) => {
+                            const chunks = [];
+                            res.on('data', chunk => chunks.push(chunk));
+                            res.on('end', () => resolve(Buffer.concat(chunks)));
+                            res.on('error', reject);
+                        });
+                    });
+
+                    form.append('image', photoBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+                    const uploadRes = await axios.post(`${API_BASE}/upload-photo/${telegramId}`, form, {
+                        headers: form.getHeaders()
+                    });
+
+                    if (uploadRes.data && uploadRes.data.imageUrl) {
+                        cloudinarySuccess = true;
+                        // /upload-photo already saved photos + profilePhoto to DB
+                    }
+                } catch (uploadErr) {
+                    console.error('[Onboarding] Cloudinary upload failed, using file_id fallback:', uploadErr.message);
+                }
+
+                // Fallback: save Telegram file_id directly if Cloudinary upload failed
+                if (!cloudinarySuccess) {
+                    await User.findOneAndUpdate(
+                        { telegramId: String(telegramId) },
+                        { $set: { photos: [fileId], profilePhoto: fileId } }
+                    );
+                }
 
                 // Mark profile complete
                 const completedUser = await User.findOneAndUpdate(
-                    { telegramId },
+                    { telegramId: String(telegramId) },
                     { profileCompleted: true, onboardingStep: 'completed' },
                     { new: true }
                 );

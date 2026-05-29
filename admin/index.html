@@ -65,11 +65,11 @@
         .notif-weekly_recap{ background:#10b981; color:#fff; }
         .notif-vip_trial   { background:#f9a825; color:#000; }
         /* Activity timeline in modal */
-        .activity-section { margin-top:14px; border-top:1px solid #333; padding-top:12px; }
+        .activity-section { margin-top:14px; border-top:1px solid #444; padding-top:12px; background:#1e1e2e; border-radius:8px; padding:12px; }
         .activity-section h4 { color:#FF6B9D; margin:0 0 8px; font-size:13px; }
-        .activity-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #222; font-size:12px; color:#ccc; }
+        .activity-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #2e2e3e; font-size:12px; }
         .activity-row span:first-child { color:#aaa; }
-        .activity-row span:last-child  { color:#fff; font-weight:600; }
+        .activity-row span:last-child  { color:#FF6B9D; font-weight:700; }
     </style>
 </head>
 <body>
@@ -224,6 +224,22 @@
                             <h3 id="total-users">0</h3>
                             <p>Total Users</p>
                             <span style="font-size:11px;color:#888"><span id="male-users">0</span>M · <span id="female-users">0</span>F · <span id="banned-users">0</span> banned</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="navigateToWithFilter('users','active')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #4CAF50" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                        <div class="stat-icon">🟢</div>
+                        <div class="stat-info">
+                            <h3 id="active-7d">0</h3>
+                            <p>Active (7d)</p>
+                            <span style="font-size:11px;color:#888">Used app this week</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="navigateToWithFilter('users','inactive')" style="cursor:pointer;transition:transform .15s;border-left:3px solid #888" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+                        <div class="stat-icon">💤</div>
+                        <div class="stat-info">
+                            <h3 id="inactive-7d">0</h3>
+                            <p>Inactive (7d+)</p>
+                            <span style="font-size:11px;color:#888">Not seen in 7+ days</span>
                         </div>
                     </div>
                     <div class="stat-card" style="cursor:default">
