@@ -182,17 +182,17 @@ const COINS_STORE_KB_BUTTONS = [
 // ── Boosts Store ─────────────────────────────────────────────────────────────
 const BOOSTS_STORE_KEYBOARD = {
   keyboard: [
-    [{ text: '🚀 1 Boost — 149 ⭐' }],
-    [{ text: '⚡ 5 Boosts — 499 ⭐  (save 33%)' }],
-    [{ text: '💥 10 Boosts — 749 ⭐  (save 50%)' }],
+    [{ text: '🚀 30-Min Boost — 99 ⭐' }],
+    [{ text: '⚡ 2-Hour Boost — 249 ⭐' }],
+    [{ text: '💥 24-Hour Boost — 499 ⭐' }],
     [{ text: '💎 VIP' }]
   ],
   resize_keyboard: true
 };
 const BOOSTS_STORE_KB_BUTTONS = [
-  '🚀 1 Boost — 149 ⭐',
-  '⚡ 5 Boosts — 499 ⭐  (save 33%)',
-  '💥 10 Boosts — 749 ⭐  (save 50%)'
+  '🚀 30-Min Boost — 99 ⭐',
+  '⚡ 2-Hour Boost — 249 ⭐',
+  '💥 24-Hour Boost — 499 ⭐'
 ];
 
 // ── VIP Perks Panel ──────────────────────────────────────────────────────────

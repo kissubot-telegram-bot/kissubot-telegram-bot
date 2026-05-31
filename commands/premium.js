@@ -418,18 +418,15 @@ function setupPremiumCommands(bot, User, userStates) {
           break;
 
         case 'store_boosts':
-          const boostsStoreMsg = `⚡ **Profile Boosts** ⚡\n\n` +
-            `Get 10x more profile views for 30 minutes!\n\n` +
-            `💫 **What you get:**\n` +
-            `• 10× profile visibility\n` +
-            `• Appear first in browse\n` +
-            `• 30 minutes duration\n` +
-            `• Instant activation\n\n` +
-            `💳 **Pay with Telegram Stars (⭐):**`;
-
-          bot.sendMessage(chatId, boostsStoreMsg, {
-            reply_markup: BOOSTS_STORE_KEYBOARD
-          });
+          bot.sendMessage(chatId,
+            `🚀 *Profile Boosts* 🚀\n\n` +
+            `Boost your profile to be seen by *10× more people* — activates instantly!\n\n` +
+            `• � *30-Min Boost* — Quick visibility spike (99 ⭐)\n` +
+            `• ⚡ *2-Hour Boost* — Peak-hour domination (249 ⭐)\n` +
+            `• 💥 *24-Hour Boost* — All-day maximum reach (499 ⭐)\n\n` +
+            `💳 *Pay with Telegram Stars (⭐):*`,
+            { parse_mode: 'Markdown', reply_markup: BOOSTS_STORE_KEYBOARD }
+          );
           break;
 
         case 'store_coins':
@@ -753,9 +750,9 @@ function setupPremiumCommands(bot, User, userStates) {
 
     // ── Boost packages ───────────────────────────────────────────────────
     const boostsMap = {
-      '🚀 1 Boost — 149 ⭐':            'pay_boost_1',
-      '⚡ 5 Boosts — 499 ⭐  (save 33%)': 'pay_boost_5',
-      '💥 10 Boosts — 749 ⭐  (save 50%)': 'pay_boost_10'
+      '🚀 30-Min Boost — 99 ⭐':   'pay_boost_30min',
+      '⚡ 2-Hour Boost — 249 ⭐':  'pay_boost_2h',
+      '💥 24-Hour Boost — 499 ⭐': 'pay_boost_24h'
     };
     if (boostsMap[text]) {
       bot.emit('callback_query', { id: 'kb', message: { chat: { id: chatId }, message_id: 0 }, from: msg.from, data: boostsMap[text] });

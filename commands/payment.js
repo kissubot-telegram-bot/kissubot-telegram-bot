@@ -19,10 +19,10 @@ const PRODUCTS = {
   vip_6months:  { title: '👑 VIP — 6 Months',  description: 'All VIP perks for 6 months. Save 44% vs monthly!',                              amount: 2490, type: 'vip', days: 180 },
   vip_yearly:   { title: '👑 VIP — 1 Year',    description: 'All VIP perks for a full year. Best value — save 58% vs monthly!',              amount: 3490, type: 'vip', days: 365 },
 
-  // Profile boosts
-  boost_1:  { title: '🚀 1 Profile Boost',   description: 'Show your profile to 10× more people for 30 minutes.',            amount: 149, type: 'boost', count: 1  },
-  boost_5:  { title: '🚀 5 Profile Boosts',  description: '5 boosts to use any time. Save 33% vs single boost.',             amount: 499, type: 'boost', count: 5  },
-  boost_10: { title: '🚀 10 Profile Boosts', description: '10 boosts bundle. Best value — save 50% vs single boost.',        amount: 749, type: 'boost', count: 10 },
+  // Profile boosts (duration-based, activate instantly on purchase)
+  boost_30min: { title: '🚀 30-Min Boost',  description: 'Your profile is 10× more visible for 30 minutes. Activates instantly.', amount: 99,  type: 'boost', durationMs: 30 * 60 * 1000           },
+  boost_2h:    { title: '⚡ 2-Hour Boost',   description: '10× profile visibility for 2 hours. Great for peak hours.',            amount: 249, type: 'boost', durationMs: 2 * 60 * 60 * 1000       },
+  boost_24h:   { title: '� 24-Hour Boost',  description: 'Maximum visibility for a full day. Best value for serious dates.',     amount: 499, type: 'boost', durationMs: 24 * 60 * 60 * 1000      },
 };
 
 function setupPaymentCommands(bot, User) {
@@ -200,16 +200,22 @@ function setupPaymentCommands(bot, User) {
         );
 
       } else if (product.type === 'boost') {
-        user.boosts = (user.boosts || 0) + product.count;
+        const now = new Date();
+        const base = user.boostExpiresAt && user.boostExpiresAt > now ? user.boostExpiresAt : now;
+        const newExpiry = new Date(base.getTime() + product.durationMs);
+        user.boostExpiresAt = newExpiry;
+        user.lastBoostAt = now;
         await user.save();
         invalidateUserCache(String(buyerTelegramId));
 
+        const durationLabel = product.durationMs <= 30 * 60 * 1000 ? '30 minutes' : product.durationMs <= 2 * 60 * 60 * 1000 ? '2 hours' : '24 hours';
+        const expiryStr = newExpiry.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
         await bot.sendMessage(chatId,
-          `✅ *${product.count} Boost${product.count > 1 ? 's' : ''} Added!* 🚀\n\n` +
-          `You now have *${user.boosts} boost${user.boosts !== 1 ? 's' : ''}* ready to use.\n\n` +
-          `Each boost makes your profile *10× more visible* for 30 minutes!\n\n` +
-          `_Tap_ *🚀 My VIP Perks* _to activate a boost._`,
-          { parse_mode: 'Markdown', reply_markup: PERKS_KEYBOARD }
+          `✅ *Boost Activated!* 🚀\n\n` +
+          `Your profile is now *10× more visible* for the next *${durationLabel}*!\n` +
+          `⏰ Boost expires at *${expiryStr}*\n\n` +
+          `_Sit back — more people are seeing your profile right now!_`,
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
         );
       }
 
