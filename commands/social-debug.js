@@ -335,7 +335,7 @@ function setupSocialDebugCommands(bot, User, Match, Like, userStates) {
 
   bot.onText(/\/stories/, async (msg) => {
     const chatId = msg.chat.id;
-    const user = await getCachedUserProfile(chatId);
+    const user = await getCachedUserProfile(String(msg.from.id), User);
 
     if (!user) {
       bot.sendMessage(chatId, 'You need to be registered to use this feature. Please use /start.');
