@@ -1516,18 +1516,18 @@ app.get('/admin/stats', async (req, res) => {
       ]),
       // Retained users (active in last 7 days)
       User.countDocuments({ lastActive: { $gte: weekAgo } }),
-      // Active 7d
-      User.countDocuments({ lastActive: { $gte: weekAgo } }),
-      // Inactive 7d+
-      User.countDocuments({ lastActive: { $lt: weekAgo } }),
-      // Legacy stats
+      // Legacy stats (statsAgg — must stay before activeUsers7d/inactiveUsers7d to match destructuring)
       User.aggregate([{
         $group: {
           _id: null,
           totalLikesGiven: { $sum: { $ifNull: ['$stats.likesGiven', 0] } },
           totalLikesReceived: { $sum: { $ifNull: ['$stats.likesReceived', 0] } }
         }
-      }])
+      }]),
+      // Active 7d
+      User.countDocuments({ lastActive: { $gte: weekAgo } }),
+      // Inactive 7d+
+      User.countDocuments({ lastActive: { $lt: weekAgo } })
     ]);
 
     const agg = statsAgg[0] || {};
