@@ -470,6 +470,7 @@ function setupPremiumCommands(bot, User, userStates) {
             user.coins -= cvp.coins;
             user.isVip = true;
             user.vipExpiresAt = newExpiry;
+            user.vipSource = 'paid';
             await user.save();
             const { invalidateUserCache } = require('./auth');
             invalidateUserCache(String(telegramId));

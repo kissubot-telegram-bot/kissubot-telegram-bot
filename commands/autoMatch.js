@@ -1,6 +1,7 @@
 const { invalidateUserCache } = require('./auth');
+const { getSeedLikers, isSeedId, sendSeedOpener } = require('./seedAccounts');
 
-const MATCH_DELAY_MS = 4000; // wait 4s so onboarding completion message shows first
+const MATCH_DELAY_MS = 3 * 60 * 1000; // 3 minutes after onboarding completes
 
 const STARTERS = [
   "Ask about their favourite travel destination 🌍",
@@ -11,9 +12,12 @@ const STARTERS = [
 ];
 
 /**
- * Auto-matches a newly onboarded user with a compatible active user.
- * Creates mutual likes + match records and notifies both parties.
- * Safe to call multiple times — guarded by autoMatched flag.
+ * Fired at end of onboarding. After 3 minutes:
+ *   1. Silently add 3–5 likers (real users first, seeds fill the gap) to new user's likes[].
+ *   2. Notify new user: "N people liked your profile!"
+ *   3. Create a full auto-match with one of those likers and notify both parties.
+ *
+ * Guarded by autoMatched flag — safe to call multiple times.
  */
 async function autoMatchNewUser(bot, telegramId, User, Like) {
   try {
@@ -25,137 +29,168 @@ async function autoMatchNewUser(bot, telegramId, User, Like) {
     const { gender, lookingFor } = newUser;
     if (!gender || !lookingFor) return;
 
-    const alreadyMatchedIds = (newUser.matches || []).map(m => m.userId);
-
-    // Build query: find compatible, active, profile-complete users
-    const query = {
-      telegramId: { $ne: String(telegramId), $nin: alreadyMatchedIds },
-      profileCompleted: true,
-      'photos.0': { $exists: true },
-      $or: [
-        { lookingFor: gender },
-        { lookingFor: 'Both' },
-        { lookingFor: 'Any' }
-      ]
-    };
-    if (lookingFor !== 'Both' && lookingFor !== 'Any') {
-      query.gender = lookingFor;
-    }
-
-    const candidates = await User.find(query).sort({ lastActive: -1 }).limit(20);
-    if (!candidates.length) {
-      console.log(`[AUTO-MATCH] No compatible candidates for user ${telegramId}`);
-      return;
-    }
-
-    // Pick randomly from top 10 most-recently-active
-    const pool = candidates.slice(0, Math.min(candidates.length, 10));
-    const target = pool[Math.floor(Math.random() * pool.length)];
-
-    // Create mutual Like records (upsert to avoid duplicates)
-    if (Like) {
-      await Promise.all([
-        Like.findOneAndUpdate(
-          { fromUserId: String(newUser._id), toUserId: String(target._id) },
-          { fromUserId: String(newUser._id), toUserId: String(target._id), superLike: false },
-          { upsert: true }
-        ).catch(() => {}),
-        Like.findOneAndUpdate(
-          { fromUserId: String(target._id), toUserId: String(newUser._id) },
-          { fromUserId: String(target._id), toUserId: String(newUser._id), superLike: false },
-          { upsert: true }
-        ).catch(() => {})
-      ]);
-    }
-
-    // Push likes arrays on both users
-    await Promise.all([
-      User.findOneAndUpdate({ telegramId: String(telegramId) }, { $addToSet: { likes: target.telegramId } }),
-      User.findOneAndUpdate({ telegramId: target.telegramId }, { $addToSet: { likes: String(telegramId) } })
-    ]);
-
-    const matchedAt = new Date();
-
-    // Create match records on both users + mark new user as auto-matched + set boost
-    const boostUntil = new Date(Date.now() + 30 * 60 * 1000); // 30-min visibility boost
-    await Promise.all([
-      User.findOneAndUpdate(
-        { telegramId: String(telegramId), 'matches.userId': { $ne: target.telegramId } },
-        {
-          $push: { matches: { userId: target.telegramId, matchedAt } },
-          $set: { autoMatched: true, newUserBoostUntil: boostUntil }
-        }
-      ),
-      User.findOneAndUpdate(
-        { telegramId: target.telegramId, 'matches.userId': { $ne: String(telegramId) } },
-        { $push: { matches: { userId: String(telegramId), matchedAt } } }
-      )
-    ]);
-
-    invalidateUserCache(String(telegramId));
-    invalidateUserCache(target.telegramId);
-
-    console.log(`[AUTO-MATCH] ✅ Matched new user ${telegramId} with ${target.telegramId} (${target.name})`);
-
-    // Notify both users after a short delay
-    const starter = STARTERS[Math.floor(Math.random() * STARTERS.length)];
+    // Mark as auto-matched BEFORE scheduling to prevent duplicate setTimeout calls
+    await User.findOneAndUpdate({ telegramId: String(telegramId) }, { $set: { autoMatched: true } });
 
     setTimeout(async () => {
       try {
-        const newUserPhoto = (newUser.photos || [])[0];
-        const targetPhoto = (target.photos || [])[0];
+        // Re-fetch in case profile changed during the 3-min window
+        const user = await User.findOne({ telegramId: String(telegramId) });
+        if (!user) return;
 
-        // Notify the new user
-        if (newUserPhoto && targetPhoto) {
+        // ── 1. Find real compatible users for silent likes ───────────────
+        const alreadyLikedIds = (user.likes || []);
+        const realQuery = {
+          telegramId: { $ne: String(telegramId), $nin: alreadyLikedIds },
+          profileCompleted: true,
+          'photos.0': { $exists: true },
+          isSeedAccount: { $ne: true },
+          $or: [{ lookingFor: gender }, { lookingFor: 'Both' }, { lookingFor: 'Any' }]
+        };
+        if (lookingFor !== 'Both' && lookingFor !== 'Any') realQuery.gender = lookingFor;
+
+        const realCandidates = await User.find(realQuery).sort({ lastActive: -1 }).limit(10);
+        const realLikers = realCandidates.sort(() => Math.random() - 0.5).slice(0, 5);
+
+        // ── 2. Pad with seeds if fewer than 3 real likers found ──────────
+        const seedsNeeded = Math.max(0, 5 - realLikers.length);
+        const seedLikers = seedsNeeded > 0 ? getSeedLikers(user, seedsNeeded) : [];
+
+        const allLikers = [
+          ...realLikers.map(u => ({ telegramId: u.telegramId, name: u.name, isSeed: false, doc: u })),
+          ...seedLikers.map(s => ({ telegramId: s.telegramId, name: s.name, isSeed: true, doc: s }))
+        ];
+
+        if (allLikers.length === 0) {
+          console.log(`[AUTO-LIKE] No likers available for ${telegramId}`);
+          return;
+        }
+
+        // ── 3. Add all liker IDs to new user's likes[] ───────────────────
+        const likerIds = allLikers.map(l => String(l.telegramId));
+        await User.findOneAndUpdate(
+          { telegramId: String(telegramId) },
+          { $addToSet: { likes: { $each: likerIds } } }
+        );
+        console.log(`[AUTO-LIKE] ✅ ${allLikers.length} likes added for new user ${telegramId} (${likerIds.join(', ')})`);
+
+        // ── 4. Notify new user of likes ──────────────────────────────────
+        const likeCount = allLikers.length;
+        await bot.sendMessage(String(telegramId),
+          `💕 *${likeCount} ${likeCount === 1 ? 'person has' : 'people have'} already liked your profile!*\n\n` +
+          `Tap below to see who likes you and like them back to create a match! 🎉`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: `💕 See Who Liked You (${likeCount})`, callback_data: 'likesyou_overview' }]
+              ]
+            }
+          }
+        ).catch(() => {});
+
+        // ── 5. Pick 1 for auto-match (prefer real user) ──────────────────
+        const matchTarget = allLikers.find(l => !l.isSeed) || allLikers[0];
+        const matchUser = matchTarget.doc
+          ? matchTarget.doc
+          : await User.findOne({ telegramId: String(matchTarget.telegramId) });
+        if (!matchUser) return;
+
+        const matchedAt = new Date();
+        const boostUntil = new Date(Date.now() + 30 * 60 * 1000);
+
+        // Add new user to match target's likes[] for mutual consistency
+        await User.findOneAndUpdate(
+          { telegramId: String(matchTarget.telegramId) },
+          { $addToSet: { likes: String(telegramId) } }
+        );
+
+        // Create match records on both users + set boost
+        await Promise.all([
+          User.findOneAndUpdate(
+            { telegramId: String(telegramId), 'matches.userId': { $ne: matchTarget.telegramId } },
+            {
+              $push: { matches: { userId: matchTarget.telegramId, matchedAt } },
+              $set: { newUserBoostUntil: boostUntil }
+            }
+          ),
+          User.findOneAndUpdate(
+            { telegramId: String(matchTarget.telegramId), 'matches.userId': { $ne: String(telegramId) } },
+            { $push: { matches: { userId: String(telegramId), matchedAt } } }
+          )
+        ]);
+
+        if (Like) {
+          await Promise.all([
+            Like.findOneAndUpdate(
+              { fromUserId: String(telegramId), toUserId: String(matchTarget.telegramId) },
+              { fromUserId: String(telegramId), toUserId: String(matchTarget.telegramId), superLike: false },
+              { upsert: true }
+            ).catch(() => {}),
+            Like.findOneAndUpdate(
+              { fromUserId: String(matchTarget.telegramId), toUserId: String(telegramId) },
+              { fromUserId: String(matchTarget.telegramId), toUserId: String(telegramId), superLike: false },
+              { upsert: true }
+            ).catch(() => {})
+          ]);
+        }
+
+        invalidateUserCache(String(telegramId));
+        invalidateUserCache(String(matchTarget.telegramId));
+        console.log(`[AUTO-MATCH] ✅ Matched new user ${telegramId} with ${matchTarget.telegramId} (${matchTarget.name})`);
+
+        // ── 6. Notify new user of match ──────────────────────────────────
+        const starter = STARTERS[Math.floor(Math.random() * STARTERS.length)];
+        const newUserPhoto = (user.photos || [])[0];
+        const matchPhoto = (matchUser.photos || [])[0];
+
+        if (newUserPhoto && matchPhoto) {
           await bot.sendMediaGroup(String(telegramId), [
             { type: 'photo', media: newUserPhoto, caption: '❤️' },
-            { type: 'photo', media: targetPhoto, caption: '❤️' }
+            { type: 'photo', media: matchPhoto, caption: '❤️' }
           ]).catch(() => {});
-        } else if (targetPhoto) {
-          await bot.sendPhoto(String(telegramId), targetPhoto, { caption: '❤️' }).catch(() => {});
+        } else if (matchPhoto) {
+          await bot.sendPhoto(String(telegramId), matchPhoto, { caption: '❤️' }).catch(() => {});
         }
 
         await bot.sendMessage(String(telegramId),
           `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
-          `You matched with *${target.name}*!\n\n` +
+          `You matched with *${matchUser.name}*!\n\n` +
           `💡 *Conversation starter:*\n${starter}`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '💬 Start Chatting', callback_data: `chat_gate_${target.telegramId}` }],
+                [{ text: '💬 Start Chatting', callback_data: `chat_gate_${matchUser.telegramId}` }],
                 [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
               ]
             }
           }
-        );
+        ).catch(() => {});
 
-        // Notify the matched user
-        if (newUserPhoto && targetPhoto) {
-          await bot.sendMediaGroup(String(target.telegramId), [
-            { type: 'photo', media: targetPhoto, caption: '❤️' },
-            { type: 'photo', media: newUserPhoto, caption: '❤️' }
-          ]).catch(() => {});
-        } else if (newUserPhoto) {
-          await bot.sendPhoto(String(target.telegramId), newUserPhoto, { caption: '❤️' }).catch(() => {});
+        // ── 7. Notify real match partner / seed sends opener ─────────────
+        if (!matchTarget.isSeed) {
+          await bot.sendMessage(String(matchTarget.telegramId),
+            `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
+            `*${user.name}* just joined and you matched!\n\n` +
+            `💡 *Conversation starter:*\n${starter}`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: '💬 Start Chatting', callback_data: `chat_gate_${String(telegramId)}` }],
+                  [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
+                ]
+              }
+            }
+          ).catch(() => {});
+        } else {
+          // Seed match: fire scripted opener to the new user after a short delay
+          sendSeedOpener(bot, matchUser.name, String(telegramId));
         }
 
-        await bot.sendMessage(String(target.telegramId),
-          `🎉💖 *IT'S A MATCH!* 💖🎉\n\n` +
-          `*${newUser.name}* just joined and you matched!\n\n` +
-          `💡 *Conversation starter:*\n${starter}`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '💬 Start Chatting', callback_data: `chat_gate_${String(telegramId)}` }],
-                [{ text: '💕 View All Matches', callback_data: 'view_matches' }]
-              ]
-            }
-          }
-        );
       } catch (err) {
-        console.error('[AUTO-MATCH] Notification error:', err.message);
+        console.error('[AUTO-MATCH] Error in delayed job:', err.message);
       }
     }, MATCH_DELAY_MS);
 

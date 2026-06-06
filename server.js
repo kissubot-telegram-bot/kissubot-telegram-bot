@@ -640,7 +640,7 @@ const connectWithRetry = async () => {
           const expired = await User.find({
             isVip: true,
             vipExpiresAt: { $lt: now }
-          }).select('telegramId name').lean();
+          }).select('telegramId name vipSource').lean();
           if (expired.length) {
             const expiredIds = expired.map(u => u.telegramId);
             await User.updateMany(
@@ -650,9 +650,12 @@ const connectWithRetry = async () => {
             for (const u of expired) {
               try {
                 if (!await canNotify(u.telegramId)) continue;
-                await bot.sendMessage(String(u.telegramId),
-                  `👑 *Your VIP has expired*\n\nYour VIP membership has ended. Renew now to keep your perks — unlimited likes, see who liked you, priority visibility and more! 💎`,
-                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔄 Renew VIP', callback_data: 'store_vip' }]] } }
+                const isTrial = u.vipSource === 'trial';
+                const msg = isTrial
+                  ? `⏰ *Your free VIP trial has ended*\n\nHope you enjoyed the full experience! Upgrade to keep your perks — unlimited likes, see who liked you, priority visibility and more. 💎`
+                  : `👑 *Your VIP has expired*\n\nYour VIP membership has ended. Renew now to keep your perks — unlimited likes, see who liked you, priority visibility and more! 💎`;
+                await bot.sendMessage(String(u.telegramId), msg,
+                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: isTrial ? '👑 Upgrade to VIP' : '🔄 Renew VIP', callback_data: 'store_vip' }]] } }
                 );
                 NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'vip_expiry', message: 'Your VIP has expired' }).catch(() => {});
                 await markNotified(u.telegramId);
@@ -807,37 +810,7 @@ const connectWithRetry = async () => {
           } catch (err) { console.error('[RETENTION] Search settings tip error:', err.message); }
         }
 
-        // ── 11 AM UTC: VIP 24h trial for day-3 users with no matches ───────
-        if (hour === 10) {
-          try {
-            const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-            const twoDaysAgo   = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-            const eligible = await User.find({
-              profileCompleted: true,
-              isBanned: { $ne: true },
-              vipTrialUsed: { $ne: true },
-              isVip: { $ne: true },
-              createdAt: { $gte: threeDaysAgo, $lte: twoDaysAgo },
-              $or: [{ matches: { $size: 0 } }, { matches: { $exists: false } }]
-            }).select('telegramId name').lean();
-            for (const u of eligible) {
-              try {
-                const trialExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                await User.findOneAndUpdate(
-                  { telegramId: String(u.telegramId) },
-                  { isVip: true, vipTrialUsed: true, vipTrialExpiresAt: trialExpiry, vipExpiresAt: trialExpiry }
-                );
-                await bot.sendMessage(String(u.telegramId),
-                  `🎁 *Free VIP Trial — 24 Hours!*\n\nWe noticed you haven't matched yet. Here's a *free VIP upgrade* for 24 hours!\n\n✨ *Unlocked for you:*\n• Unlimited swipes\n• See who liked you\n• Priority visibility\n• Chat with matches\n\nTap below and find your match! 💕`,
-                  { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔥 Start VIP Browse', callback_data: 'browse_profiles' }]] } }
-                );
-                NotificationLog.insertOne({ telegramId: String(u.telegramId), name: u.name || '', type: 'vip_trial', message: '24h free VIP trial granted' }).catch(() => {});
-                await new Promise(r => setTimeout(r, 80));
-              } catch (_) {}
-            }
-            if (eligible.length) console.log(`[RETENTION] VIP trial granted to ${eligible.length} day-3 users`);
-          } catch (err) { console.error('[RETENTION] VIP trial error:', err.message); }
-        }
+        // VIP trial is now granted immediately on onboarding completion (see commands/onboarding.js)
       }
       setInterval(runHourlyCrons, 60 * 60 * 1000);
       setTimeout(runHourlyCrons, 5 * 60 * 1000); // also run 5 min after startup
@@ -1024,9 +997,10 @@ const userSchema = new mongoose.Schema({
   // Profile boosts purchased via Telegram Payments
   boosts: { type: Number, default: 0 },
 
-  // Dev / Test flags
+  // Dev / Test / Seed flags
   isTestAccount: { type: Boolean, default: false }, // Hidden from normal users; visible only in devMode
   isDevMode: { type: Boolean, default: false },      // Can see test accounts during browse
+  isSeedAccount: { type: Boolean, default: false },  // Fake engagement profile — never shown in browse
 
   // Anti-spam
   lastLikeAt: { type: Date },
@@ -1052,6 +1026,7 @@ const userSchema = new mongoose.Schema({
   dailyNotifDate:  { type: String, default: '' },         // date string for daily notif counter reset
   vipTrialUsed: { type: Boolean, default: false },       // whether free VIP trial was given
   vipTrialExpiresAt: Date,                               // when the trial expires
+  vipSource: { type: String, enum: ['trial', 'paid', 'referral', 'admin'], default: null }, // how VIP was last granted
   lastNotificationSentAt: { type: Date, default: null }, // smart notification cooldown
   lastLikeNotifAt:        { type: Date, default: null }, // like-received notification cooldown
 
@@ -1124,6 +1099,7 @@ const { setupOnboardingCommands } = require('./commands/onboarding');
 const { setupReportCommands } = require('./commands/report');
 const { setupVipPerksCommands } = require('./commands/vipPerks');
 const { setupChatRoomCommands } = require('./commands/chatRoom');
+const { ensureSeedAccounts } = require('./commands/seedAccounts');
 
 setupAuthCommands(bot, userStates, User);
 setupTermsCommands(bot, User);
@@ -1153,6 +1129,9 @@ setupMatchesCommands(bot, User, Match);
 setupVipPerksCommands(bot, User);
 setupPaymentCommands(bot, User);
 setupDebugMatchesCommand(bot, User);
+
+// Ensure seed accounts exist in DB (idempotent — safe to run on every startup)
+ensureSeedAccounts(User).catch(err => console.error('[SEEDS] Startup error:', err.message));
 
 // Register bot command menu with Telegram (visible in the "/" list)
 bot.setMyCommands([
@@ -1538,11 +1517,12 @@ app.get('/admin/stats', async (req, res) => {
     const totalSwipes = swipesAgg[0]?.total || 0;
     const chatsCount = chatsStarted[0]?.count || 0;
     const todayStartForRev = new Date(); todayStartForRev.setUTCHours(0,0,0,0);
-    const [revAllTime, revToday, revVip, expiredVipUsers] = await Promise.all([
+    const [revAllTime, revToday, revVip, expiredVipUsers, expiredTrialVipUsers] = await Promise.all([
       Transaction.aggregate([{ $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }]),
       Transaction.aggregate([{ $match: { createdAt: { $gte: todayStartForRev } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' } } }]),
       Transaction.aggregate([{ $match: { type: { $in: ['vip', 'gift_vip'] } } }, { $group: { _id: null, stars: { $sum: '$amountStars' }, usd: { $sum: '$amountUSD' }, count: { $sum: 1 } } }]),
-      User.countDocuments({ isVip: false, vipExpiresAt: { $exists: true, $lt: new Date() } })
+      User.countDocuments({ isVip: false, vipExpiresAt: { $exists: true, $lt: new Date() }, vipSource: 'paid' }),
+      User.countDocuments({ isVip: false, vipExpiresAt: { $exists: true, $lt: new Date() }, vipSource: 'trial' })
     ]);
     const totalStars = revAllTime[0]?.stars || 0;
     const totalRevenue = revAllTime[0]?.usd || 0;
@@ -1585,7 +1565,7 @@ app.get('/admin/stats', async (req, res) => {
       // Totals
       totalUsers, vipUsers, maleUsers, femaleUsers, bannedUsers,
       totalMatches, totalRevenue: totalRevenue.toFixed(2), totalStars,
-      vipRevStars, vipRevUSD: vipRevUSD.toFixed(2), expiredVipUsers,
+      vipRevStars, vipRevUSD: vipRevUSD.toFixed(2), expiredVipUsers, expiredTrialVipUsers,
       totalLikesGiven: agg.totalLikesGiven || 0,
       totalLikesReceived: agg.totalLikesReceived || 0,
       pendingReports,
@@ -1744,7 +1724,7 @@ app.post('/admin/users/:telegramId/grant-vip', async (req, res) => {
     const vipExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await User.findOneAndUpdate(
       { telegramId },
-      { $set: { isVip: true, vipExpiresAt } }
+      { $set: { isVip: true, vipExpiresAt, vipSource: 'admin' } }
     );
     if (bot) {
       bot.sendMessage(telegramId, `👑 *Congratulations!* You've been granted VIP for ${days} days by an admin! Enjoy your premium features! 🎉`, { parse_mode: 'Markdown' }).catch(() => {});

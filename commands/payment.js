@@ -108,6 +108,7 @@ function setupPaymentCommands(bot, User) {
         const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
         recipient.isVip = true;
         recipient.vipExpiresAt = newExpiry;
+        recipient.vipSource = 'paid';
         await recipient.save();
         invalidateUserCache(String(recipientId));
 
@@ -183,6 +184,7 @@ function setupPaymentCommands(bot, User) {
         const newExpiry = new Date(base.getTime() + product.days * 24 * 60 * 60 * 1000);
         user.isVip = true;
         user.vipExpiresAt = newExpiry;
+        user.vipSource = 'paid';
         await user.save();
         invalidateUserCache(String(buyerTelegramId));
 

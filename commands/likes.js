@@ -2,6 +2,7 @@ const axios = require('axios');
 const API_BASE = process.env.API_BASE || 'http://localhost:3002';
 const { requireLikesAccess } = require('./genderGate');
 const { MAIN_KEYBOARD } = require('../keyboard');
+const { isSeedId, sendSeedOpener } = require('./seedAccounts');
 
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -253,21 +254,26 @@ async function performLikeBack(bot, chatId, viewerTelegramId, targetTelegramId, 
                     )
                 ]);
 
-                // Notify the target
-                const starters = [
-                    'Ask about their favourite travel destination 🌍',
-                    'Comment on something from their bio 💬',
-                    'Ask what they’re looking for 💕',
-                    'Share a fun fact about yourself ✨',
-                    'Ask about their weekend plans 🎉'
-                ];
-                const starter = starters[Math.floor(Math.random() * starters.length)];
-                bot.sendMessage(String(targetTelegramId),
-                    `🎉💖 *IT\'S A MATCH!* 💖🎉\n\n*${viewer.name}* liked you back!\n\n💡 *Starter:* ${starter}`,
-                    { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [
-                        [{ text: '💬 Start Chatting', callback_data: `chat_gate_${viewerTelegramId}` }]
-                    ]}}
-                ).catch(() => {});
+                // Notify the target (skip for seed accounts — they have no real Telegram ID)
+                if (!isSeedId(targetTelegramId)) {
+                    const starters = [
+                        'Ask about their favourite travel destination 🌍',
+                        'Comment on something from their bio 💬',
+                        'Ask what they\u2019re looking for 💕',
+                        'Share a fun fact about yourself ✨',
+                        'Ask about their weekend plans 🎉'
+                    ];
+                    const starter = starters[Math.floor(Math.random() * starters.length)];
+                    bot.sendMessage(String(targetTelegramId),
+                        `🎉💖 *IT\'S A MATCH!* 💖🎉\n\n*${viewer.name}* liked you back!\n\n💡 *Starter:* ${starter}`,
+                        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [
+                            [{ text: '💬 Start Chatting', callback_data: `chat_gate_${viewerTelegramId}` }]
+                        ]}}
+                    ).catch(() => {});
+                } else {
+                    // Seed match: send scripted opener to the viewer
+                    sendSeedOpener(bot, target.name, String(viewerTelegramId));
+                }
             }
             return 'match';
         }

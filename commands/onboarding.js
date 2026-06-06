@@ -520,7 +520,7 @@ function setupOnboardingCommands(bot, userStates, User, Like = null) {
                                 await User.findOneAndUpdate(
                                     { telegramId: completedUser.referredBy },
                                     {
-                                        $set: { isVip: true, vipExpiresAt: newExpiry, referralRewardedCount: newCount },
+                                        $set: { isVip: true, vipExpiresAt: newExpiry, vipSource: 'referral', referralRewardedCount: newCount },
                                         $inc: { referralCount: 1 }
                                     }
                                 );
@@ -537,6 +537,23 @@ function setupOnboardingCommands(bot, userStates, User, Like = null) {
 
                 // Trigger auto-match in background (non-blocking)
                 autoMatchNewUser(bot, telegramId, User, Like).catch(() => {});
+
+                // Grant 24-hour VIP trial immediately on first-time onboarding completion
+                try {
+                    if (!completedUser.vipTrialUsed && !completedUser.isVip) {
+                        const trialExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                        await User.findOneAndUpdate(
+                            { telegramId: String(telegramId) },
+                            { isVip: true, vipTrialUsed: true, vipTrialExpiresAt: trialExpiry, vipExpiresAt: trialExpiry, vipSource: 'trial' }
+                        );
+                        setTimeout(() => {
+                            bot.sendMessage(chatId,
+                                `👑 *Welcome Gift — 24h VIP Access!*\n\nYou've been upgraded to *VIP for 24 hours* — completely free!\n\n✨ *Unlocked right now:*\n• See everyone who liked you\n• Unlimited swipes\n• Priority visibility\n• Full chat access\n\nMake the most of it! 💕`,
+                                { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '💕 See Who Liked You', callback_data: 'likesyou_overview' }]] } }
+                            ).catch(() => {});
+                        }, 4000);
+                    }
+                } catch (_) {}
 
                 return bot.sendMessage(chatId,
                     `🎉 *Profile Complete!*\n\nWelcome to KissuBot! You're all set and ready to find your perfect match. 💕\n\nTap the ✨ Discover button below to start browsing!`,

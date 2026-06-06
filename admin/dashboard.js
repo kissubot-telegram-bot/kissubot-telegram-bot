@@ -156,6 +156,7 @@ async function loadDashboardData() {
         setEl('avg-matches', s.avgMatchesPerUser || 0);
         setEl('vip-users', (s.vipUsers || 0).toLocaleString());
         setEl('expired-vip-users', (s.expiredVipUsers || 0).toLocaleString());
+        setEl('expired-trial-vip', (s.expiredTrialVipUsers || 0).toLocaleString());
         const trialVip = s.trialVipUsers || 0;
         const paidVip = Math.max(0, (s.vipUsers || 0) - trialVip);
         setEl('paid-vip', paidVip.toLocaleString());

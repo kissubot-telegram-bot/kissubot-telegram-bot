@@ -498,7 +498,7 @@ function setupBrowsingCommands(bot, User, Match, Like, userStates) {
 
       const testFilter = currentUser.isDevMode ? {} : { isTestAccount: { $ne: true } };
 
-      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null }, ...testFilter };
+      const baseExclude = { telegramId: { $ne: String(telegramId), $nin: excludeIds }, name: { $exists: true, $ne: null }, isSeedAccount: { $ne: true }, ...testFilter };
 
       // Pre-match queue: users who already liked me and match ALL my search preferences
       const likedMeIds = (currentUser.likes || []).filter(id =>
