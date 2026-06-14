@@ -76,6 +76,19 @@ function setupAuthCommands(bot, userStates, User) {
         }
       }
 
+      // If user was deactivated, reactivate them automatically on /start
+      if (user.isActive === false) {
+        await User.findOneAndUpdate(
+          { telegramId },
+          { $set: { isActive: true, reactivatedAt: new Date() }, $unset: { deactivatedAt: 1 } }
+        );
+        invalidateUserCache(telegramId);
+        return bot.sendMessage(chatId,
+          `🎉 *Welcome back!*\n\nYour profile has been reactivated. You're visible again and ready to match! 💕`,
+          { parse_mode: 'Markdown', reply_markup: MAIN_KEYBOARD }
+        );
+      }
+
       // Backfill referral code for existing users who don't have one
       if (!user.referralCode) {
         const referralCode = 'ref_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);

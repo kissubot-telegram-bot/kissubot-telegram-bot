@@ -1129,6 +1129,8 @@ setupMatchesCommands(bot, User, Match);
 setupVipPerksCommands(bot, User);
 setupPaymentCommands(bot, User);
 setupDebugMatchesCommand(bot, User);
+const { setupStoriesCommands } = require('./commands/stories');
+setupStoriesCommands(bot, User, userStates);
 
 // Ensure seed accounts exist in DB (idempotent — safe to run on every startup)
 ensureSeedAccounts(User).catch(err => console.error('[SEEDS] Startup error:', err.message));
@@ -1145,6 +1147,7 @@ bot.setMyCommands([
   { command: 'coins', description: '🪙 Check balance & buy coins' },
   { command: 'refer', description: '👥 Invite friends & earn VIP days' },
   { command: 'settings', description: '⚙️ Adjust your preferences' },
+  { command: 'stories', description: '📱 Post & browse stories' },
   { command: 'help', description: '❓ Get help and support' },
   { command: 'delete', description: '🗑️ Delete your account' }
 ]).then(() => {
@@ -3292,6 +3295,22 @@ app.post('/stories/view/:storyId', async (req, res) => {
   } catch (err) {
     console.error('Error marking story as viewed:', err);
     res.status(500).json({ error: 'Failed to mark story as viewed' });
+  }
+});
+
+// Upload story image to Cloudinary (does NOT add to profile photos)
+app.post('/stories/upload/:telegramId', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+    const user = await User.findOne({ telegramId: req.params.telegramId });
+    if (!user) {
+      await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ imageUrl: req.file.path });
+  } catch (err) {
+    console.error('Story upload error:', err);
+    res.status(500).json({ error: 'Upload failed' });
   }
 });
 
